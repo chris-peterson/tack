@@ -270,10 +270,11 @@ and writes tack route files using the CLI defined in the CL category.
 (routes with at least one tack whose status is not `done` or `dropped`) in
 the background to build context about current work.
 
-**[AG-03]** When the user begins work that does not match any active route,
-the agent shall ask whether the work is a tangent. The question shall be
-phrased as a single non-blocking line (e.g., "This doesn't seem related to
-any current route — tangent?").
+**[AG-03]** When the user begins work in a project that is not referenced by
+any active route's tacks (via the `project` field), the agent shall ask
+whether the work is a tangent. The question shall be phrased as a single
+non-blocking line (e.g., "This doesn't seem related to any current route —
+tangent?").
 
 **[AG-04]** When the user confirms a tangent, the agent shall create a new
 route with `origin` set to `tangent` and add the first tack.
@@ -283,7 +284,8 @@ session), the agent shall record it on the current tack automatically without
 prompting the user.
 
 **[AG-06]** When a URL is pasted or referenced during a session, the agent
-shall capture it as a link on the current tack automatically.
+shall capture it as a link on the current tack automatically. URLs already
+recorded as a deliverable per [AG-05] shall not be duplicated as links.
 
 **[AG-07]** The agent shall not prompt the user more than once per distinct
 event. If the user ignores or dismisses a prompt, the agent shall not re-ask

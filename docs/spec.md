@@ -1,8 +1,9 @@
 # Specification
 
-The v1 spec defines 32 requirements across 8 categories:
+The v1 spec defines 43 requirements across 9 categories:
 **RT** (Route), **TK** (Tack), **DV** (Deliverable), **TD** (Todo),
-**DP** (Dependencies), **LK** (Links), **ST** (Storage), **CL** (CLI).
+**DP** (Dependencies), **LK** (Links), **ST** (Storage), **CL** (CLI),
+**AG** (Agent Integration).
 
 > [!TIP]
 > View the full spec source: [spec/v1/SPEC.md](https://github.com/chris-peterson/tack/blob/main/spec/v1/SPEC.md)

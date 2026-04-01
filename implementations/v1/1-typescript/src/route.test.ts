@@ -294,11 +294,13 @@ describe("recordSession", () => {
     assert.ok(r.sessions![0].started_at);
   });
 
-  it("does not duplicate an existing session", () => {
+  it("does not duplicate an existing session and preserves original timestamp", () => {
     route.init("session-dedup");
-    route.recordSession("session-dedup", "session_abc123");
-    const r = route.recordSession("session-dedup", "session_abc123");
-    assert.equal(r.sessions!.length, 1);
+    const r1 = route.recordSession("session-dedup", "session_abc123");
+    const originalStartedAt = r1.sessions![0].started_at;
+    const r2 = route.recordSession("session-dedup", "session_abc123");
+    assert.equal(r2.sessions!.length, 1);
+    assert.equal(r2.sessions![0].started_at, originalStartedAt);
   });
 
   it("appends multiple distinct sessions", () => {
