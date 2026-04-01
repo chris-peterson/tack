@@ -10,7 +10,7 @@ function usage(): never {
 Usage:
   tack init <slug> [--tangent]
   tack status [slug]
-  tack list
+  tack list [--json]
   tack add <slug> <summary> [--project <p>] [--depends-on <id,...>]
   tack start <slug> <tack-id>
   tack done <slug> <tack-id>
@@ -43,19 +43,28 @@ function run(): void {
     }
 
     case "status": {
-      if (rest[0]) {
-        const r = route.load(rest[0]);
-        console.log(formatRoute(r));
+      const jsonFlag = rest.includes("--json");
+      const slug = rest.filter((a) => a !== "--json")[0];
+      if (slug) {
+        const r = route.load(slug);
+        console.log(jsonFlag ? JSON.stringify(r, null, 2) : formatRoute(r));
       } else {
         const routes = route.list();
-        console.log(formatList(routes));
+        console.log(jsonFlag ? JSON.stringify(routes, null, 2) : formatList(routes));
       }
       break;
     }
 
     case "list": {
-      const routes = route.list();
-      console.log(formatList(routes));
+      const jsonFlag = rest.includes("--json");
+      if (jsonFlag) {
+        const routes = route.list();
+        const full = routes.map((r) => route.load(r.slug));
+        console.log(JSON.stringify(full, null, 2));
+      } else {
+        const routes = route.list();
+        console.log(formatList(routes));
+      }
       break;
     }
 
