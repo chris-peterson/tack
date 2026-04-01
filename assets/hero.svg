@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 240" width="800" height="240">
+  <defs>
+    <linearGradient id="hero-route" x1="0" y1="0.5" x2="1" y2="0.5">
+      <stop offset="0%" stop-color="#6272a4"/>
+      <stop offset="40%" stop-color="#bd93f9"/>
+      <stop offset="100%" stop-color="#8be9fd"/>
+    </linearGradient>
+    <linearGradient id="hero-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#282a36"/>
+      <stop offset="100%" stop-color="#1e1f29"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="240" rx="12" fill="url(#hero-bg)"/>
+
+  <!-- Subtle grid lines -->
+  <g stroke="#44475a" stroke-width="0.3" opacity="0.3">
+    <line x1="0" y1="60" x2="800" y2="60"/>
+    <line x1="0" y1="120" x2="800" y2="120"/>
+    <line x1="0" y1="180" x2="800" y2="180"/>
+    <line x1="160" y1="0" x2="160" y2="240"/>
+    <line x1="320" y1="0" x2="320" y2="240"/>
+    <line x1="480" y1="0" x2="480" y2="240"/>
+    <line x1="640" y1="0" x2="640" y2="240"/>
+  </g>
+
+  <!-- Main tacking route -->
+  <path
+    d="M 80 190 L 150 130 L 120 90 L 220 60 L 190 40 L 300 55 L 270 80 L 380 45 L 420 70 L 500 30 L 540 50 L 620 25 L 720 40"
+    fill="none"
+    stroke="url(#hero-route)"
+    stroke-width="3"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- Origin -->
+  <circle cx="80" cy="190" r="6" fill="#bd93f9"/>
+  <circle cx="80" cy="190" r="10" fill="none" stroke="#bd93f9" stroke-width="1" opacity="0.3"/>
+
+  <!-- Destination -->
+  <circle cx="720" cy="40" r="6" fill="#50fa7b"/>
+  <circle cx="720" cy="40" r="10" fill="none" stroke="#50fa7b" stroke-width="1" opacity="0.3"/>
+
+  <!-- Waypoints -->
+  <circle cx="150" cy="130" r="3" fill="#8be9fd" opacity="0.4"/>
+  <circle cx="120" cy="90" r="3" fill="#8be9fd" opacity="0.4"/>
+  <circle cx="220" cy="60" r="3" fill="#8be9fd" opacity="0.4"/>
+  <circle cx="190" cy="40" r="3" fill="#8be9fd" opacity="0.45"/>
+  <circle cx="300" cy="55" r="3" fill="#8be9fd" opacity="0.45"/>
+  <circle cx="270" cy="80" r="3" fill="#8be9fd" opacity="0.5"/>
+  <circle cx="380" cy="45" r="3" fill="#8be9fd" opacity="0.5"/>
+  <circle cx="420" cy="70" r="3" fill="#8be9fd" opacity="0.55"/>
+  <circle cx="500" cy="30" r="3" fill="#8be9fd" opacity="0.55"/>
+  <circle cx="540" cy="50" r="3" fill="#8be9fd" opacity="0.6"/>
+  <circle cx="620" cy="25" r="3" fill="#8be9fd" opacity="0.6"/>
+
+  <!-- Wordmark -->
+  <text x="400" y="210" text-anchor="middle" font-family="'SF Mono', 'Fira Code', 'JetBrains Mono', monospace" font-size="28" font-weight="600" fill="#f8f8f2" letter-spacing="8">tack</text>
+  <text x="400" y="228" text-anchor="middle" font-family="'SF Mono', 'Fira Code', 'JetBrains Mono', monospace" font-size="10" fill="#6272a4" letter-spacing="3">route tracker for ai-assisted development</text>
+</svg>

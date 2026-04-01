@@ -1,0 +1,166 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/chris-peterson/tack/schema/route.schema.json",
+  "title": "tack route",
+  "description": "Schema for a tack route file",
+  "type": "object",
+  "required": ["id", "slug", "created_at", "updated_at", "tacks"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Immutable v4 UUID generated at creation time"
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
+      "description": "Unique route identifier, lowercase, hyphenated"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the route was created"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the route was last modified"
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Slugs of routes that must complete before this one"
+    },
+    "tacks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/tack"
+      },
+      "description": "List of tacks (units of work) in this route"
+    }
+  },
+  "definitions": {
+    "tack": {
+      "type": "object",
+      "required": ["id", "summary", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^t[0-9]+$",
+          "description": "Route-scoped identifier (t1, t2, ...)"
+        },
+        "summary": {
+          "type": "string",
+          "description": "Human-readable description of the work"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "in_progress", "done", "blocked", "dropped"],
+          "description": "Current status of the tack"
+        },
+        "done_at": {
+          "type": "string",
+          "format": "date",
+          "description": "Date when the tack was completed (YYYY-MM-DD)"
+        },
+        "project": {
+          "type": "string",
+          "description": "Repository or project identifier (e.g., org/repo-name)"
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^t[0-9]+$"
+          },
+          "description": "IDs of tacks in this route that must complete first"
+        },
+        "deliverable": {
+          "$ref": "#/definitions/deliverable"
+        },
+        "before": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/todoItem"
+          },
+          "description": "Pre-work todo items"
+        },
+        "after": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/todoItem"
+          },
+          "description": "Post-work todo items"
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/link"
+          },
+          "description": "External references"
+        }
+      }
+    },
+    "deliverable": {
+      "type": "object",
+      "required": ["label", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Short display text"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Full URL of the change request"
+        }
+      }
+    },
+    "todoItem": {
+      "type": "object",
+      "required": ["id", "text", "done"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[ab][0-9]+$",
+          "description": "Scoped identifier (b1, b2, ... for before; a1, a2, ... for after)"
+        },
+        "text": {
+          "type": "string",
+          "description": "Description of the instruction"
+        },
+        "done": {
+          "type": "boolean",
+          "description": "Whether the instruction has been completed"
+        },
+        "done_at": {
+          "type": "string",
+          "format": "date",
+          "description": "Date when completed (YYYY-MM-DD)"
+        }
+      }
+    },
+    "link": {
+      "type": "object",
+      "required": ["label", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Short display text"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Full URL"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="route-grad" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#6272a4"/>
+      <stop offset="100%" stop-color="#8be9fd"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Tacking route path -->
+  <path
+    d="M 5 27 L 10 20 L 7 15 L 14 11 L 11 7 L 18 4 L 27 5"
+    fill="none"
+    stroke="url(#route-grad)"
+    stroke-width="2.4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- Origin point -->
+  <circle cx="5" cy="27" r="2.2" fill="#bd93f9"/>
+
+  <!-- Destination point -->
+  <circle cx="27" cy="5" r="2.2" fill="#50fa7b"/>
+
+  <!-- Waypoint dots at each tack -->
+  <circle cx="10" cy="20" r="1.3" fill="#8be9fd" opacity="0.5"/>
+  <circle cx="7" cy="15" r="1.3" fill="#8be9fd" opacity="0.5"/>
+  <circle cx="14" cy="11" r="1.3" fill="#8be9fd" opacity="0.5"/>
+  <circle cx="11" cy="7" r="1.3" fill="#8be9fd" opacity="0.5"/>
+  <circle cx="18" cy="4" r="1.3" fill="#8be9fd" opacity="0.5"/>
+</svg>

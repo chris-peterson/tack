@@ -1,0 +1,33 @@
+{
+  "name": "tack",
+  "version": "0.1.0",
+  "description": "Lightweight session schema and CLI for AI-assisted development",
+  "type": "module",
+  "bin": {
+    "tack": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "test": "node --test dist/**/*.test.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "ai",
+    "development",
+    "session",
+    "wip",
+    "cli"
+  ],
+  "author": "Chris Peterson",
+  "license": "MIT",
+  "dependencies": {
+    "ajv": "^8.18.0",
+    "ajv-formats": "^3.0.1",
+    "typescript": "^6.0.2",
+    "yaml": "^2.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0"
+  }
+}
