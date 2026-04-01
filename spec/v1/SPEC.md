@@ -17,7 +17,10 @@ The schema is the primary deliverable. The CLI is a convenience wrapper.
 ```
 Route (1 YAML file)
 ├── id (UUID), slug, created_at, updated_at
+├── origin: planned | tangent
 ├── depends_on: [route slugs]
+├── sessions[]
+│   └── id, started_at
 └── tacks[]
     ├── id (t1, t2, ...), summary, status
     ├── project, done_at
@@ -51,6 +54,10 @@ Route (1 YAML file)
 - `tacks` (array) — list of tack objects
 
 **[RT-04]** Each route shall contain the following optional fields:
+- `origin` (string) — one of: `planned`, `tangent`. Defaults to `planned` when
+  omitted. A `tangent` is unplanned, reactive work (drive-by fix, opportunistic
+  contribution, etc.) that wasn't part of any goal. Tangents may be promoted to
+  `planned` if they grow in scope.
 - `depends_on` (array of strings) — slugs of routes that must complete before
   this one can proceed
 
@@ -65,6 +72,14 @@ the route file is written.
 
 **[RT-08]** The `id` field shall be immutable after creation. It shall not
 change when the route is updated.
+
+**[RT-09]** Each route shall contain the following optional field:
+- `sessions` (array) — Claude Code session references that touched this route
+
+**[RT-10]** Each session entry shall contain the following required fields:
+- `id` (string) — the Claude Code session identifier
+- `started_at` (string) — ISO 8601 timestamp when the session first touched
+  this route
 
 ---
 
@@ -188,9 +203,11 @@ without modifying the file.
 
 **[CL-01]** The CLI shall be invoked as `tack <command> [options]`.
 
-**[CL-02]** `tack init <slug>` — When invoked, the CLI shall create a new
-route file at `~/.tack/routes/<slug>.yaml` with a generated v4 UUID as `id`,
-an empty `tacks` array, and `created_at`/`updated_at` set to the current time.
+**[CL-02]** `tack init <slug> [--tangent]` — When invoked, the CLI shall create
+a new route file at `~/.tack/routes/<slug>.yaml` with a generated v4 UUID as
+`id`, an empty `tacks` array, and `created_at`/`updated_at` set to the current
+time. When `--tangent` is passed, the route's `origin` shall be set to
+`tangent`.
 
 **[CL-03]** `tack status [slug]` — When invoked with a slug, the CLI shall
 display the route's tacks, their statuses, dependencies, deliverable, and any
@@ -241,6 +258,43 @@ confirmation message and exit without deleting.
 
 **[CL-16]** When any write command succeeds, the CLI shall display the updated
 state of the affected tack or route.
+
+---
+
+### AG — Agent Integration
+
+**[AG-01]** The agent shall be implemented as a Claude Code skill that reads
+and writes tack route files using the CLI defined in the CL category.
+
+**[AG-02]** When a session begins, the agent shall load all active routes
+(routes with at least one tack whose status is not `done` or `dropped`) in
+the background to build context about current work.
+
+**[AG-03]** When the user begins work that does not match any active route,
+the agent shall ask whether the work is a tangent. The question shall be
+phrased as a single non-blocking line (e.g., "This doesn't seem related to
+any current route — tangent?").
+
+**[AG-04]** When the user confirms a tangent, the agent shall create a new
+route with `origin` set to `tangent` and add the first tack.
+
+**[AG-05]** When a tack produces a deliverable (PR/MR URL appears in the
+session), the agent shall record it on the current tack automatically without
+prompting the user.
+
+**[AG-06]** When a URL is pasted or referenced during a session, the agent
+shall capture it as a link on the current tack automatically.
+
+**[AG-07]** The agent shall not prompt the user more than once per distinct
+event. If the user ignores or dismisses a prompt, the agent shall not re-ask
+about the same work item in the same session.
+
+**[AG-08]** When the user completes a tack, the agent shall surface any
+pending `after` todo items per [TK-04] before moving on.
+
+**[AG-09]** When the agent begins operating on a route, it shall record the
+current Claude Code session ID in the route's `sessions` array per [RT-09].
+If the session ID already exists, it shall not duplicate.
 
 ---
 

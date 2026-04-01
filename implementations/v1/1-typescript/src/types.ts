@@ -17,6 +17,8 @@ export interface Link {
 
 export type TackStatus = "pending" | "in_progress" | "done" | "blocked" | "dropped";
 
+export type RouteOrigin = "planned" | "tangent";
+
 export interface Tack {
   id: string;
   summary: string;
@@ -30,11 +32,18 @@ export interface Tack {
   links?: Link[];
 }
 
+export interface Session {
+  id: string;
+  started_at: string;
+}
+
 export interface Route {
   id: string;
   slug: string;
   created_at: string;
   updated_at: string;
+  origin?: RouteOrigin;
   depends_on?: string[];
+  sessions?: Session[];
   tacks: Tack[];
 }

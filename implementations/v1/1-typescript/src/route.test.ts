@@ -35,6 +35,16 @@ describe("init", () => {
     route.init("dup");
     assert.throws(() => route.init("dup"), /already exists/);
   });
+
+  it("creates a planned route by default (no origin field)", () => {
+    const r = route.init("planned-default");
+    assert.equal(r.origin, undefined);
+  });
+
+  it("creates a tangent route when origin is tangent", () => {
+    const r = route.init("my-tangent", { origin: "tangent" });
+    assert.equal(r.origin, "tangent");
+  });
 });
 
 describe("load", () => {
@@ -272,6 +282,30 @@ describe("addLink", () => {
     assert.equal(t.links!.length, 1);
     assert.equal(t.links![0].label, "Design doc");
     assert.equal(t.links![0].url, "https://example.com/design");
+  });
+});
+
+describe("recordSession", () => {
+  it("adds a session to a route", () => {
+    route.init("session-test");
+    const r = route.recordSession("session-test", "session_abc123");
+    assert.equal(r.sessions!.length, 1);
+    assert.equal(r.sessions![0].id, "session_abc123");
+    assert.ok(r.sessions![0].started_at);
+  });
+
+  it("does not duplicate an existing session", () => {
+    route.init("session-dedup");
+    route.recordSession("session-dedup", "session_abc123");
+    const r = route.recordSession("session-dedup", "session_abc123");
+    assert.equal(r.sessions!.length, 1);
+  });
+
+  it("appends multiple distinct sessions", () => {
+    route.init("session-multi");
+    route.recordSession("session-multi", "session_aaa");
+    const r = route.recordSession("session-multi", "session_bbb");
+    assert.equal(r.sessions!.length, 2);
   });
 });
 

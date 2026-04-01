@@ -59,11 +59,16 @@ export function formatRoute(route: Route): string {
   const lines: string[] = [];
   lines.push(`# ${route.slug}`);
   lines.push(`  id: ${route.id}`);
+  if (route.origin) lines.push(`  origin: ${route.origin}`);
   lines.push(`  created: ${route.created_at}`);
   lines.push(`  updated: ${route.updated_at}`);
 
   if (route.depends_on?.length) {
     lines.push(`  depends on routes: ${route.depends_on.join(", ")}`);
+  }
+
+  if (route.sessions?.length) {
+    lines.push(`  sessions: ${route.sessions.length}`);
   }
 
   if (route.tacks.length === 0) {
@@ -78,14 +83,15 @@ export function formatRoute(route: Route): string {
   return lines.join("\n");
 }
 
-export function formatList(routes: { slug: string; total: number; open: number }[]): string {
+export function formatList(routes: { slug: string; origin: string; total: number; open: number }[]): string {
   if (routes.length === 0) {
     return "No routes found.";
   }
 
   const lines: string[] = [];
   for (const r of routes) {
-    lines.push(`${r.slug}  (${r.open} open / ${r.total} total)`);
+    const tag = r.origin === "tangent" ? " [tangent]" : "";
+    lines.push(`${r.slug}${tag}  (${r.open} open / ${r.total} total)`);
   }
   return lines.join("\n");
 }

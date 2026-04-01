@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { parse, stringify } from "yaml";
 import { validate } from "./schema.js";
-import type { Route, Tack, TodoItem } from "./types.js";
+import type { Route, RouteOrigin, Tack, TodoItem } from "./types.js";
 
 const TACK_DIR = join(process.env.TACK_HOME ?? join(homedir(), ".tack"), "routes");
 
@@ -55,7 +55,7 @@ function save(route: Route): void {
   writeFileSync(routePath(route.slug), stringify(route), "utf-8");
 }
 
-export function init(slug: string): Route {
+export function init(slug: string, opts: { origin?: RouteOrigin } = {}): Route {
   ensureDir();
   const path = routePath(slug);
   if (existsSync(path)) {
@@ -70,11 +70,13 @@ export function init(slug: string): Route {
     tacks: [],
   };
 
+  if (opts.origin) route.origin = opts.origin;
+
   save(route);
   return route;
 }
 
-export function list(): { slug: string; total: number; open: number }[] {
+export function list(): { slug: string; origin: string; total: number; open: number }[] {
   ensureDir();
   const files = readdirSync(TACK_DIR).filter((f: string) => f.endsWith(".yaml"));
 
@@ -82,7 +84,7 @@ export function list(): { slug: string; total: number; open: number }[] {
     const slug = f.replace(/\.yaml$/, "");
     const route = load(slug);
     const open = route.tacks.filter((t) => t.status !== "done" && t.status !== "dropped").length;
-    return { slug, total: route.tacks.length, open };
+    return { slug, origin: route.origin ?? "planned", total: route.tacks.length, open };
   });
 }
 
@@ -274,6 +276,16 @@ export function addLink(slug: string, tackId: string, label: string, url: string
   tack.links.push({ label, url });
   save(route);
   return tack;
+}
+
+export function recordSession(slug: string, sessionId: string): Route {
+  const route = load(slug);
+  if (!route.sessions) route.sessions = [];
+  if (!route.sessions.some((s) => s.id === sessionId)) {
+    route.sessions.push({ id: sessionId, started_at: now() });
+  }
+  save(route);
+  return route;
 }
 
 export function remove(slug: string): void {

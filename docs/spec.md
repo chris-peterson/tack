@@ -12,7 +12,10 @@ The v1 spec defines 32 requirements across 8 categories:
 ```text
 Route (1 YAML file per route)
 ├── id (UUID), slug, created_at, updated_at
+├── origin: planned | tangent
 ├── depends_on: [route slugs]
+├── sessions[]
+│   └── id, started_at
 └── tacks[]
     ├── id (t1, t2, ...), summary, status
     ├── project, done_at
@@ -31,7 +34,7 @@ Route (1 YAML file per route)
 
 | Category | ID Range | Description |
 |---|---|---|
-| RT | RT-01 to RT-08 | Route schema structure and constraints |
+| RT | RT-01 to RT-10 | Route schema structure and constraints |
 | TK | TK-01 to TK-07 | Tack fields, statuses, and ID sequencing |
 | DV | DV-01 to DV-02 | Deliverable (single change request per tack) |
 | TD | TD-01 to TD-05 | Todo items (before/after arrays with IDs) |
@@ -39,6 +42,7 @@ Route (1 YAML file per route)
 | LK | LK-01 | Link structure (label + url) |
 | ST | ST-01 to ST-05 | Storage location, directory creation, validation |
 | CL | CL-01 to CL-16 | CLI commands and output behavior |
+| AG | AG-01 to AG-09 | Claude Code agent integration |
 
 ## Anti-Requirements
 

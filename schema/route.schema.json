@@ -27,12 +27,25 @@
       "format": "date-time",
       "description": "ISO 8601 timestamp when the route was last modified"
     },
+    "origin": {
+      "type": "string",
+      "enum": ["planned", "tangent"],
+      "default": "planned",
+      "description": "Whether this route was planned work or an unplanned tangent (reactive fix, drive-by contribution, etc.)"
+    },
     "depends_on": {
       "type": "array",
       "items": {
         "type": "string"
       },
       "description": "Slugs of routes that must complete before this one"
+    },
+    "sessions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/session"
+      },
+      "description": "Claude Code session references that touched this route"
     },
     "tacks": {
       "type": "array",
@@ -159,6 +172,22 @@
           "type": "string",
           "format": "uri",
           "description": "Full URL"
+        }
+      }
+    },
+    "session": {
+      "type": "object",
+      "required": ["id", "started_at"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Claude Code session identifier"
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when the session first touched this route"
         }
       }
     }
