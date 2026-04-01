@@ -1,4 +1,6 @@
-# <img src="favicon.svg" alt="tack" width="64" height="64" style="vertical-align: middle"> tack
+<p align="center">
+  <img src="hero.svg" alt="tack — route tracker for ai-assisted development" width="800">
+</p>
 
 Route tracker for AI-assisted development.
 

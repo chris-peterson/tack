@@ -2,7 +2,7 @@ name: Deploy docs
 on:
   push:
     branches: [main]
-    paths: ['docs/**']
+    paths: ['docs/**', 'assets/**']
   workflow_dispatch:
 permissions:
   pages: write
@@ -18,6 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
+      - name: Copy assets into docs
+        run: cp assets/* docs/
 
       - name: Generate icon.png from SVG
         run: |
