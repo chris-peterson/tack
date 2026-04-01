@@ -1,6 +1,6 @@
-# tack
-
-Route tracker for AI-assisted development.
+<p align="center">
+  <img src="assets/hero.svg" alt="tack — route tracker for AI-assisted development" width="800">
+</p>
 
 tack captures the non-linear reality of how development actually happens — pivots, context switches, multi-repo changes — so that work-in-progress survives context exhaustion, crashes, and session boundaries.
 
