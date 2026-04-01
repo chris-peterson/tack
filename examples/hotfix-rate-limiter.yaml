@@ -1,0 +1,36 @@
+id: "59b77f88-ffeb-430b-af69-e5da45fc7001"
+slug: "hotfix-rate-limiter"
+created_at: "2026-03-28T22:15:00Z"
+updated_at: "2026-03-29T11:00:00Z"
+origin: "tangent"
+sessions:
+  - id: "sess-urgent01"
+    started_at: "2026-03-28T22:15:00Z"
+
+tacks:
+  - id: "t1"
+    summary: "Add per-tenant rate limiting to /v2/search"
+    status: "done"
+    done_at: "2026-03-29"
+    project: "acme/api-gateway"
+    deliverable:
+      label: "Rate limiter hotfix"
+      url: "https://github.com/acme/api-gateway/pull/121"
+    before:
+      - id: "b1"
+        text: "Pull Grafana metrics for burst traffic"
+        done: true
+        done_at: "2026-03-28"
+    after:
+      - id: "a1"
+        text: "Notify on-call that fix is deployed"
+        done: true
+        done_at: "2026-03-29"
+      - id: "a2"
+        text: "Schedule postmortem"
+        done: false
+    links:
+      - label: "Incident #847"
+        url: "https://acme.pagerduty.com/incidents/847"
+      - label: "Grafana dashboard"
+        url: "https://grafana.acme.com/d/api-latency"

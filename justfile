@@ -15,8 +15,12 @@ test:
 
 # Validate the JSON Schema
 validate-schema:
-    cd schema && npx ajv validate -s route.schema.json -d ../examples/lightbox-migration.yaml
+    cd schema && npx ajv validate -s route.schema.json -d ../examples/q2-auth-rewrite.yaml
 
 # Show the current spec
 spec:
     @cat spec/{{spec}}/SPEC.md
+
+# Preview docs site locally
+docs:
+    docsify serve docs --open

@@ -1,0 +1,82 @@
+id: "550e8400-e29b-41d4-a716-446655440000"
+slug: "q2-auth-rewrite"
+created_at: "2026-03-15T10:00:00Z"
+updated_at: "2026-04-01T09:30:00Z"
+origin: "planned"
+depends_on:
+  - "q2-session-setup"
+sessions:
+  - id: "sess-a1b2c3"
+    started_at: "2026-03-15T10:00:00Z"
+  - id: "sess-d4e5f6"
+    started_at: "2026-03-22T14:00:00Z"
+  - id: "sess-g7h8i9"
+    started_at: "2026-04-01T09:00:00Z"
+
+tacks:
+  - id: "t1"
+    summary: "Replace session middleware with JWT validation"
+    status: "done"
+    done_at: "2026-03-18"
+    project: "acme/api-server"
+    deliverable:
+      label: "JWT middleware PR"
+      url: "https://github.com/acme/api-server/pull/312"
+    before:
+      - id: "b1"
+        text: "Read compliance requirements doc"
+        done: true
+        done_at: "2026-03-15"
+      - id: "b2"
+        text: "Audit current session storage"
+        done: true
+        done_at: "2026-03-16"
+    after:
+      - id: "a1"
+        text: "Notify security team for review"
+        done: true
+        done_at: "2026-03-19"
+    links:
+      - label: "Auth design doc"
+        url: "https://docs.acme.com/design/auth-v2"
+      - label: "Compliance RFC"
+        url: "https://docs.acme.com/rfc/session-compliance"
+
+  - id: "t2"
+    summary: "Update client SDK token refresh logic"
+    status: "done"
+    done_at: "2026-03-25"
+    project: "acme/sdk-js"
+    depends_on:
+      - "t1"
+    deliverable:
+      label: "Token refresh PR"
+      url: "https://github.com/acme/sdk-js/pull/87"
+    before:
+      - id: "b1"
+        text: "Review SDK changelog for breaking changes"
+        done: true
+        done_at: "2026-03-22"
+
+  - id: "t3"
+    summary: "Migrate integration tests to new auth flow"
+    status: "in_progress"
+    project: "acme/api-server"
+    depends_on:
+      - "t1"
+    before:
+      - id: "b1"
+        text: "Catalog existing test fixtures"
+        done: true
+        done_at: "2026-03-28"
+    links:
+      - label: "Test plan"
+        url: "https://docs.acme.com/test/auth-migration"
+
+  - id: "t4"
+    summary: "Update API documentation for auth endpoints"
+    status: "pending"
+    project: "acme/docs"
+    depends_on:
+      - "t2"
+      - "t3"

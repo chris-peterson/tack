@@ -1,0 +1,47 @@
+id: "772a0611-a41d-63f6-c938-668877662222"
+slug: "q2-usage-dashboard"
+created_at: "2026-03-20T09:00:00Z"
+updated_at: "2026-03-31T17:00:00Z"
+origin: "planned"
+
+tacks:
+  - id: "t1"
+    summary: "Define usage metrics schema in ClickHouse"
+    status: "done"
+    done_at: "2026-03-22"
+    project: "acme/analytics"
+    deliverable:
+      label: "Metrics schema migration"
+      url: "https://github.com/acme/analytics/pull/45"
+
+  - id: "t2"
+    summary: "Add usage event emitter to API gateway"
+    status: "done"
+    done_at: "2026-03-26"
+    project: "acme/api-gateway"
+    depends_on:
+      - "t1"
+    deliverable:
+      label: "Event emitter PR"
+      url: "https://github.com/acme/api-gateway/pull/119"
+
+  - id: "t3"
+    summary: "Build dashboard frontend with chart components"
+    status: "in_progress"
+    project: "acme/web-app"
+    depends_on:
+      - "t2"
+
+  - id: "t4"
+    summary: "Add drill-down by tenant and time range"
+    status: "pending"
+    project: "acme/web-app"
+    depends_on:
+      - "t3"
+
+  - id: "t5"
+    summary: "Set up alerting thresholds for anomalous usage"
+    status: "pending"
+    project: "acme/analytics"
+    depends_on:
+      - "t2"

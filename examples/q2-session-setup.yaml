@@ -1,0 +1,26 @@
+id: "661f9500-f30c-52e5-b827-557766551111"
+slug: "q2-session-setup"
+created_at: "2026-03-10T08:00:00Z"
+updated_at: "2026-03-14T16:00:00Z"
+origin: "planned"
+
+tacks:
+  - id: "t1"
+    summary: "Provision Redis cluster for session store"
+    status: "done"
+    done_at: "2026-03-12"
+    project: "acme/infra"
+    deliverable:
+      label: "Redis terraform PR"
+      url: "https://github.com/acme/infra/pull/201"
+
+  - id: "t2"
+    summary: "Add session store client library"
+    status: "done"
+    done_at: "2026-03-14"
+    project: "acme/api-server"
+    depends_on:
+      - "t1"
+    deliverable:
+      label: "Session client PR"
+      url: "https://github.com/acme/api-server/pull/308"

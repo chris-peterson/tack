@@ -1,0 +1,15 @@
+id: "6135fdc7-f169-4f3b-afa0-eb8b62e9dec1"
+slug: "tangent-docs-typo"
+created_at: "2026-03-26T09:15:00Z"
+updated_at: "2026-03-26T09:45:00Z"
+origin: "tangent"
+
+tacks:
+  - id: "t1"
+    summary: "Fix broken API examples in public docs"
+    status: "done"
+    done_at: "2026-03-26"
+    project: "acme/docs"
+    deliverable:
+      label: "Docs fix PR"
+      url: "https://github.com/acme/docs/pull/201"
