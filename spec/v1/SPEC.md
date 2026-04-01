@@ -300,6 +300,29 @@ If the session ID already exists, it shall not duplicate.
 
 ---
 
+## Future Requirements
+
+**[FUT-01]** (→ BK) Where backup is enabled, the `~/.tack/` directory shall be
+a git repository. Route file changes shall be the only tracked content.
+
+**[FUT-02]** (→ BK) `tack backup init [<remote-url>]` — When invoked, the CLI
+shall initialize a git repository at `~/.tack/` if one does not exist. When a
+remote URL is provided, it shall be configured as the `origin` remote.
+
+**[FUT-03]** (→ BK) `tack backup status` — When invoked, the CLI shall display
+whether backup is enabled, the configured remote (if any), the last commit
+timestamp, and whether there are uncommitted changes.
+
+**[FUT-04]** (→ BK) Where backup is enabled, the CLI shall commit all route
+file changes after every write operation. The commit message shall include the
+command that triggered the write (e.g., "tack done api-auth t2").
+
+**[FUT-05]** (→ BK) Where a remote is configured, the CLI shall push to the
+remote after each commit. If the push fails, the CLI shall warn but not block
+the operation.
+
+---
+
 ## Anti-Requirements
 
 The following are explicitly out of scope:
@@ -310,6 +333,7 @@ The following are explicitly out of scope:
 - **No enforced workflows.** No prescribed state machines beyond the status
   enum. Users can move between statuses freely (except where dependencies
   constrain transitions per [DP-03]).
-- **No server, sync, or cloud.** Local files only.
+- **No server, sync, or cloud.** Local files only. (Backup to a git remote
+  per [FUT-01] is a planned exception — core operations never require network.)
 - **No cross-route dependency enforcement.** Route-level `depends_on` is
   informational only per [DP-04].

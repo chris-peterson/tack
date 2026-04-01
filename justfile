@@ -24,3 +24,11 @@ spec:
 # Preview docs site locally
 docs:
     docsify serve docs --open
+
+# Launch an interactive session with the local plugin loaded
+try:
+    claude --plugin-dir .
+
+# Launch an interactive session with the plugin loaded and open the tack skill
+tack:
+    claude --plugin-dir . "/tack:tack"
