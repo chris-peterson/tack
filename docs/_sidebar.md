@@ -1,0 +1,3 @@
+- [Home](/)
+- [Spec](/spec)
+- [CLI Reference](/cli)
