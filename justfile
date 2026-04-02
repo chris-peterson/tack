@@ -32,3 +32,8 @@ try:
 # Launch an interactive session with the plugin loaded and open the tack skill
 tack:
     claude --plugin-dir . "/tack:tack"
+
+# Install the CLI and Claude Code plugin
+install:
+    cd implementations/{{spec}}/{{impl}} && npm install -g .
+    claude plugin install tack

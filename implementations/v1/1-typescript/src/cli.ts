@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 
+import { execSync } from "node:child_process";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { parseArgs } from "node:util";
 import * as route from "./route.js";
 import { formatRoute, formatTack, formatList } from "./display.js";
+import { ZSH_COMPLETION } from "./completions.js";
 
 function usage(): never {
   console.log(`tack — route tracker for AI-assisted development
@@ -22,7 +26,8 @@ Usage:
   tack todo drop <slug> <tack-id> <todo-id>
   tack link <slug> <tack-id> <label> <url>
   tack session <slug> <session-id>
-  tack rm <slug> [--force]`);
+  tack rm <slug> [--force]
+  tack completions zsh`);
   process.exit(1);
 }
 
@@ -192,6 +197,44 @@ function run(): void {
       }
       route.remove(rest[0]);
       console.log(`Deleted: ${rest[0]}`);
+      break;
+    }
+
+    case "completions": {
+      const shell = rest[0];
+      if (shell === "zsh") {
+        const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
+        const zshrc = join(home, ".zshrc");
+        const dir = join(home, ".zsh", "completions");
+        const file = join(dir, "_tack");
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(file, ZSH_COMPLETION);
+        console.log(`Installed: ${file}`);
+
+        let zshrcContent = "";
+        try { zshrcContent = readFileSync(zshrc, "utf-8"); } catch {}
+        const hasFpath = zshrcContent.includes(".zsh/completions");
+        const hasCompinit = zshrcContent.includes("compinit");
+        const fpathLine = `fpath=(~/.zsh/completions $fpath)`;
+
+        if (!hasFpath && hasCompinit) {
+          const updated = zshrcContent.replace(
+            /(.*compinit.*)/,
+            `${fpathLine}\n$1`,
+          );
+          writeFileSync(zshrc, updated);
+          console.log("Updated ~/.zshrc (added fpath before compinit).");
+        } else if (!hasFpath && !hasCompinit) {
+          const block = `\n${fpathLine}\nautoload -Uz compinit && compinit\n`;
+          execSync(`echo '${block}' >> ${zshrc}`);
+          console.log("Updated ~/.zshrc (added fpath + compinit).");
+        }
+        console.log("Restart your shell to activate.");
+      } else {
+        console.error(shell ? `Unsupported shell: ${shell}` : "Usage: tack completions <shell>");
+        console.error("Supported shells: zsh");
+        process.exit(1);
+      }
       break;
     }
 
