@@ -15,7 +15,7 @@ output=$(echo "$input" | jq -r '.tool_result.stdout // empty' 2>/dev/null)
 [ -z "$output" ] && exit 0
 
 # Match GitHub PR or GitLab MR URLs
-url=$(echo "$output" | grep -oE 'https://(github\.com|gitlab\.[^/]+)/[^/]+/[^/]+/(pull|merge_requests)/[0-9]+' | head -1)
+url=$(echo "$output" | grep -oE 'https://(github\.com/[^/]+/[^/]+/(pull|issues)|gitlab\.[^[:space:]]*/-/(merge_requests|issues))/[0-9]+' | head -1)
 [ -z "$url" ] && exit 0
 
 echo "A PR/MR URL appeared: $url — record it as a deliverable on the active tack."
