@@ -6,6 +6,21 @@ Route tracker for AI-assisted development.
 
 tack captures the non-linear reality of how development actually happens — pivots, context switches, multi-repo changes — so that work-in-progress survives context exhaustion, crashes, and session boundaries.
 
+## Installation
+
+### Claude Code Plugin
+
+```bash
+claude plugin marketplace add https://github.com/chris-peterson/tack
+claude plugin install tack
+```
+
+### CLI Only
+
+```bash
+npm install -g tack
+```
+
 ## Quick Start
 
 ```bash
