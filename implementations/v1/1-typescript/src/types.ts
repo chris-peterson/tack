@@ -41,6 +41,7 @@ export interface Route {
   slug: string;
   created_at: string;
   updated_at: string;
+  group?: string;
   origin?: RouteOrigin;
   depends_on?: string[];
   sessions?: Session[];

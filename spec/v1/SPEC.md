@@ -17,6 +17,7 @@ The schema is the primary deliverable. The CLI is a convenience wrapper.
 ```
 Route (1 YAML file)
 ├── id (UUID), slug, created_at, updated_at
+├── group (optional grouping slug)
 ├── origin: planned | tangent
 ├── depends_on: [route slugs]
 ├── sessions[]
@@ -54,6 +55,10 @@ Route (1 YAML file)
 - `tacks` (array) — list of tack objects
 
 **[RT-04]** Each route shall contain the following optional fields:
+- `group` (string) — a grouping slug for associating related routes. Multiple
+  routes may share the same group. Uses the same format as `slug` (lowercase,
+  hyphenated). The field is purely organizational — the CLI does not enforce or
+  validate group membership.
 - `origin` (string) — one of: `planned`, `tangent`. Defaults to `planned` when
   omitted. A `tangent` is unplanned, reactive work (drive-by fix, opportunistic
   contribution, etc.) that wasn't part of any goal. Tangents may be promoted to
@@ -202,11 +207,12 @@ without modifying the file.
 
 **[CL-01]** The CLI shall be invoked as `tack <command> [options]`.
 
-**[CL-02]** `tack init <slug> [--tangent]` — When invoked, the CLI shall create
-a new route file at `~/.tack/routes/<slug>.yaml` with a generated v4 UUID as
-`id`, an empty `tacks` array, and `created_at`/`updated_at` set to the current
-time. When `--tangent` is passed, the route's `origin` shall be set to
-`tangent`.
+**[CL-02]** `tack init <slug> [--tangent] [--group <slug>]` — When invoked, the
+CLI shall create a new route file at `~/.tack/routes/<slug>.yaml` with a
+generated v4 UUID as `id`, an empty `tacks` array, and
+`created_at`/`updated_at` set to the current time. When `--tangent` is passed,
+the route's `origin` shall be set to `tangent`. When `--group` is passed, the
+route's `group` shall be set to the given slug.
 
 **[CL-03]** `tack status [slug]` — When invoked with a slug, the CLI shall
 display the route's tacks, their statuses, dependencies, deliverable, and any

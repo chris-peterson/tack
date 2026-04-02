@@ -55,6 +55,7 @@ tack status auth-rewrite
 ```
 Route (1 YAML file per route)
 ├── id (UUID), slug, created_at, updated_at
+├── group (optional grouping slug)
 ├── depends_on: [route slugs]
 └── tacks[]
     ├── id (t1, t2, ...), summary, status
@@ -76,7 +77,7 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 
 | Command | Description |
 |---|---|
-| `tack init <slug>` | Create a new route |
+| `tack init <slug> [--group <slug>]` | Create a new route |
 | `tack status [slug]` | Show route details (or all routes) |
 | `tack list` | List all routes with open/total counts |
 | `tack add <slug> <summary> [opts]` | Add a tack (`--project`, `--depends-on`) |

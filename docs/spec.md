@@ -13,6 +13,7 @@ The v1 spec defines 43 requirements across 9 categories:
 ```text
 Route (1 YAML file per route)
 ├── id (UUID), slug, created_at, updated_at
+├── group (optional grouping slug)
 ├── origin: planned | tangent
 ├── depends_on: [route slugs]
 ├── sessions[]

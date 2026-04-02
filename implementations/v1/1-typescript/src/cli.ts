@@ -8,7 +8,7 @@ function usage(): never {
   console.log(`tack — route tracker for AI-assisted development
 
 Usage:
-  tack init <slug> [--tangent]
+  tack init <slug> [--tangent] [--group <slug>]
   tack status [slug]
   tack list [--json]
   tack add <slug> <summary> [--depends-on <id,...>]
@@ -36,9 +36,21 @@ function run(): void {
   switch (command) {
     case "init": {
       if (!rest[0]) usage();
-      const tangent = rest.includes("--tangent");
-      const slug = rest.filter((a) => a !== "--tangent")[0];
-      const r = route.init(slug, { origin: tangent ? "tangent" : undefined });
+      const { values: initValues } = parseArgs({
+        args: rest,
+        options: {
+          tangent: { type: "boolean", default: false },
+          group: { type: "string" },
+        },
+        allowPositionals: true,
+      });
+      const slug = initValues.tangent
+        ? rest.filter((a) => a !== "--tangent")[0]
+        : rest.filter((a) => !a.startsWith("--"))[0];
+      const r = route.init(slug, {
+        group: initValues.group as string | undefined,
+        origin: initValues.tangent ? "tangent" : undefined,
+      });
       console.log(formatRoute(r));
       break;
     }

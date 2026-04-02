@@ -58,6 +58,7 @@ export function formatRoute(route: Route): string {
   const lines: string[] = [];
   lines.push(`# ${route.slug}`);
   lines.push(`  id: ${route.id}`);
+  if (route.group) lines.push(`  group: ${route.group}`);
   if (route.origin) lines.push(`  origin: ${route.origin}`);
   lines.push(`  created: ${route.created_at}`);
   lines.push(`  updated: ${route.updated_at}`);
@@ -82,7 +83,7 @@ export function formatRoute(route: Route): string {
   return lines.join("\n");
 }
 
-export function formatList(routes: { slug: string; origin: string; total: number; open: number }[]): string {
+export function formatList(routes: { slug: string; group?: string; origin: string; total: number; open: number }[]): string {
   if (routes.length === 0) {
     return "No routes found.";
   }

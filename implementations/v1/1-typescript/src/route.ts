@@ -55,7 +55,7 @@ function save(route: Route): void {
   writeFileSync(routePath(route.slug), stringify(route), "utf-8");
 }
 
-export function init(slug: string, opts: { origin?: RouteOrigin } = {}): Route {
+export function init(slug: string, opts: { group?: string; origin?: RouteOrigin } = {}): Route {
   ensureDir();
   const path = routePath(slug);
   if (existsSync(path)) {
@@ -70,13 +70,14 @@ export function init(slug: string, opts: { origin?: RouteOrigin } = {}): Route {
     tacks: [],
   };
 
+  if (opts.group) route.group = opts.group;
   if (opts.origin) route.origin = opts.origin;
 
   save(route);
   return route;
 }
 
-export function list(): { slug: string; origin: string; total: number; open: number }[] {
+export function list(): { slug: string; group?: string; origin: string; total: number; open: number }[] {
   ensureDir();
   const files = readdirSync(TACK_DIR).filter((f: string) => f.endsWith(".yaml"));
 
@@ -84,7 +85,7 @@ export function list(): { slug: string; origin: string; total: number; open: num
     const slug = f.replace(/\.yaml$/, "");
     const route = load(slug);
     const open = route.tacks.filter((t) => t.status !== "done" && t.status !== "dropped").length;
-    return { slug, origin: route.origin ?? "planned", total: route.tacks.length, open };
+    return { slug, group: route.group, origin: route.origin ?? "planned", total: route.tacks.length, open };
   });
 }
 
