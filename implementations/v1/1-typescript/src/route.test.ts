@@ -87,14 +87,6 @@ describe("addTack", () => {
     assert.equal(t2.id, "t2");
   });
 
-  it("supports project option", () => {
-    route.init("opts-test");
-    const t = route.addTack("opts-test", "With opts", {
-      project: "my-repo",
-    });
-    assert.equal(t.project, "my-repo");
-  });
-
   it("supports depends-on", () => {
     route.init("dep-test");
     route.addTack("dep-test", "First");

@@ -219,7 +219,7 @@ timeline
 
 | View | Key fields used |
 |------|----------------|
-| Effort flow (Sankey) | `origin`, `slug`, `tacks[].project` |
+| Effort flow (Sankey) | `origin`, `slug`, `tacks[].deliverable.url` |
 | Dependency graph | `depends_on` (route + tack level), `tacks[].status` |
 | Quarterly Gantt | `created_at`, `tacks[].done_at`, `tacks[].depends_on`, `origin` |
 | Origin overlay | `created_at`, `origin` |

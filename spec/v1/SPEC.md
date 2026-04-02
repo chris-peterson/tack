@@ -23,7 +23,7 @@ Route (1 YAML file)
 │   └── id, started_at
 └── tacks[]
     ├── id (t1, t2, ...), summary, status
-    ├── project, done_at
+    ├── done_at
     ├── depends_on: [tack IDs]
     ├── deliverable — the change request
     │   └── label, url
@@ -94,7 +94,6 @@ change when the route is updated.
 
 **[TK-02]** Each tack shall contain the following optional fields:
 - `done_at` (string) — ISO 8601 date (YYYY-MM-DD) when the tack was completed
-- `project` (string) — repository or project identifier (e.g., `org/repo-name`)
 - `depends_on` (array of strings) — IDs of tacks within the same route that
   must complete first
 - `deliverable` (object) — the change request this tack produces
@@ -214,8 +213,7 @@ display the route's tacks, their statuses, dependencies, deliverable, and any
 pending todo items. When invoked without a slug, the CLI shall display a
 summary of all routes.
 
-**[CL-04]** `tack add <slug> <summary> [--project <project>]
-[--depends-on <id,...>]` — When invoked, the CLI shall add a new tack to the
+**[CL-04]** `tack add <slug> <summary> [--depends-on <id,...>]` — When invoked, the CLI shall add a new tack to the
 specified route with the next sequential ID.
 
 **[CL-05]** `tack done <slug> <tack-id>` — When invoked, the CLI shall set the
@@ -271,10 +269,11 @@ and writes tack route files using the CLI defined in the CL category.
 the background to build context about current work.
 
 **[AG-03]** When the user begins work in a project that is not referenced by
-any active route's tacks (via the `project` field), the agent shall ask
-whether the work is a tangent. The question shall be phrased as a single
-non-blocking line (e.g., "This doesn't seem related to any current route —
-tangent?").
+any active route's tack deliverables, the agent shall ask whether the work is
+a tangent. The project is inferred from the deliverable URL
+(`<protocol>://<forge-instance>/<project-path>/...`). The question shall be
+phrased as a single non-blocking line (e.g., "This doesn't seem related to
+any current route — tangent?").
 
 **[AG-04]** When the user confirms a tangent, the agent shall create a new
 route with `origin` set to `tangent` and add the first tack.

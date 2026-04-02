@@ -152,7 +152,7 @@ function detectCycle(route: Route, tackId: string, dependsOn: string[]): void {
 export function addTack(
   slug: string,
   summary: string,
-  opts: { project?: string; dependsOn?: string[] } = {}
+  opts: { dependsOn?: string[] } = {}
 ): Tack {
   const route = load(slug);
   const id = nextTackId(route);
@@ -168,7 +168,6 @@ export function addTack(
     status: "pending",
   };
 
-  if (opts.project) tack.project = opts.project;
   if (opts.dependsOn?.length) tack.depends_on = opts.dependsOn;
 
   route.tacks.push(tack);

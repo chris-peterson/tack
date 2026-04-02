@@ -43,11 +43,10 @@ Add a tack to a route.
 
 | Option | Description |
 |---|---|
-| `--project <name>` | Repository or project identifier |
 | `--depends-on <id,...>` | Comma-separated tack IDs this depends on |
 
 ```bash
-tack add auth-rewrite "Replace session middleware" --project org/api-server
+tack add auth-rewrite "Replace session middleware"
 tack add auth-rewrite "Update SDK" --depends-on t1
 ```
 

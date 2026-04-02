@@ -24,7 +24,6 @@ export interface Tack {
   summary: string;
   status: TackStatus;
   done_at?: string;
-  project?: string;
   depends_on?: string[];
   deliverable?: Deliverable;
   before?: TodoItem[];

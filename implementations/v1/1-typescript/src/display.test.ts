@@ -22,11 +22,6 @@ describe("formatTack", () => {
     assert.ok(out.includes("[2026-03-30]"));
   });
 
-  it("includes project", () => {
-    const tack: Tack = { id: "t1", summary: "Task", status: "pending", project: "my-repo" };
-    assert.ok(formatTack(tack).includes("(my-repo)"));
-  });
-
   it("includes dependencies", () => {
     const tack: Tack = { id: "t2", summary: "Task", status: "pending", depends_on: ["t1"] };
     assert.ok(formatTack(tack).includes("depends on: t1"));

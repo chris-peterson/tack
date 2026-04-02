@@ -21,10 +21,9 @@ function formatTodoItem(item: TodoItem): string {
 export function formatTack(tack: Tack): string {
   const lines: string[] = [];
   const icon = statusIcon(tack.status);
-  const project = tack.project ? ` (${tack.project})` : "";
   const doneAt = tack.done_at ? ` [${tack.done_at}]` : "";
 
-  lines.push(`[${icon}] ${tack.id}: ${tack.summary}${project}${doneAt}`);
+  lines.push(`[${icon}] ${tack.id}: ${tack.summary}${doneAt}`);
 
   if (tack.deliverable) {
     lines.push(`    deliverable: ${tack.deliverable.label} — ${tack.deliverable.url}`);

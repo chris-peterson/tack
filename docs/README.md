@@ -11,8 +11,8 @@ tack captures the non-linear reality of how development actually happens — piv
 ```bash
 tack init auth-rewrite
 
-tack add auth-rewrite "Replace session middleware" --project org/api-server
-tack add auth-rewrite "Update client SDK" --project org/sdk --depends-on t1
+tack add auth-rewrite "Replace session middleware"
+tack add auth-rewrite "Update client SDK" --depends-on t1
 
 tack before auth-rewrite t1 "Read compliance requirements"
 tack start auth-rewrite t1
@@ -31,7 +31,7 @@ Route (1 YAML file per route)
 ├── depends_on: [route slugs]
 └── tacks[]
     ├── id (t1, t2, ...), summary, status
-    ├── project, done_at
+    ├── done_at
     ├── depends_on: [tack IDs]
     ├── deliverable — the change request
     │   └── label, url

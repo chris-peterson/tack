@@ -79,10 +79,6 @@
           "format": "date",
           "description": "Date when the tack was completed (YYYY-MM-DD)"
         },
-        "project": {
-          "type": "string",
-          "description": "Repository or project identifier (e.g., org/repo-name)"
-        },
         "depends_on": {
           "type": "array",
           "items": {

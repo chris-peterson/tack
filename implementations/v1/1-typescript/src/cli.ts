@@ -11,7 +11,7 @@ Usage:
   tack init <slug> [--tangent]
   tack status [slug]
   tack list [--json]
-  tack add <slug> <summary> [--project <p>] [--depends-on <id,...>]
+  tack add <slug> <summary> [--depends-on <id,...>]
   tack start <slug> <tack-id>
   tack done <slug> <tack-id>
   tack drop <slug> <tack-id>
@@ -21,6 +21,7 @@ Usage:
   tack todo done <slug> <tack-id> <todo-id>
   tack todo drop <slug> <tack-id> <todo-id>
   tack link <slug> <tack-id> <label> <url>
+  tack session <slug> <session-id>
   tack rm <slug> [--force]`);
   process.exit(1);
 }
@@ -76,7 +77,6 @@ function run(): void {
       const { values } = parseArgs({
         args: rest.slice(2),
         options: {
-          project: { type: "string" },
           "depends-on": { type: "string" },
         },
         strict: false,
@@ -87,7 +87,6 @@ function run(): void {
         : undefined;
 
       const tack = route.addTack(slug, summary, {
-        project: values.project as string | undefined,
         dependsOn,
       });
       console.log(formatTack(tack));
@@ -162,6 +161,13 @@ function run(): void {
       if (rest.length < 4) usage();
       const tack = route.addLink(rest[0], rest[1], rest[2], rest[3]);
       console.log(formatTack(tack));
+      break;
+    }
+
+    case "session": {
+      if (!rest[0] || !rest[1]) usage();
+      const r = route.recordSession(rest[0], rest[1]);
+      console.log(formatRoute(r));
       break;
     }
 

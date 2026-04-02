@@ -19,7 +19,7 @@ Route (1 YAML file per route)
 │   └── id, started_at
 └── tacks[]
     ├── id (t1, t2, ...), summary, status
-    ├── project, done_at
+    ├── done_at
     ├── depends_on: [tack IDs]
     ├── deliverable — the change request
     │   └── label, url
