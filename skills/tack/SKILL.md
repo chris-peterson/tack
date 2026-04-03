@@ -17,13 +17,13 @@ todo items.
 
 ### Session start (no arguments or "status")
 
-1. Run `tack list` to discover all routes.
-2. Run `tack status <slug>` for each route that has open tacks (tacks not
-   `done` or `dropped`). These are the **active routes**.
+1. Run `tack tree -d 2` to get an overview of all routes and their tacks.
+2. Identify **active routes** — those with open tacks (not `done` or `dropped`).
 3. Record the current Claude Code session ID on each active route:
    `tack session <slug> $CLAUDE_SESSION_ID` (skip if already recorded).
 4. Present a brief summary of active work — route names, open tacks, and any
-   blocked items. Keep it to a few lines; the user can ask for details.
+   blocked items. Keep it to a few lines; the user can drill deeper with
+   `tack tree <slug>` or glob queries like `tack tree '**/deliverable'`.
 
 ### New project detection
 
@@ -73,12 +73,37 @@ pending `after` todo items, surface them before moving on:
 Do not prompt the user more than once per distinct event. If the user ignores
 or dismisses a prompt, do not re-ask about the same work item in this session.
 
+### Browsing with `tack tree`
+
+Use `tack tree` to browse routes and tacks like a filesystem:
+
+```bash
+tack tree                          # All routes (depth 1)
+tack tree <slug>                   # Tacks in a route (depth 2)
+tack tree <slug>/<tack-id>         # Tack details
+tack tree <slug>/<tack-id>/<aspect> # One aspect (deliverable, before, after, links, depends_on)
+tack tree -d 2                     # All routes expanded with tacks
+tack tree -d 3                     # Full detail on everything
+```
+
+Glob queries (quote to prevent shell expansion):
+
+```bash
+tack tree '**/deliverable'         # All deliverables across all routes
+tack tree 'ai-sdlc/**'            # Everything under a route
+tack tree '*/t1'                   # Every t1 across all routes
+tack tree '**/depends_on'          # All dependency chains
+```
+
+`*` matches within a segment, `**` matches across segments, `?` matches one character.
+
 ## CLI Reference
 
 ```text
-tack init <slug> [--tangent]       Create a new route
-tack list                          List all routes
-tack status [slug]                 Show route details (or all routes summary)
+tack init <slug> [--tangent] [--group <slug>]  Create a new route
+tack list [--json]                 List all routes
+tack status [slug] [--json]        Show route details (or all routes summary)
+tack tree [path] [-d <depth>]      Browse routes/tacks (glob: */*/deliverable)
 tack add <slug> <summary>          Add a tack
   [--depends-on <id,...>]
 tack start <slug> <tack-id>        Start a tack
@@ -90,5 +115,7 @@ tack after <slug> <id> <text>      Add post-work todo
 tack todo done <slug> <id> <todo>  Complete a todo
 tack todo drop <slug> <id> <todo>  Remove a todo
 tack link <slug> <id> <label> <url>  Add a link
+tack session <slug> <session-id>   Record a session
 tack rm <slug> [--force]           Delete a route
+tack completions zsh               Install shell completions
 ```

@@ -5,7 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import * as route from "./route.js";
-import { formatRoute, formatTack, formatList } from "./display.js";
+import { formatRoute, formatTack, formatList, formatTree } from "./display.js";
 import { ZSH_COMPLETION } from "./completions.js";
 
 function usage(): never {
@@ -15,6 +15,7 @@ Usage:
   tack init <slug> [--tangent] [--group <slug>]
   tack status [slug]
   tack list [--json]
+  tack tree [path] [-d <depth>]    (path supports glob: */*/deliverable)
   tack add <slug> <summary> [--depends-on <id,...>]
   tack start <slug> <tack-id>
   tack done <slug> <tack-id>
@@ -83,6 +84,25 @@ function run(): void {
         const routes = route.list();
         console.log(formatList(routes));
       }
+      break;
+    }
+
+    case "tree": {
+      const { values: treeValues } = parseArgs({
+        args: rest,
+        options: {
+          depth: { type: "string", short: "d" },
+        },
+        allowPositionals: true,
+      });
+      const treePath = rest.filter((a) => !a.startsWith("-") && a !== treeValues.depth)[0];
+      const depth = treeValues.depth ? parseInt(treeValues.depth as string, 10) : undefined;
+      const hasGlob = treePath && (treePath.includes("*") || treePath.includes("?"));
+      const slugs = !treePath || hasGlob
+        ? route.list().map((r) => r.slug)
+        : [treePath.split("/")[0]];
+      const routes = slugs.map((s) => route.load(s));
+      console.log(formatTree(routes, treePath, depth));
       break;
     }
 

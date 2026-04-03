@@ -13,9 +13,23 @@ _tack_tack_ids() {
   local tack_dir="\${TACK_HOME:-$HOME/.tack}/routes"
   local route_file="$tack_dir/$slug.yaml"
   [[ -f "$route_file" ]] || return
-  local -a ids
-  ids=( \${(f)"$(grep -E '^  - id: ' "$route_file" | sed 's/^  - id: //')"} )
-  (( \${#ids} )) && compadd -a ids
+  local -a ids descs
+  local id summary
+  while IFS= read -r line; do
+    if [[ "$line" =~ '^  - id: (.+)' ]]; then
+      id="\${match[1]}"
+    elif [[ -n "$id" && "$line" =~ '^    summary: (.+)' ]]; then
+      summary="\${match[1]}"
+      ids+=("$id")
+      descs+=("$id:$summary")
+      id=""
+    fi
+  done < "$route_file"
+  if (( \${#descs} )); then
+    _describe 'tack' descs
+  elif (( \${#ids} )); then
+    compadd -a ids
+  fi
 }
 
 _tack_todo_ids() {
@@ -31,12 +45,86 @@ _tack_todo_ids() {
   (( \${#ids} )) && compadd -a ids
 }
 
+_tack_tree_path() {
+  local tack_dir="\${TACK_HOME:-$HOME/.tack}/routes"
+  [[ -d "$tack_dir" ]] || return
+  local cur="\${words[CURRENT]}"
+  local -a parts
+  parts=("\${(@s:/:)cur}")
+  local nparts=\${#parts}
+
+  # slug/tack-id/ → complete aspects
+  if (( nparts >= 3 )) || { (( nparts == 2 )) && [[ "$cur" == */*/  ]]; }; then
+    local slug="\${parts[1]}"
+    local tack_id="\${parts[2]}"
+    local route_file="$tack_dir/$slug.yaml"
+    [[ -f "$route_file" ]] || return
+    local prefix="$slug/$tack_id/"
+    local -a aspects
+    # parse which aspects this tack actually has
+    local in_tack=0 has_deliverable=0 has_before=0 has_after=0 has_links=0 has_depends=0
+    while IFS= read -r line; do
+      if [[ "$line" =~ '^  - id: (.+)' ]]; then
+        [[ "\${match[1]}" == "$tack_id" ]] && in_tack=1 || { (( in_tack )) && break; }
+      elif (( in_tack )); then
+        [[ "$line" =~ '^    deliverable:' ]] && has_deliverable=1
+        [[ "$line" =~ '^    before:' ]] && has_before=1
+        [[ "$line" =~ '^    after:' ]] && has_after=1
+        [[ "$line" =~ '^    links:' ]] && has_links=1
+        [[ "$line" =~ '^    depends_on:' ]] && has_depends=1
+      fi
+    done < "$route_file"
+    (( has_deliverable )) && aspects+=("\${prefix}deliverable")
+    (( has_before )) && aspects+=("\${prefix}before")
+    (( has_after )) && aspects+=("\${prefix}after")
+    (( has_links )) && aspects+=("\${prefix}links")
+    (( has_depends )) && aspects+=("\${prefix}depends_on")
+    (( \${#aspects} )) && compadd -Q -a aspects
+    return
+  fi
+
+  # slug/ → complete tack IDs
+  if [[ "$cur" == */* ]]; then
+    local slug="\${cur%%/*}"
+    local route_file="$tack_dir/$slug.yaml"
+    [[ -f "$route_file" ]] || return
+    local -a tack_ids tack_descs
+    local id summary
+    while IFS= read -r line; do
+      if [[ "$line" =~ '^  - id: (.+)' ]]; then
+        id="\${match[1]}"
+      elif [[ -n "$id" && "$line" =~ '^    summary: (.+)' ]]; then
+        summary="\${match[1]}"
+        tack_ids+=("$slug/$id")
+        tack_descs+=("$slug/$id ($summary)")
+        id=""
+      fi
+    done < "$route_file"
+    (( \${#tack_ids} )) && compadd -S / -q -l -d tack_descs -a tack_ids
+    return
+  fi
+
+  # no slash → complete route slugs
+  local -a routes slugs descs
+  local slug route_file open total
+  routes=( "$tack_dir"/*.yaml(N:t:r) )
+  for slug in "\${routes[@]}"; do
+    route_file="$tack_dir/$slug.yaml"
+    total=\$(grep -c '^  - id: ' "$route_file" 2>/dev/null || echo 0)
+    open=\$(awk '/^  - id:/{t=1} t && /^    status:/{if(\$2!="done" && \$2!="dropped")c++; t=0} END{print c+0}' "$route_file")
+    slugs+=("$slug")
+    descs+=("$slug ($open open / $total total)")
+  done
+  (( \${#slugs} )) && compadd -S / -q -l -d descs -a slugs
+}
+
 _tack() {
   local -a commands
   commands=(
     'init:Create a new route'
     'status:Show route status'
     'list:List all routes'
+    'tree:Browse routes and tacks'
     'add:Add a tack to a route'
     'start:Start working on a tack'
     'done:Mark a tack as done'
@@ -76,6 +164,13 @@ _tack() {
     list)
       # tack list [--json]
       _arguments '--json[Output JSON]'
+      ;;
+    tree)
+      # tack tree [path] [-d <depth>]
+      case "$CURRENT" in
+        3) _tack_tree_path; _arguments '-d[Expansion depth (1-3)]:depth:(1 2 3)' '--depth[Expansion depth (1-3)]:depth:(1 2 3)' ;;
+        *) _arguments '-d[Expansion depth (1-3)]:depth:(1 2 3)' '--depth[Expansion depth (1-3)]:depth:(1 2 3)' ;;
+      esac
       ;;
     add)
       # tack add <slug> <summary> [--depends-on <id,...>]

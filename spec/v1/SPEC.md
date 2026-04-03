@@ -278,6 +278,30 @@ default text format.
 **[CL-19]** `tack completions <shell>` — When invoked, the CLI shall install
 shell tab completions. Supported shells: `zsh`.
 
+**[CL-20]** When tab completing tack IDs, the shell shall display each tack's
+summary as a completion description alongside the ID.
+
+**[CL-21]** `tack tree [path] [-d <depth>]` — When invoked without a path, the
+CLI shall display all routes as a navigable tree. The path uses `/`-separated
+segments supporting three levels:
+- `<slug>` — display that route's tacks
+- `<slug>/<tack-id>` — display that tack's details
+- `<slug>/<tack-id>/<aspect>` — display only that aspect (`deliverable`,
+  `before`, `after`, `links`, `depends_on`)
+
+Path segments may contain glob wildcards (`*`, `?`, `**`) which match against
+values at that level. `*` matches within a single segment, `**` matches across
+segment boundaries (e.g., `**/deliverable` finds deliverables at any depth,
+`ai-sdlc/**` shows everything under a route). Glob paths must be quoted to
+prevent shell expansion.
+
+The `-d`/`--depth` option controls expansion: depth 1 = routes only, depth 2 =
+routes + tacks, depth 3 = routes + tacks + details. Default depth is 1 when no
+path is given, 2 when a route path is given.
+
+Tab completion for the path argument shall resolve each level progressively
+with `/` suffixes, allowing filesystem-style drill-down without retyping.
+
 ---
 
 ### AG — Agent Integration

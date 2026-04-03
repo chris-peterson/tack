@@ -27,6 +27,62 @@ List all routes with open/total tack counts.
 tack list
 ```
 
+### `tack tree [path] [-d <depth>]`
+
+Browse routes and tacks as a navigable tree. Paths use `/`-separated segments
+with progressive drill-down. Supports glob wildcards (`*`, `?`) for querying
+across routes and tacks.
+
+**Depth levels:** 1 = routes only (default), 2 = routes + tacks, 3 = full details.
+
+```bash
+# Browse all routes
+tack tree
+
+# Drill into a route
+tack tree auth-rewrite
+
+# Drill into a tack
+tack tree auth-rewrite/t1
+
+# Drill into an aspect
+tack tree auth-rewrite/t1/deliverable
+
+# Expand all routes with tacks
+tack tree -d 2
+
+# Full detail on everything
+tack tree -d 3
+```
+
+**Glob queries** (quote the path to prevent shell expansion):
+
+```bash
+# All deliverables (** matches across levels)
+tack tree '**/deliverable'
+
+# Everything under a route
+tack tree 'ai-sdlc/**'
+
+# All t1 tacks
+tack tree '*/t1'
+
+# Deliverables in routes matching a prefix
+tack tree 'vault-*/*/deliverable'
+
+# All dependency chains
+tack tree '**/depends_on'
+
+# Routes matching a pattern
+tack tree 'fix-*'
+```
+
+`*` matches within a single path segment, `**` matches across segment
+boundaries, `?` matches a single character.
+
+**Tab completion** resolves each level progressively — routes append `/` so you
+can keep drilling without retyping.
+
 ### `tack rm <slug> [--force]`
 
 Delete a route. Requires `--force` to confirm.
