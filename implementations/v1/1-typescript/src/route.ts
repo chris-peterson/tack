@@ -183,6 +183,15 @@ export function markDone(slug: string, tackId: string): { tack: Tack; pendingTod
   tack.status = "done";
   if (!tack.done_at) tack.done_at = today();
 
+  if (!tack.deliverable && tack.links?.length) {
+    const prLink = tack.links.find((l) => isPrOrMrUrl(l.url));
+    if (prLink) {
+      tack.deliverable = { label: prLink.label, url: prLink.url };
+      tack.links = tack.links.filter((l) => l !== prLink);
+      if (tack.links.length === 0) delete tack.links;
+    }
+  }
+
   const pendingTodo = (tack.after ?? [])
     .filter((a) => !a.done)
     .map((a) => a.text);
@@ -269,11 +278,24 @@ export function dropTodo(slug: string, tackId: string, todoId: string): Tack {
   return tack;
 }
 
+const PR_MR_PATTERN =
+  /^https:\/\/(github\.com\/[^/]+\/[^/]+\/pull|gitlab\.[^/]*\/.*\/-\/merge_requests)\/[0-9]+/;
+
+function isPrOrMrUrl(url: string): boolean {
+  return PR_MR_PATTERN.test(url);
+}
+
 export function addLink(slug: string, tackId: string, label: string, url: string): Tack {
   const route = load(slug);
   const tack = findTack(route, tackId);
-  if (!tack.links) tack.links = [];
-  tack.links.push({ label, url });
+
+  if (!tack.deliverable && isPrOrMrUrl(url)) {
+    tack.deliverable = { label, url };
+  } else {
+    if (!tack.links) tack.links = [];
+    tack.links.push({ label, url });
+  }
+
   save(route);
   return tack;
 }

@@ -80,7 +80,6 @@ tack init <slug> [--tangent]       Create a new route
 tack list                          List all routes
 tack status [slug]                 Show route details (or all routes summary)
 tack add <slug> <summary>          Add a tack
-  [--project <project>]
   [--depends-on <id,...>]
 tack start <slug> <tack-id>        Start a tack
 tack done <slug> <tack-id>         Complete a tack

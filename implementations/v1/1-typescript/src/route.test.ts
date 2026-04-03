@@ -275,6 +275,58 @@ describe("addLink", () => {
     assert.equal(t.links![0].label, "Design doc");
     assert.equal(t.links![0].url, "https://example.com/design");
   });
+
+  it("promotes a GitHub PR link to deliverable", () => {
+    route.init("link-pr-promote");
+    route.addTack("link-pr-promote", "Task");
+    const t = route.addLink("link-pr-promote", "t1", "My PR", "https://github.com/acme/repo/pull/42");
+    assert.ok(t.deliverable);
+    assert.equal(t.deliverable!.label, "My PR");
+    assert.equal(t.deliverable!.url, "https://github.com/acme/repo/pull/42");
+    assert.equal(t.links, undefined);
+  });
+
+  it("promotes a GitLab MR link to deliverable", () => {
+    route.init("link-mr-promote");
+    route.addTack("link-mr-promote", "Task");
+    const t = route.addLink("link-mr-promote", "t1", "My MR", "https://gitlab.example.com/group/proj/-/merge_requests/99");
+    assert.ok(t.deliverable);
+    assert.equal(t.deliverable!.url, "https://gitlab.example.com/group/proj/-/merge_requests/99");
+    assert.equal(t.links, undefined);
+  });
+
+  it("adds PR link to links if deliverable already set", () => {
+    route.init("link-pr-existing");
+    route.addTack("link-pr-existing", "Task");
+    route.setDeliverable("link-pr-existing", "t1", "First PR", "https://github.com/acme/repo/pull/1");
+    const t = route.addLink("link-pr-existing", "t1", "Second PR", "https://github.com/acme/repo/pull/2");
+    assert.equal(t.deliverable!.url, "https://github.com/acme/repo/pull/1");
+    assert.equal(t.links!.length, 1);
+    assert.equal(t.links![0].url, "https://github.com/acme/repo/pull/2");
+  });
+});
+
+describe("markDone promotes PR link to deliverable", () => {
+  it("promotes a PR link when no deliverable is set", () => {
+    route.init("done-promote");
+    route.addTack("done-promote", "Task");
+    route.addLink("done-promote", "t1", "Docs", "https://example.com/docs");
+    route.addLink("done-promote", "t1", "The PR", "https://github.com/acme/repo/pull/7");
+    const { tack } = route.markDone("done-promote", "t1");
+    assert.ok(tack.deliverable);
+    assert.equal(tack.deliverable!.url, "https://github.com/acme/repo/pull/7");
+    assert.equal(tack.links!.length, 1);
+    assert.equal(tack.links![0].label, "Docs");
+  });
+
+  it("does not overwrite existing deliverable on done", () => {
+    route.init("done-no-overwrite");
+    route.addTack("done-no-overwrite", "Task");
+    route.setDeliverable("done-no-overwrite", "t1", "Original", "https://github.com/acme/repo/pull/1");
+    route.addLink("done-no-overwrite", "t1", "Other PR", "https://github.com/acme/repo/pull/2");
+    const { tack } = route.markDone("done-no-overwrite", "t1");
+    assert.equal(tack.deliverable!.url, "https://github.com/acme/repo/pull/1");
+  });
 });
 
 describe("recordSession", () => {

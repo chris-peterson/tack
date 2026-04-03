@@ -224,7 +224,9 @@ specified route with the next sequential ID.
 
 **[CL-05]** `tack done <slug> <tack-id>` — When invoked, the CLI shall set the
 specified tack's status to `done` and `done_at` to the current date. If the
-tack has pending `after` items, they shall be displayed.
+tack has pending `after` items, they shall be displayed. If the tack has no
+deliverable and its `links` array contains a PR/MR URL, the first matching
+link shall be promoted to the tack's deliverable and removed from `links`.
 
 **[CL-06]** `tack drop <slug> <tack-id>` — When invoked, the CLI shall set the
 specified tack's status to `dropped`.
@@ -250,7 +252,9 @@ the current date per [TD-04].
 CLI shall remove the specified todo item from its array.
 
 **[CL-13]** `tack link <slug> <tack-id> <label> <url>` — When invoked, the
-CLI shall add a link to the specified tack.
+CLI shall add a link to the specified tack. When the URL matches a PR/MR
+pattern and the tack has no deliverable, the link shall be promoted to the
+tack's deliverable instead of being added to `links`.
 
 **[CL-14]** `tack list` — When invoked, the CLI shall list all route files in
 `~/.tack/routes/` with their slug, number of tacks, and number of open tacks.
@@ -262,6 +266,17 @@ confirmation message and exit without deleting.
 
 **[CL-16]** When any write command succeeds, the CLI shall display the updated
 state of the affected tack or route.
+
+**[CL-17]** `tack session <slug> <session-id>` — When invoked, the CLI shall
+record the session ID in the route's `sessions` array per [RT-09]. If the
+session ID already exists, it shall not duplicate.
+
+**[CL-18]** `tack list [--json]` and `tack status [slug] [--json]` — When
+`--json` is passed, the CLI shall output the result as JSON instead of the
+default text format.
+
+**[CL-19]** `tack completions <shell>` — When invoked, the CLI shall install
+shell tab completions. Supported shells: `zsh`.
 
 ---
 

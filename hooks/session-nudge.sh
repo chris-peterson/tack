@@ -53,11 +53,11 @@ if [ ! -f "$nudge_file" ] && command -v tack >/dev/null 2>&1; then
           break
         fi
       done
-      # Also check if any route has an in_progress tack
+      # Also check if any route has an open tack (not done or dropped)
       if [ "$has_route" = false ]; then
         for f in "$tack_dir"/*.yaml; do
           [ -f "$f" ] || continue
-          if grep -q 'status: in_progress' "$f" 2>/dev/null; then
+          if grep -qE 'status: (pending|in_progress|blocked)' "$f" 2>/dev/null; then
             has_route=true
             break
           fi
