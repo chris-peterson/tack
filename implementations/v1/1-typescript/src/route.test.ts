@@ -266,6 +266,95 @@ describe("dropTodo", () => {
   });
 });
 
+describe("editTack", () => {
+  it("updates a tack summary", () => {
+    route.init("edit-test");
+    route.addTack("edit-test", "Original summary");
+    const t = route.editTack("edit-test", "t1", "Updated summary");
+    assert.equal(t.summary, "Updated summary");
+    assert.equal(t.id, "t1");
+  });
+
+  it("preserves other tack fields", () => {
+    route.init("edit-preserve");
+    route.addTack("edit-preserve", "Task");
+    route.startTack("edit-preserve", "t1");
+    route.addBefore("edit-preserve", "t1", "Pre-work");
+    const t = route.editTack("edit-preserve", "t1", "New summary");
+    assert.equal(t.status, "in_progress");
+    assert.equal(t.before!.length, 1);
+  });
+
+  it("throws for nonexistent tack", () => {
+    route.init("edit-bad");
+    assert.throws(() => route.editTack("edit-bad", "t99", "Nope"), /not found/i);
+  });
+});
+
+describe("mergeTacks", () => {
+  it("merges source links and todos into target", () => {
+    route.init("merge-test");
+    route.addTack("merge-test", "Target task");
+    route.addTack("merge-test", "Source task");
+    route.addBefore("merge-test", "t2", "Source prereq");
+    route.addAfter("merge-test", "t2", "Source followup");
+    route.addLink("merge-test", "t2", "Doc", "https://example.com/doc");
+
+    const t = route.mergeTacks("merge-test", "t2", "t1");
+    assert.equal(t.before!.length, 1);
+    assert.equal(t.before![0].id, "b1");
+    assert.equal(t.before![0].text, "Source prereq");
+    assert.equal(t.after!.length, 1);
+    assert.equal(t.after![0].text, "Source followup");
+    assert.equal(t.links!.length, 1);
+    assert.equal(t.links![0].label, "Doc");
+
+    const r = route.load("merge-test");
+    const source = r.tacks.find((t) => t.id === "t2");
+    assert.equal(source!.status, "dropped");
+  });
+
+  it("moves deliverable from source when target has none", () => {
+    route.init("merge-dlv");
+    route.addTack("merge-dlv", "Target");
+    route.addTack("merge-dlv", "Source");
+    route.setDeliverable("merge-dlv", "t2", "PR #5", "https://github.com/acme/repo/pull/5");
+
+    const t = route.mergeTacks("merge-dlv", "t2", "t1");
+    assert.equal(t.deliverable!.label, "PR #5");
+  });
+
+  it("keeps target deliverable when both have one", () => {
+    route.init("merge-dlv-both");
+    route.addTack("merge-dlv-both", "Target");
+    route.addTack("merge-dlv-both", "Source");
+    route.setDeliverable("merge-dlv-both", "t1", "Target PR", "https://github.com/acme/repo/pull/1");
+    route.setDeliverable("merge-dlv-both", "t2", "Source PR", "https://github.com/acme/repo/pull/2");
+
+    const t = route.mergeTacks("merge-dlv-both", "t2", "t1");
+    assert.equal(t.deliverable!.label, "Target PR");
+  });
+
+  it("re-IDs todos to avoid conflicts", () => {
+    route.init("merge-reids");
+    route.addTack("merge-reids", "Target");
+    route.addTack("merge-reids", "Source");
+    route.addBefore("merge-reids", "t1", "Target prereq");
+    route.addBefore("merge-reids", "t2", "Source prereq");
+
+    const t = route.mergeTacks("merge-reids", "t2", "t1");
+    assert.equal(t.before!.length, 2);
+    assert.equal(t.before![0].id, "b1");
+    assert.equal(t.before![1].id, "b2");
+  });
+
+  it("throws when merging a tack into itself", () => {
+    route.init("merge-self");
+    route.addTack("merge-self", "Task");
+    assert.throws(() => route.mergeTacks("merge-self", "t1", "t1"), /itself/);
+  });
+});
+
 describe("addLink", () => {
   it("adds a link to a tack", () => {
     route.init("link-test");

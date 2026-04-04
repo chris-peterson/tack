@@ -300,6 +300,56 @@ export function addLink(slug: string, tackId: string, label: string, url: string
   return tack;
 }
 
+export function editTack(slug: string, tackId: string, summary: string): Tack {
+  const route = load(slug);
+  const tack = findTack(route, tackId);
+  tack.summary = summary;
+  save(route);
+  return tack;
+}
+
+export function mergeTacks(slug: string, sourceId: string, targetId: string): Tack {
+  const route = load(slug);
+  const source = findTack(route, sourceId);
+  const target = findTack(route, targetId);
+
+  if (source.id === target.id) {
+    throw new Error("Cannot merge a tack into itself");
+  }
+
+  if (!target.deliverable && source.deliverable) {
+    target.deliverable = source.deliverable;
+  }
+
+  if (source.before?.length) {
+    if (!target.before) target.before = [];
+    for (const item of source.before) {
+      const id = nextTodoId(target.before, "b");
+      target.before.push({ ...item, id });
+    }
+  }
+
+  if (source.after?.length) {
+    if (!target.after) target.after = [];
+    for (const item of source.after) {
+      const id = nextTodoId(target.after, "a");
+      target.after.push({ ...item, id });
+    }
+  }
+
+  if (source.links?.length) {
+    if (!target.links) target.links = [];
+    for (const link of source.links) {
+      target.links.push({ ...link });
+    }
+  }
+
+  source.status = "dropped";
+
+  save(route);
+  return target;
+}
+
 export function recordSession(slug: string, sessionId: string): Route {
   const route = load(slug);
   if (!route.sessions) route.sessions = [];

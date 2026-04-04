@@ -129,6 +129,8 @@ _tack() {
     'start:Start working on a tack'
     'done:Mark a tack as done'
     'drop:Drop a tack'
+    'edit:Edit a tack summary'
+    'merge:Merge a tack into another'
     'deliverable:Set a deliverable on a tack'
     'before:Add a pre-work todo'
     'after:Add a post-work todo'
@@ -185,6 +187,22 @@ _tack() {
       case "$CURRENT" in
         3) _tack_routes ;;
         4) _tack_tack_ids "\${words[3]}" ;;
+      esac
+      ;;
+    edit)
+      # tack edit <slug> <tack-id> <summary>
+      case "$CURRENT" in
+        3) _tack_routes ;;
+        4) _tack_tack_ids "\${words[3]}" ;;
+        5) _message 'summary' ;;
+      esac
+      ;;
+    merge)
+      # tack merge <slug> <source-id> <target-id>
+      case "$CURRENT" in
+        3) _tack_routes ;;
+        4) _tack_tack_ids "\${words[3]}" ;;
+        5) _tack_tack_ids "\${words[3]}" ;;
       esac
       ;;
     deliverable)

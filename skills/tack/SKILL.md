@@ -106,6 +106,8 @@ tack status [slug] [--json]        Show route details (or all routes summary)
 tack tree [path] [-d <depth>]      Browse routes/tacks (glob: */*/deliverable)
 tack add <slug> <summary>          Add a tack
   [--depends-on <id,...>]
+tack edit <slug> <tack-id> <summary>  Edit a tack summary
+tack merge <slug> <src-id> <tgt-id>  Merge source into target (drops source)
 tack start <slug> <tack-id>        Start a tack
 tack done <slug> <tack-id>         Complete a tack
 tack drop <slug> <tack-id>         Drop a tack

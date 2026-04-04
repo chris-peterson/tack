@@ -17,6 +17,8 @@ Usage:
   tack list [--json]
   tack tree [path] [-d <depth>]    (path supports glob: */*/deliverable)
   tack add <slug> <summary> [--depends-on <id,...>]
+  tack edit <slug> <tack-id> <summary>
+  tack merge <slug> <source-id> <target-id>
   tack start <slug> <tack-id>
   tack done <slug> <tack-id>
   tack drop <slug> <tack-id>
@@ -191,6 +193,20 @@ function run(): void {
       } else {
         usage();
       }
+      break;
+    }
+
+    case "edit": {
+      if (rest.length < 3) usage();
+      const tack = route.editTack(rest[0], rest[1], rest[2]);
+      console.log(formatTack(tack));
+      break;
+    }
+
+    case "merge": {
+      if (rest.length < 3) usage();
+      const tack = route.mergeTacks(rest[0], rest[1], rest[2]);
+      console.log(formatTack(tack));
       break;
     }
 
