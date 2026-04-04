@@ -36,6 +36,16 @@ active route's tack `project` fields, ask a single non-blocking question:
   from the project name, then `tack add <slug> <summary>` for the first tack.
 - If the user declines or ignores, do not ask again in this session.
 
+### Tack creation discipline
+
+Register the session on the route early (`tack session <slug> $CLAUDE_SESSION_ID`),
+but be conservative about adding new tacks. Most sessions produce a single tack.
+Only add a new tack when a distinct deliverable emerges (e.g. a separate PR/MR).
+Do not add tacks speculatively for work that hasn't been committed yet.
+
+If the session produced multiple tacks that turned out to represent the same
+deliverable, use `tack merge` to consolidate them before ending the session.
+
 ### Deliverable capture
 
 When a PR or MR URL appears in the session (created, merged, or referenced),
