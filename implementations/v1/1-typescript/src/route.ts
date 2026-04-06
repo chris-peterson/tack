@@ -360,6 +360,28 @@ export function recordSession(slug: string, sessionId: string): Route {
   return route;
 }
 
+export function recent(opts: { count?: number; since?: string } = {}): { slug: string; group?: string; origin: string; updated_at: string; total: number; open: number }[] {
+  ensureDir();
+  const files = readdirSync(TACK_DIR).filter((f: string) => f.endsWith(".yaml"));
+
+  let routes = files.map((f: string) => {
+    const slug = f.replace(/\.yaml$/, "");
+    const r = load(slug);
+    const open = r.tacks.filter((t) => t.status !== "done" && t.status !== "dropped").length;
+    return { slug, group: r.group, origin: r.origin ?? "planned", updated_at: r.updated_at, total: r.tacks.length, open };
+  });
+
+  routes.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+
+  if (opts.since) {
+    const sinceDate = new Date(opts.since).toISOString();
+    routes = routes.filter((r) => r.updated_at >= sinceDate);
+  }
+
+  const count = opts.count ?? 10;
+  return routes.slice(0, count);
+}
+
 export function remove(slug: string): void {
   const path = routePath(slug);
   if (!existsSync(path)) {

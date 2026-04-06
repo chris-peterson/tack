@@ -5,7 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import * as route from "./route.js";
-import { formatRoute, formatTack, formatList, formatTree } from "./display.js";
+import { formatRoute, formatTack, formatList, formatRecent, formatTree } from "./display.js";
 import { ZSH_COMPLETION } from "./completions.js";
 
 function usage(): never {
@@ -15,6 +15,7 @@ Usage:
   tack init <slug> [--tangent] [--group <slug>]
   tack status [slug]
   tack list [--json]
+  tack recent [--count <n>] [--since <date>]
   tack tree [path] [-d <depth>]    (path supports glob: */*/deliverable)
   tack add <slug> <summary> [--depends-on <id,...>]
   tack edit <slug> <tack-id> <summary>
@@ -86,6 +87,22 @@ function run(): void {
         const routes = route.list();
         console.log(formatList(routes));
       }
+      break;
+    }
+
+    case "recent": {
+      const { values: recentValues } = parseArgs({
+        args: rest,
+        options: {
+          count: { type: "string" },
+          since: { type: "string" },
+        },
+        allowPositionals: true,
+      });
+      const count = recentValues.count ? parseInt(recentValues.count as string, 10) : undefined;
+      const since = recentValues.since as string | undefined;
+      const recentRoutes = route.recent({ count, since });
+      console.log(formatRecent(recentRoutes));
       break;
     }
 

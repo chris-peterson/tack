@@ -290,6 +290,20 @@ export function formatTree(routes: Route[], path?: string, depth?: number): stri
   return lines.join("\n");
 }
 
+export function formatRecent(routes: { slug: string; group?: string; origin: string; updated_at: string; total: number; open: number }[]): string {
+  if (routes.length === 0) {
+    return "No recent routes found.";
+  }
+
+  const lines: string[] = [];
+  for (const r of routes) {
+    const tag = r.origin === "tangent" ? " [tangent]" : "";
+    const updated = r.updated_at.slice(0, 16).replace("T", " ");
+    lines.push(`${r.slug}${tag}  ${updated}  (${r.open} open / ${r.total} total)`);
+  }
+  return lines.join("\n");
+}
+
 export function formatList(routes: { slug: string; group?: string; origin: string; total: number; open: number }[]): string {
   if (routes.length === 0) {
     return "No routes found.";

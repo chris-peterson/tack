@@ -302,6 +302,13 @@ path is given, 2 when a route path is given.
 Tab completion for the path argument shall resolve each level progressively
 with `/` suffixes, allowing filesystem-style drill-down without retyping.
 
+**[CL-22]** `tack recent [--count <n>] [--since <date>]` — When invoked, the
+CLI shall list routes sorted by `updated_at` descending, showing each route's
+slug, last-updated time, and a summary of open tacks. The `--count` option
+limits the number of results (default: 10). The `--since` option filters to
+routes with `updated_at` on or after the given ISO 8601 date (e.g.,
+`2026-04-01`).
+
 ---
 
 ### AG — Agent Integration
