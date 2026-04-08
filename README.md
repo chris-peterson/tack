@@ -9,8 +9,8 @@ tack captures the non-linear reality of how development actually happens — piv
 ### Claude Code Plugin
 
 ```bash
-claude plugin marketplace add https://github.com/chris-peterson/tack
-claude plugin install tack
+claude plugins marketplace add https://github.com/chris-peterson/claude-marketplace
+claude plugins install tack@claude-marketplace
 ```
 
 ### CLI Only
