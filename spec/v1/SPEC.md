@@ -303,6 +303,11 @@ limits the number of results (default: 10). The `--since` option filters to
 routes with `updated_at` on or after the given ISO 8601 date (e.g.,
 `2026-04-01`).
 
+**[CL-24]** When displaying individual tack state in text output, the CLI shall
+prefix the tack ID with a bracketed status icon: `[ ]` pending, `[>]`
+in_progress, `[x]` done, `[!]` blocked, `[-]` dropped. Todo items shall use
+`[x]` for done and `[ ]` for not done.
+
 **[CL-23]** `tack find <url> [--json]` — When invoked, the CLI shall search all
 routes for tacks whose deliverable URL or link URLs match the given URL, and
 display each match as a tree: route slug, tack summary, and the matching

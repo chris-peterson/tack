@@ -286,8 +286,9 @@ export function formatFind(matches: FindMatch[]): string {
       lines.push(`${m.slug}\t${m.routeOpen} open / ${m.routeTotal} total${groupTag}`);
       lastSlug = m.slug;
     }
-    const doneAt = m.done_at ? `\t${m.done_at}` : "";
-    lines.push(`\t${m.tackId}: ${m.summary}\t${m.status}${doneAt}`);
+    const icon = statusIcon(m.status);
+    const doneAt = m.done_at ? ` [${m.done_at}]` : "";
+    lines.push(`\t[${icon}] ${m.tackId}: ${m.summary}${doneAt}`);
     lines.push(`\t\t${m.match}: ${m.label}\t${m.url}`);
   }
   return lines.join("\n");
