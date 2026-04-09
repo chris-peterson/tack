@@ -236,9 +236,9 @@ function run(): void {
     }
 
     case "find": {
-      if (!rest[0]) usage();
       const jsonFlag = rest.includes("--json");
       const url = rest.filter((a) => a !== "--json")[0];
+      if (!url) usage();
       const matches = route.find(url);
       console.log(jsonFlag ? JSON.stringify(matches, null, 2) : formatFind(matches));
       break;
