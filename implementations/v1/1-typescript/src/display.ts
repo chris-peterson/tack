@@ -1,4 +1,5 @@
 import type { Route, Tack, TodoItem } from "./types.js";
+import { isOpen, type FindMatch } from "./route.js";
 
 const STATUS_ICONS: Record<string, string> = {
   pending: " ",
@@ -19,38 +20,9 @@ function formatTodoItem(item: TodoItem): string {
 }
 
 export function formatTack(tack: Tack): string {
-  const lines: string[] = [];
   const icon = statusIcon(tack.status);
   const doneAt = tack.done_at ? ` [${tack.done_at}]` : "";
-
-  lines.push(`[${icon}] ${tack.id}: ${tack.summary}${doneAt}`);
-
-  if (tack.deliverable) {
-    lines.push(`    deliverable: ${tack.deliverable.label} — ${tack.deliverable.url}`);
-  }
-
-  if (tack.depends_on?.length) {
-    lines.push(`    depends on: ${tack.depends_on.join(", ")}`);
-  }
-
-  if (tack.before?.length) {
-    for (const item of tack.before) {
-      lines.push(`    before: ${formatTodoItem(item)}`);
-    }
-  }
-
-  if (tack.after?.length) {
-    for (const item of tack.after) {
-      lines.push(`    after: ${formatTodoItem(item)}`);
-    }
-  }
-
-  if (tack.links?.length) {
-    for (const link of tack.links) {
-      lines.push(`    link: ${link.label} — ${link.url}`);
-    }
-  }
-
+  const lines = [`[${icon}] ${tack.id}: ${tack.summary}${doneAt}`, ...formatTackDetails(tack, "    ")];
   return lines.join("\n");
 }
 
@@ -59,7 +31,6 @@ export function formatRoute(route: Route): string {
   lines.push(`# ${route.slug}`);
   lines.push(`  id: ${route.id}`);
   if (route.group) lines.push(`  group: ${route.group}`);
-  if (route.origin) lines.push(`  origin: ${route.origin}`);
   lines.push(`  created: ${route.created_at}`);
   lines.push(`  updated: ${route.updated_at}`);
 
@@ -168,9 +139,8 @@ function resolveGlobParts(routes: Route[], parts: string[]): string[] {
 
   if (parts.length === 1) {
     for (const r of matchedRoutes) {
-      const open = r.tacks.filter((t) => t.status !== "done" && t.status !== "dropped").length;
-      const tag = r.origin === "tangent" ? " [tangent]" : "";
-      lines.push(`${r.slug}/${tag}  (${open} open / ${r.tacks.length} total)`);
+      const open = r.tacks.filter(isOpen).length;
+      lines.push(`${r.slug}/  (${open} open / ${r.tacks.length} total)`);
     }
     return lines;
   }
@@ -273,9 +243,8 @@ export function formatTree(routes: Route[], path?: string, depth?: number): stri
   const effectiveDepth = depth ?? 1;
   const lines: string[] = [];
   for (const r of routes) {
-    const open = r.tacks.filter((t) => t.status !== "done" && t.status !== "dropped").length;
-    const tag = r.origin === "tangent" ? " [tangent]" : "";
-    lines.push(`${r.slug}/${tag}  (${open} open / ${r.tacks.length} total)`);
+    const open = r.tacks.filter(isOpen).length;
+    lines.push(`${r.slug}/  (${open} open / ${r.tacks.length} total)`);
     if (effectiveDepth >= 2) {
       for (const tack of r.tacks) {
         const icon = statusIcon(tack.status);
@@ -290,29 +259,48 @@ export function formatTree(routes: Route[], path?: string, depth?: number): stri
   return lines.join("\n");
 }
 
-export function formatRecent(routes: { slug: string; group?: string; origin: string; updated_at: string; total: number; open: number }[]): string {
+export function formatRecent(routes: { slug: string; group?: string; updated_at: string; total: number; open: number }[]): string {
   if (routes.length === 0) {
     return "No recent routes found.";
   }
 
   const lines: string[] = [];
   for (const r of routes) {
-    const tag = r.origin === "tangent" ? " [tangent]" : "";
     const updated = r.updated_at.slice(0, 16).replace("T", " ");
-    lines.push(`${r.slug}${tag}  ${updated}  (${r.open} open / ${r.total} total)`);
+    lines.push(`${r.slug}  ${updated}  (${r.open} open / ${r.total} total)`);
   }
   return lines.join("\n");
 }
 
-export function formatList(routes: { slug: string; group?: string; origin: string; total: number; open: number }[]): string {
+export function formatFind(matches: FindMatch[]): string {
+  if (matches.length === 0) {
+    return "No tacks reference the given URL.";
+  }
+
+  const lines: string[] = [];
+  let lastSlug = "";
+  for (const m of matches) {
+    if (m.slug !== lastSlug) {
+      if (lastSlug) lines.push("");
+      const groupTag = m.group ? `\tgroup: ${m.group}` : "";
+      lines.push(`${m.slug}\t${m.routeOpen} open / ${m.routeTotal} total${groupTag}`);
+      lastSlug = m.slug;
+    }
+    const doneAt = m.done_at ? `\t${m.done_at}` : "";
+    lines.push(`\t${m.tackId}: ${m.summary}\t${m.status}${doneAt}`);
+    lines.push(`\t\t${m.match}: ${m.label}\t${m.url}`);
+  }
+  return lines.join("\n");
+}
+
+export function formatList(routes: { slug: string; group?: string; total: number; open: number }[]): string {
   if (routes.length === 0) {
     return "No routes found.";
   }
 
   const lines: string[] = [];
   for (const r of routes) {
-    const tag = r.origin === "tangent" ? " [tangent]" : "";
-    lines.push(`${r.slug}${tag}  (${r.open} open / ${r.total} total)`);
+    lines.push(`${r.slug}  (${r.open} open / ${r.total} total)`);
   }
   return lines.join("\n");
 }

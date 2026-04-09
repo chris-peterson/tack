@@ -2,7 +2,7 @@ id: "550e8400-e29b-41d4-a716-446655440000"
 slug: "q2-auth-rewrite"
 created_at: "2026-03-15T10:00:00Z"
 updated_at: "2026-04-01T09:30:00Z"
-origin: "planned"
+group: "q2"
 depends_on:
   - "q2-session-setup"
 sessions:
@@ -18,7 +18,6 @@ tacks:
     summary: "Replace session middleware with JWT validation"
     status: "done"
     done_at: "2026-03-18"
-    project: "acme/api-server"
     deliverable:
       label: "JWT middleware PR"
       url: "https://github.com/acme/api-server/pull/312"
@@ -46,7 +45,6 @@ tacks:
     summary: "Update client SDK token refresh logic"
     status: "done"
     done_at: "2026-03-25"
-    project: "acme/sdk-js"
     depends_on:
       - "t1"
     deliverable:
@@ -61,7 +59,6 @@ tacks:
   - id: "t3"
     summary: "Migrate integration tests to new auth flow"
     status: "in_progress"
-    project: "acme/api-server"
     depends_on:
       - "t1"
     before:
@@ -76,7 +73,6 @@ tacks:
   - id: "t4"
     summary: "Update API documentation for auth endpoints"
     status: "pending"
-    project: "acme/docs"
     depends_on:
       - "t2"
       - "t3"

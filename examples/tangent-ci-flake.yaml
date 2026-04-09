@@ -2,7 +2,6 @@ id: "041ed281-eae8-42c0-9c7f-b218f96a7c5a"
 slug: "tangent-ci-flake"
 created_at: "2026-03-20T16:30:00Z"
 updated_at: "2026-03-21T11:00:00Z"
-origin: "tangent"
 sessions:
   - id: "sess-p7q8r9"
     started_at: "2026-03-20T16:30:00Z"
@@ -12,7 +11,6 @@ tacks:
     summary: "Fix intermittent Redis connection timeout in CI"
     status: "done"
     done_at: "2026-03-20"
-    project: "acme/api-server"
     deliverable:
       label: "CI Redis fix"
       url: "https://github.com/acme/api-server/pull/313"
@@ -24,7 +22,6 @@ tacks:
     summary: "Add connection retry with backoff to test harness"
     status: "done"
     done_at: "2026-03-21"
-    project: "acme/test-utils"
     depends_on:
       - "t1"
     deliverable:

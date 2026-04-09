@@ -2,7 +2,7 @@ id: "f756bf80-5a1e-47ff-ac1d-e916d18b274c"
 slug: "q2-dependency-cleanup"
 created_at: "2026-03-17T09:00:00Z"
 updated_at: "2026-03-31T15:00:00Z"
-origin: "planned"
+group: "q2"
 sessions:
   - id: "sess-j1k2l3"
     started_at: "2026-03-17T09:00:00Z"
@@ -14,7 +14,6 @@ tacks:
     summary: "Modernize shared logging library to v3"
     status: "done"
     done_at: "2026-03-19"
-    project: "acme/logging-lib"
     deliverable:
       label: "Logging v3 release"
       url: "https://github.com/acme/logging-lib/pull/34"
@@ -23,7 +22,6 @@ tacks:
     summary: "Update api-server to logging v3"
     status: "done"
     done_at: "2026-03-21"
-    project: "acme/api-server"
     depends_on:
       - "t1"
     deliverable:
@@ -34,7 +32,6 @@ tacks:
     summary: "Update api-gateway to logging v3"
     status: "done"
     done_at: "2026-03-22"
-    project: "acme/api-gateway"
     depends_on:
       - "t1"
     deliverable:
@@ -45,7 +42,6 @@ tacks:
     summary: "Update worker-service to logging v3"
     status: "done"
     done_at: "2026-03-23"
-    project: "acme/worker-service"
     depends_on:
       - "t1"
     deliverable:
@@ -56,7 +52,6 @@ tacks:
     summary: "Update batch-processor to logging v3"
     status: "done"
     done_at: "2026-03-24"
-    project: "acme/batch-processor"
     depends_on:
       - "t1"
     deliverable:
@@ -66,14 +61,12 @@ tacks:
   - id: "t6"
     summary: "Update notification-service to logging v3"
     status: "in_progress"
-    project: "acme/notification-service"
     depends_on:
       - "t1"
 
   - id: "t7"
     summary: "Remove deprecated logging v2 package"
     status: "pending"
-    project: "acme/logging-lib"
     depends_on:
       - "t2"
       - "t3"

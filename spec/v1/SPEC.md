@@ -18,7 +18,6 @@ The schema is the primary deliverable. The CLI is a convenience wrapper.
 Route (1 YAML file)
 ├── id (UUID), slug, created_at, updated_at
 ├── group (optional grouping slug)
-├── origin: planned | tangent
 ├── depends_on: [route slugs]
 ├── sessions[]
 │   └── id, started_at
@@ -59,10 +58,6 @@ Route (1 YAML file)
   routes may share the same group. Uses the same format as `slug` (lowercase,
   hyphenated). The field is purely organizational — the CLI does not enforce or
   validate group membership.
-- `origin` (string) — one of: `planned`, `tangent`. Defaults to `planned` when
-  omitted. A `tangent` is unplanned, reactive work (drive-by fix, opportunistic
-  contribution, etc.) that wasn't part of any goal. Tangents may be promoted to
-  `planned` if they grow in scope.
 - `depends_on` (array of strings) — slugs of routes that must complete before
   this one can proceed
 
@@ -207,12 +202,11 @@ without modifying the file.
 
 **[CL-01]** The CLI shall be invoked as `tack <command> [options]`.
 
-**[CL-02]** `tack init <slug> [--tangent] [--group <slug>]` — When invoked, the
-CLI shall create a new route file at `~/.tack/routes/<slug>.yaml` with a
-generated v4 UUID as `id`, an empty `tacks` array, and
-`created_at`/`updated_at` set to the current time. When `--tangent` is passed,
-the route's `origin` shall be set to `tangent`. When `--group` is passed, the
-route's `group` shall be set to the given slug.
+**[CL-02]** `tack init <slug> [--group <slug>]` — When invoked, the CLI shall
+create a new route file at `~/.tack/routes/<slug>.yaml` with a generated v4
+UUID as `id`, an empty `tacks` array, and `created_at`/`updated_at` set to
+the current time. When `--group` is passed, the route's `group` shall be set
+to the given slug.
 
 **[CL-03]** `tack status [slug]` — When invoked with a slug, the CLI shall
 display the route's tacks, their statuses, dependencies, deliverable, and any
@@ -309,6 +303,13 @@ limits the number of results (default: 10). The `--since` option filters to
 routes with `updated_at` on or after the given ISO 8601 date (e.g.,
 `2026-04-01`).
 
+**[CL-23]** `tack find <url> [--json]` — When invoked, the CLI shall search all
+routes for tacks whose deliverable URL or link URLs match the given URL, and
+display each match as a tree: route slug, tack summary, and the matching
+deliverable or link. When `--json` is passed, the CLI shall output the results
+as JSON. If no matches are found, the CLI shall report that no tacks reference
+the given URL.
+
 ---
 
 ### AG — Agent Integration
@@ -321,14 +322,14 @@ and writes tack route files using the CLI defined in the CL category.
 the background to build context about current work.
 
 **[AG-03]** When the user begins work in a project that is not referenced by
-any active route's tack deliverables, the agent shall ask whether the work is
-a tangent. The project is inferred from the deliverable URL
+any active route's tack deliverables, the agent shall ask whether to create a
+new route. The project is inferred from the deliverable URL
 (`<protocol>://<forge-instance>/<project-path>/...`). The question shall be
 phrased as a single non-blocking line (e.g., "This doesn't seem related to
-any current route — tangent?").
+any current route — new route?").
 
-**[AG-04]** When the user confirms a tangent, the agent shall create a new
-route with `origin` set to `tangent` and add the first tack.
+**[AG-04]** When the user confirms a new route, the agent shall create the
+route and add the first tack.
 
 **[AG-05]** When a tack produces a deliverable (PR/MR URL appears in the
 session), the agent shall record it on the current tack automatically without

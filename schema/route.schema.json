@@ -32,11 +32,6 @@
       "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
       "description": "Optional grouping slug for associating related routes. Multiple routes may share the same group."
     },
-    "origin": {
-      "type": "string",
-      "enum": ["planned", "tangent"],
-      "description": "Whether this route was planned work or an unplanned tangent (reactive fix, drive-by contribution, etc.). Semantically defaults to planned when omitted."
-    },
     "depends_on": {
       "type": "array",
       "items": {

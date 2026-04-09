@@ -150,10 +150,10 @@ _tack() {
 
   case "$command" in
     init)
-      # tack init <slug> [--tangent] [--group <slug>]
+      # tack init <slug> [--group <slug>]
       case "$CURRENT" in
         3) _message 'slug' ;;
-        *) _arguments '--tangent[Create as tangent]' '--group[Group slug]:group:_tack_routes' ;;
+        *) _arguments '--group[Group slug]:group:_tack_routes' ;;
       esac
       ;;
     status)

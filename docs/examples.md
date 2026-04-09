@@ -1,6 +1,6 @@
 # Examples & Visualizations
 
-The tack schema is intentionally view-agnostic. The same YAML files can power different visualizations depending on context. This page shows seven example routes rendered as six views — all derived from schema fields alone.
+The tack schema is intentionally view-agnostic. The same YAML files can power different visualizations depending on context. This page shows seven example routes rendered as five views — all derived from schema fields alone.
 
 Source files: [`examples/`](https://github.com/chris-peterson/tack/tree/main/examples)
 
@@ -8,7 +8,7 @@ Source files: [`examples/`](https://github.com/chris-peterson/tack/tree/main/exa
 
 ## View: Effort Flow (Sankey)
 
-Shows how work flows from origin type through routes into projects. Each link is weighted by tack count.
+Shows how work flows from group through routes into projects. Each link is weighted by tack count. Ungrouped routes appear individually.
 
 ```mermaid
 ---
@@ -17,13 +17,14 @@ config:
 ---
 sankey-beta
 
-planned,q2-session-setup,2
-planned,q2-auth-rewrite,4
-planned,q2-dependency-cleanup,7
-planned,q2-usage-dashboard,5
-tangent,hotfix-rate-limiter,1
-tangent,tangent-ci-flake,2
-tangent,tangent-docs-typo,1
+q2,q2-session-setup,2
+q2,q2-auth-rewrite,4
+q2,q2-dependency-cleanup,7
+q2,q2-usage-dashboard,5
+hotfix-rate-limiter,acme/api-gateway,1
+tangent-ci-flake,acme/api-server,1
+tangent-ci-flake,acme/test-utils,1
+tangent-docs-typo,acme/docs,1
 
 q2-session-setup,acme/infra,1
 q2-session-setup,acme/api-server,1
@@ -39,13 +40,9 @@ q2-dependency-cleanup,acme/notification-service,1
 q2-usage-dashboard,acme/analytics,2
 q2-usage-dashboard,acme/api-gateway,1
 q2-usage-dashboard,acme/web-app,2
-hotfix-rate-limiter,acme/api-gateway,1
-tangent-ci-flake,acme/api-server,1
-tangent-ci-flake,acme/test-utils,1
-tangent-docs-typo,acme/docs,1
 ```
 
-Reads left to right: origin → route → project. The width of each flow is proportional to tack count. `q2-dependency-cleanup` fans out the widest (7 tacks across 6 repos), and `acme/api-server` receives work from three different routes.
+Reads left to right: group → route → project. The width of each flow is proportional to tack count. `q2-dependency-cleanup` fans out the widest (7 tacks across 6 repos), and `acme/api-server` receives work from three different routes.
 
 ---
 
@@ -136,7 +133,7 @@ flowchart LR
 
 ## View: Quarterly Report (Gantt)
 
-Maps tack completion dates onto a timeline. Routes become sections; tacks become bars. Tangent work renders as `crit` to highlight interruptions in the planned flow.
+Maps tack completion dates onto a timeline. Routes become sections; tacks become bars. Ungrouped work renders as `crit` to highlight interruptions.
 
 Timespans are derived from `created_at` and `done_at` — no timeframe field needed.
 
@@ -176,39 +173,14 @@ gantt
     Drill-down by tenant             :dash4, after dash3, 4d
     Alerting thresholds              :dash5, 2026-03-28, 5d
 
-  section tangents
+  section ungrouped
     Rate limiter hotfix              :crit, done, hot1, 2026-03-28, 2026-03-29
     CI Redis flake fix               :crit, done, ci1, 2026-03-20, 2026-03-20
     CI retry logic                   :crit, done, ci2, 2026-03-20, 2026-03-21
     Docs typo fix                    :crit, done, doc1, 2026-03-26, 2026-03-26
 ```
 
-Tangent work (`crit` bars) appears as interruptions in the planned timeline — useful for retrospectives to quantify reactive vs. intentional work.
-
----
-
-## View: Planned vs. Tangent (Origin Overlay)
-
-Distinguishes planned vs. tangent work over time. If tangent routes dominate a quarter, it signals reactive work crowding out planned delivery.
-
-```mermaid
----
-config:
-  look: handDrawn
----
-timeline
-  title Q2 Route Origins
-  section Week of Mar 10
-    q2-session-setup : planned
-  section Week of Mar 17
-    q2-auth-rewrite : planned
-    q2-dependency-cleanup : planned
-  section Week of Mar 24
-    q2-usage-dashboard : planned
-    tangent-ci-flake : tangent
-    tangent-docs-typo : tangent
-    hotfix-rate-limiter : tangent
-```
+Ungrouped work (`crit` bars) appears as interruptions in the grouped timeline — useful for retrospectives to quantify reactive vs. intentional work.
 
 ---
 
@@ -219,9 +191,8 @@ timeline
 
 | View | Key fields used |
 |------|----------------|
-| Effort flow (Sankey) | `origin`, `slug`, `tacks[].deliverable.url` |
+| Effort flow (Sankey) | `group`, `slug`, `tacks[].deliverable.url` |
 | Dependency graph | `depends_on` (route + tack level), `tacks[].status` |
-| Quarterly Gantt | `created_at`, `tacks[].done_at`, `tacks[].depends_on`, `origin` |
-| Origin overlay | `created_at`, `origin` |
+| Quarterly Gantt | `created_at`, `tacks[].done_at`, `tacks[].depends_on`, `group` |
 
 Time is always derived from timestamps on tacks and deliverables — never declared. Quarterliness is a reporting concern, not a schema concern.

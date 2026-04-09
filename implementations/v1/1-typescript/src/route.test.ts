@@ -36,15 +36,6 @@ describe("init", () => {
     assert.throws(() => route.init("dup"), /already exists/);
   });
 
-  it("creates a planned route by default (no origin field)", () => {
-    const r = route.init("planned-default");
-    assert.equal(r.origin, undefined);
-  });
-
-  it("creates a tangent route when origin is tangent", () => {
-    const r = route.init("my-tangent", { origin: "tangent" });
-    assert.equal(r.origin, "tangent");
-  });
 });
 
 describe("load", () => {

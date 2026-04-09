@@ -5,14 +5,14 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import * as route from "./route.js";
-import { formatRoute, formatTack, formatList, formatRecent, formatTree } from "./display.js";
+import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind } from "./display.js";
 import { ZSH_COMPLETION } from "./completions.js";
 
 function usage(): never {
   console.log(`tack — route tracker for AI-assisted development
 
 Usage:
-  tack init <slug> [--tangent] [--group <slug>]
+  tack init <slug> [--group <slug>]
   tack status [slug]
   tack list [--json]
   tack recent [--count <n>] [--since <date>]
@@ -30,6 +30,7 @@ Usage:
   tack todo drop <slug> <tack-id> <todo-id>
   tack link <slug> <tack-id> <label> <url>
   tack session <slug> <session-id>
+  tack find <url> [--json]
   tack rm <slug> [--force]
   tack completions zsh`);
   process.exit(1);
@@ -48,17 +49,13 @@ function run(): void {
       const { values: initValues } = parseArgs({
         args: rest,
         options: {
-          tangent: { type: "boolean", default: false },
           group: { type: "string" },
         },
         allowPositionals: true,
       });
-      const slug = initValues.tangent
-        ? rest.filter((a) => a !== "--tangent")[0]
-        : rest.filter((a) => !a.startsWith("--"))[0];
+      const slug = rest.filter((a) => !a.startsWith("--"))[0];
       const r = route.init(slug, {
         group: initValues.group as string | undefined,
-        origin: initValues.tangent ? "tangent" : undefined,
       });
       console.log(formatRoute(r));
       break;
@@ -80,12 +77,9 @@ function run(): void {
     case "list": {
       const jsonFlag = rest.includes("--json");
       if (jsonFlag) {
-        const routes = route.list();
-        const full = routes.map((r) => route.load(r.slug));
-        console.log(JSON.stringify(full, null, 2));
+        console.log(JSON.stringify(route.loadAll(), null, 2));
       } else {
-        const routes = route.list();
-        console.log(formatList(routes));
+        console.log(formatList(route.list()));
       }
       break;
     }
@@ -238,6 +232,15 @@ function run(): void {
       if (!rest[0] || !rest[1]) usage();
       const r = route.recordSession(rest[0], rest[1]);
       console.log(formatRoute(r));
+      break;
+    }
+
+    case "find": {
+      if (!rest[0]) usage();
+      const jsonFlag = rest.includes("--json");
+      const url = rest.filter((a) => a !== "--json")[0];
+      const matches = route.find(url);
+      console.log(jsonFlag ? JSON.stringify(matches, null, 2) : formatFind(matches));
       break;
     }
 

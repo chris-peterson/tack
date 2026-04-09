@@ -4,9 +4,19 @@ import { homedir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { parse, stringify } from "yaml";
 import { validate } from "./schema.js";
-import type { Route, RouteOrigin, Tack, TodoItem } from "./types.js";
+import type { Route, Tack, TodoItem } from "./types.js";
 
 const TACK_DIR = join(process.env.TACK_HOME ?? join(homedir(), ".tack"), "routes");
+
+export function isOpen(t: Tack): boolean {
+  return t.status !== "done" && t.status !== "dropped";
+}
+
+export function loadAll(): Route[] {
+  ensureDir();
+  const files = readdirSync(TACK_DIR).filter((f: string) => f.endsWith(".yaml"));
+  return files.map((f: string) => load(f.replace(/\.yaml$/, "")));
+}
 
 function ensureDir(): void {
   if (!existsSync(TACK_DIR)) {
@@ -55,7 +65,7 @@ function save(route: Route): void {
   writeFileSync(routePath(route.slug), stringify(route), "utf-8");
 }
 
-export function init(slug: string, opts: { group?: string; origin?: RouteOrigin } = {}): Route {
+export function init(slug: string, opts: { group?: string } = {}): Route {
   ensureDir();
   const path = routePath(slug);
   if (existsSync(path)) {
@@ -71,22 +81,15 @@ export function init(slug: string, opts: { group?: string; origin?: RouteOrigin 
   };
 
   if (opts.group) route.group = opts.group;
-  if (opts.origin) route.origin = opts.origin;
 
   save(route);
   return route;
 }
 
-export function list(): { slug: string; group?: string; origin: string; total: number; open: number }[] {
-  ensureDir();
-  const files = readdirSync(TACK_DIR).filter((f: string) => f.endsWith(".yaml"));
-
-  return files.map((f: string) => {
-    const slug = f.replace(/\.yaml$/, "");
-    const route = load(slug);
-    const open = route.tacks.filter((t) => t.status !== "done" && t.status !== "dropped").length;
-    return { slug, group: route.group, origin: route.origin ?? "planned", total: route.tacks.length, open };
-  });
+export function list(): { slug: string; group?: string; total: number; open: number }[] {
+  return loadAll().map((r) => ({
+    slug: r.slug, group: r.group, total: r.tacks.length, open: r.tacks.filter(isOpen).length,
+  }));
 }
 
 function nextTackId(route: Route): string {
@@ -360,16 +363,10 @@ export function recordSession(slug: string, sessionId: string): Route {
   return route;
 }
 
-export function recent(opts: { count?: number; since?: string } = {}): { slug: string; group?: string; origin: string; updated_at: string; total: number; open: number }[] {
-  ensureDir();
-  const files = readdirSync(TACK_DIR).filter((f: string) => f.endsWith(".yaml"));
-
-  let routes = files.map((f: string) => {
-    const slug = f.replace(/\.yaml$/, "");
-    const r = load(slug);
-    const open = r.tacks.filter((t) => t.status !== "done" && t.status !== "dropped").length;
-    return { slug, group: r.group, origin: r.origin ?? "planned", updated_at: r.updated_at, total: r.tacks.length, open };
-  });
+export function recent(opts: { count?: number; since?: string } = {}): { slug: string; group?: string; updated_at: string; total: number; open: number }[] {
+  let routes = loadAll().map((r) => ({
+    slug: r.slug, group: r.group, updated_at: r.updated_at, total: r.tacks.length, open: r.tacks.filter(isOpen).length,
+  }));
 
   routes.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 
@@ -380,6 +377,43 @@ export function recent(opts: { count?: number; since?: string } = {}): { slug: s
 
   const count = opts.count ?? 10;
   return routes.slice(0, count);
+}
+
+export interface FindMatch {
+  slug: string;
+  group?: string;
+  routeTotal: number;
+  routeOpen: number;
+  tackId: string;
+  summary: string;
+  status: string;
+  done_at?: string;
+  match: "deliverable" | "link";
+  label: string;
+  url: string;
+}
+
+export function find(url: string): FindMatch[] {
+  const matches: FindMatch[] = [];
+
+  for (const r of loadAll()) {
+    const routeOpen = r.tacks.filter(isOpen).length;
+    for (const tack of r.tacks) {
+      const base = { slug: r.slug, group: r.group, routeTotal: r.tacks.length, routeOpen, tackId: tack.id, summary: tack.summary, status: tack.status, done_at: tack.done_at };
+      if (tack.deliverable?.url === url) {
+        matches.push({ ...base, match: "deliverable", label: tack.deliverable.label, url: tack.deliverable.url });
+      }
+      if (tack.links) {
+        for (const link of tack.links) {
+          if (link.url === url) {
+            matches.push({ ...base, match: "link", label: link.label, url: link.url });
+          }
+        }
+      }
+    }
+  }
+
+  return matches;
 }
 
 export function remove(slug: string): void {

@@ -94,30 +94,6 @@ describe("formatRoute", () => {
     assert.ok(out.includes("[>] t1: Build it"));
   });
 
-  it("shows origin when set", () => {
-    const route: Route = {
-      id: "uuid",
-      slug: "drive-by-fix",
-      created_at: "2026-03-30T00:00:00Z",
-      updated_at: "2026-03-30T00:00:00Z",
-      origin: "tangent",
-      tacks: [],
-    };
-    const out = formatRoute(route);
-    assert.ok(out.includes("origin: tangent"));
-  });
-
-  it("omits origin when not set", () => {
-    const route: Route = {
-      id: "uuid",
-      slug: "planned-work",
-      created_at: "2026-03-30T00:00:00Z",
-      updated_at: "2026-03-30T00:00:00Z",
-      tacks: [],
-    };
-    const out = formatRoute(route);
-    assert.ok(!out.includes("origin:"));
-  });
 });
 
 describe("formatList", () => {
@@ -127,19 +103,10 @@ describe("formatList", () => {
 
   it("formats route summaries", () => {
     const out = formatList([
-      { slug: "feat-a", origin: "planned", total: 3, open: 1 },
-      { slug: "feat-b", origin: "planned", total: 5, open: 0 },
+      { slug: "feat-a", total: 3, open: 1 },
+      { slug: "feat-b", total: 5, open: 0 },
     ]);
     assert.ok(out.includes("feat-a  (1 open / 3 total)"));
     assert.ok(out.includes("feat-b  (0 open / 5 total)"));
-  });
-
-  it("tags tangent routes in list", () => {
-    const out = formatList([
-      { slug: "planned-work", origin: "planned", total: 3, open: 1 },
-      { slug: "drive-by-fix", origin: "tangent", total: 1, open: 0 },
-    ]);
-    assert.ok(!out.includes("planned-work [tangent]"));
-    assert.ok(out.includes("drive-by-fix [tangent]"));
   });
 });
