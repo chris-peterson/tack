@@ -208,10 +208,11 @@ UUID as `id`, an empty `tacks` array, and `created_at`/`updated_at` set to
 the current time. When `--group` is passed, the route's `group` shall be set
 to the given slug.
 
-**[CL-03]** `tack status [slug]` — When invoked with a slug, the CLI shall
-display the route's tacks, their statuses, dependencies, deliverable, and any
-pending todo items. When invoked without a slug, the CLI shall display a
-summary of all routes.
+**[CL-03]** `tack status [slug] [--all]` — When invoked with a slug, the CLI
+shall display the route's tacks, their statuses, dependencies, deliverable,
+and any pending todo items. Tacks with status `dropped` shall be omitted by
+default; when `--all` is passed, dropped tacks shall be included. When invoked
+without a slug, the CLI shall display a summary of all routes.
 
 **[CL-04]** `tack add <slug> <summary> [--depends-on <id,...>]` — When invoked, the CLI shall add a new tack to the
 specified route with the next sequential ID.
@@ -223,7 +224,9 @@ deliverable and its `links` array contains a PR/MR URL, the first matching
 link shall be promoted to the tack's deliverable and removed from `links`.
 
 **[CL-06]** `tack drop <slug> <tack-id>` — When invoked, the CLI shall set the
-specified tack's status to `dropped`.
+specified tack's status to `dropped`. The tack shall remain in the route file
+as a historical record of intentionally descoped work. To permanently delete a
+tack created in error, use [CL-25].
 
 **[CL-07]** `tack start <slug> <tack-id>` — When invoked, the CLI shall set
 the specified tack's status to `in_progress`. If the tack has `depends_on`
@@ -242,8 +245,8 @@ shall add a post-work todo item to the specified tack with `done: false`.
 CLI shall mark the specified todo item as `done: true` and set `done_at` to
 the current date per [TD-04].
 
-**[CL-12]** `tack todo drop <slug> <tack-id> <todo-id>` — When invoked, the
-CLI shall remove the specified todo item from its array.
+**[CL-12]** `tack todo rm <slug> <tack-id> <todo-id>` — When invoked, the CLI
+shall delete the specified todo item from its array.
 
 **[CL-13]** `tack link <slug> <tack-id> <label> <url>` — When invoked, the
 CLI shall add a link to the specified tack. When the URL matches a PR/MR
@@ -314,6 +317,14 @@ display each match as a tree: route slug, tack summary, and the matching
 deliverable or link. When `--json` is passed, the CLI shall output the results
 as JSON. If no matches are found, the CLI shall report that no tacks reference
 the given URL.
+
+**[CL-25]** `tack remove <slug> <tack-id> [--force]` — When invoked, the CLI
+shall delete the specified tack from the route's `tacks` array. The tack's ID
+shall not be reused; subsequent tacks shall continue the sequence per [TK-05].
+If any other tack's `depends_on` array references the tack being deleted, the
+operation shall fail with an error listing the dependents, unless `--force` is
+passed. When `--force` is passed, the references to the deleted tack shall be
+stripped from all dependent tacks' `depends_on` arrays.
 
 ---
 

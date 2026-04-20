@@ -13,7 +13,7 @@ function usage(): never {
 
 Usage:
   tack init <slug> [--group <slug>]
-  tack status [slug]
+  tack status [slug] [--all]
   tack list [--json]
   tack recent [--count <n>] [--since <date>]
   tack tree [path] [-d <depth>]    (path supports glob: */*/deliverable)
@@ -23,11 +23,12 @@ Usage:
   tack start <slug> <tack-id>
   tack done <slug> <tack-id>
   tack drop <slug> <tack-id>
+  tack remove <slug> <tack-id> [--force]
   tack deliverable <slug> <tack-id> <label> <url>
   tack before <slug> <tack-id> <text>
   tack after <slug> <tack-id> <text>
   tack todo done <slug> <tack-id> <todo-id>
-  tack todo drop <slug> <tack-id> <todo-id>
+  tack todo rm <slug> <tack-id> <todo-id>
   tack link <slug> <tack-id> <label> <url>
   tack session <slug> <session-id>
   tack find <url> [--json]
@@ -63,10 +64,14 @@ function run(): void {
 
     case "status": {
       const jsonFlag = rest.includes("--json");
-      const slug = rest.filter((a) => a !== "--json")[0];
+      const allFlag = rest.includes("--all");
+      const slug = rest.filter((a) => a !== "--json" && a !== "--all")[0];
       if (slug) {
         const r = route.load(slug);
-        console.log(jsonFlag ? JSON.stringify(r, null, 2) : formatRoute(r));
+        const displayRoute = allFlag
+          ? r
+          : { ...r, tacks: r.tacks.filter((t) => t.status !== "dropped") };
+        console.log(jsonFlag ? JSON.stringify(displayRoute, null, 2) : formatRoute(displayRoute));
       } else {
         const routes = route.list();
         console.log(jsonFlag ? JSON.stringify(routes, null, 2) : formatList(routes));
@@ -197,7 +202,7 @@ function run(): void {
         if (rest.length < 4) usage();
         const tack = route.completeTodo(rest[1], rest[2], rest[3]);
         console.log(formatTack(tack));
-      } else if (subcommand === "drop") {
+      } else if (subcommand === "rm") {
         if (rest.length < 4) usage();
         const tack = route.dropTodo(rest[1], rest[2], rest[3]);
         console.log(formatTack(tack));
@@ -253,6 +258,15 @@ function run(): void {
       }
       route.remove(rest[0]);
       console.log(`Deleted: ${rest[0]}`);
+      break;
+    }
+
+    case "remove": {
+      if (!rest[0] || !rest[1]) usage();
+      const force = rest.includes("--force");
+      const r = route.removeTack(rest[0], rest[1], { force });
+      console.log(`Removed: ${rest[0]}/${rest[1]}`);
+      console.log(formatRoute(r));
       break;
     }
 

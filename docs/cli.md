@@ -10,12 +10,14 @@ Create a new route.
 tack init auth-rewrite
 ```
 
-### `tack status [slug]`
+### `tack status [slug] [--all]`
 
-Show route details. Without a slug, shows a summary of all routes.
+Show route details. Without a slug, shows a summary of all routes. Dropped
+tacks are hidden by default; pass `--all` to include them.
 
 ```bash
 tack status auth-rewrite
+tack status auth-rewrite --all
 tack status
 ```
 
@@ -124,10 +126,23 @@ tack done auth-rewrite t1
 
 ### `tack drop <slug> <tack-id>`
 
-Drop a tack.
+Mark a tack as dropped. The tack stays in the route file as a historical record
+of intentionally descoped work. Use this for scope changes — "we decided not to
+ship this."
 
 ```bash
 tack drop auth-rewrite t2
+```
+
+### `tack remove <slug> <tack-id> [--force]`
+
+Delete a tack from a route. Use this for accidents — duplicates, test tacks,
+wrong route. If other tacks depend on the target, the operation fails unless
+`--force` is passed; with `--force`, the references are stripped from dependents.
+
+```bash
+tack remove auth-rewrite t3
+tack remove auth-rewrite t1 --force   # t2 depended on t1; its depends_on is stripped
 ```
 
 ## Deliverable
@@ -166,12 +181,12 @@ Complete a todo item.
 tack todo done auth-rewrite t1 b1
 ```
 
-### `tack todo drop <slug> <tack-id> <todo-id>`
+### `tack todo rm <slug> <tack-id> <todo-id>`
 
-Remove a todo item.
+Delete a todo item.
 
 ```bash
-tack todo drop auth-rewrite t1 a2
+tack todo rm auth-rewrite t1 a2
 ```
 
 ## Links

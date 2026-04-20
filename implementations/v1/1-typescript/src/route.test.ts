@@ -446,3 +446,62 @@ describe("remove", () => {
     assert.throws(() => route.remove("ghost"), /not found/i);
   });
 });
+
+describe("removeTack", () => {
+  it("deletes a tack from a route", () => {
+    route.init("rm-tack");
+    route.addTack("rm-tack", "First");
+    route.addTack("rm-tack", "Second");
+    const r = route.removeTack("rm-tack", "t1");
+    assert.equal(r.tacks.length, 1);
+    assert.equal(r.tacks[0].id, "t2");
+  });
+
+  it("does not renumber remaining tacks", () => {
+    route.init("rm-tack-ids");
+    route.addTack("rm-tack-ids", "First");
+    route.addTack("rm-tack-ids", "Second");
+    route.addTack("rm-tack-ids", "Third");
+    route.removeTack("rm-tack-ids", "t2");
+    const next = route.addTack("rm-tack-ids", "Fourth");
+    assert.equal(next.id, "t4");
+  });
+
+  it("throws for missing tack", () => {
+    route.init("rm-tack-missing");
+    assert.throws(() => route.removeTack("rm-tack-missing", "t99"), /not found/i);
+  });
+
+  it("refuses when other tacks depend on it (without --force)", () => {
+    route.init("rm-tack-dep");
+    route.addTack("rm-tack-dep", "First");
+    route.addTack("rm-tack-dep", "Second", { dependsOn: ["t1"] });
+    assert.throws(
+      () => route.removeTack("rm-tack-dep", "t1"),
+      /depended on by t2/,
+    );
+    assert.equal(route.load("rm-tack-dep").tacks.length, 2);
+  });
+
+  it("strips dangling references with --force", () => {
+    route.init("rm-tack-force");
+    route.addTack("rm-tack-force", "First");
+    route.addTack("rm-tack-force", "Second", { dependsOn: ["t1"] });
+    route.addTack("rm-tack-force", "Third", { dependsOn: ["t1"] });
+    const r = route.removeTack("rm-tack-force", "t1", { force: true });
+    assert.equal(r.tacks.length, 2);
+    for (const t of r.tacks) {
+      assert.equal(t.depends_on, undefined);
+    }
+  });
+
+  it("preserves other dependencies on the dependent when stripping", () => {
+    route.init("rm-tack-partial");
+    route.addTack("rm-tack-partial", "First");
+    route.addTack("rm-tack-partial", "Second");
+    route.addTack("rm-tack-partial", "Third", { dependsOn: ["t1", "t2"] });
+    const r = route.removeTack("rm-tack-partial", "t1", { force: true });
+    const t3 = r.tacks.find((t) => t.id === "t3");
+    assert.deepEqual(t3!.depends_on, ["t2"]);
+  });
+});

@@ -112,7 +112,7 @@ tack tree '**/depends_on'          # All dependency chains
 ```text
 tack init <slug> [--tangent] [--group <slug>]  Create a new route
 tack list [--json]                 List all routes
-tack status [slug] [--json]        Show route details (or all routes summary)
+tack status [slug] [--json] [--all]  Show route details (dropped hidden unless --all)
 tack tree [path] [-d <depth>]      Browse routes/tacks (glob: */*/deliverable)
 tack add <slug> <summary>          Add a tack
   [--depends-on <id,...>]
@@ -120,14 +120,15 @@ tack edit <slug> <tack-id> <summary>  Edit a tack summary
 tack merge <slug> <src-id> <tgt-id>  Merge source into target (drops source)
 tack start <slug> <tack-id>        Start a tack
 tack done <slug> <tack-id>         Complete a tack
-tack drop <slug> <tack-id>         Drop a tack
+tack drop <slug> <tack-id>         Mark dropped (preserved for history)
+tack remove <slug> <tack-id> [--force]  Delete a tack (use for accidents)
 tack deliverable <slug> <id> <label> <url>   Set deliverable
 tack before <slug> <id> <text>     Add pre-work todo
 tack after <slug> <id> <text>      Add post-work todo
 tack todo done <slug> <id> <todo>  Complete a todo
-tack todo drop <slug> <id> <todo>  Remove a todo
+tack todo rm <slug> <id> <todo>    Delete a todo
 tack link <slug> <id> <label> <url>  Add a link
 tack session <slug> <session-id>   Record a session
-tack rm <slug> [--force]           Delete a route
+tack rm <slug> [--force]           Delete an entire route
 tack completions zsh               Install shell completions
 ```

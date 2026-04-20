@@ -128,7 +128,8 @@ _tack() {
     'add:Add a tack to a route'
     'start:Start working on a tack'
     'done:Mark a tack as done'
-    'drop:Drop a tack'
+    'drop:Drop a tack (mark as dropped, keep in file)'
+    'remove:Delete a tack from a route'
     'edit:Edit a tack summary'
     'merge:Merge a tack into another'
     'deliverable:Set a deliverable on a tack'
@@ -137,7 +138,7 @@ _tack() {
     'todo:Manage todo items'
     'link:Add a link to a tack'
     'session:Record a session'
-    'rm:Remove a route'
+    'rm:Delete a route'
     'completions:Output shell completion script'
   )
 
@@ -157,10 +158,10 @@ _tack() {
       esac
       ;;
     status)
-      # tack status [slug] [--json]
+      # tack status [slug] [--json] [--all]
       case "$CURRENT" in
-        3) _tack_routes; _arguments '--json[Output JSON]' ;;
-        *) _arguments '--json[Output JSON]' ;;
+        3) _tack_routes; _arguments '--json[Output JSON]' '--all[Include dropped tacks]' ;;
+        *) _arguments '--json[Output JSON]' '--all[Include dropped tacks]' ;;
       esac
       ;;
     list)
@@ -187,6 +188,14 @@ _tack() {
       case "$CURRENT" in
         3) _tack_routes ;;
         4) _tack_tack_ids "\${words[3]}" ;;
+      esac
+      ;;
+    remove)
+      # tack remove <slug> <tack-id> [--force]
+      case "$CURRENT" in
+        3) _tack_routes ;;
+        4) _tack_tack_ids "\${words[3]}" ;;
+        *) _arguments '--force[Strip dependent references]' ;;
       esac
       ;;
     edit)
@@ -223,9 +232,9 @@ _tack() {
       esac
       ;;
     todo)
-      # tack todo {done|drop} <slug> <tack-id> <todo-id>
+      # tack todo {done|rm} <slug> <tack-id> <todo-id>
       case "$CURRENT" in
-        3) local -a subcmds; subcmds=('done:Complete a todo' 'drop:Drop a todo'); _describe 'subcommand' subcmds ;;
+        3) local -a subcmds; subcmds=('done:Complete a todo' 'rm:Delete a todo'); _describe 'subcommand' subcmds ;;
         4) _tack_routes ;;
         5) _tack_tack_ids "\${words[4]}" ;;
         6) _tack_todo_ids "\${words[4]}" "\${words[5]}" ;;

@@ -78,20 +78,21 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 | Command | Description |
 |---|---|
 | `tack init <slug> [--group <slug>]` | Create a new route |
-| `tack status [slug]` | Show route details (or all routes) |
+| `tack status [slug] [--all]` | Show route details (dropped tacks hidden unless `--all`) |
 | `tack list` | List all routes with open/total counts |
 | `tack recent [--count <n>] [--since <date>]` | List routes by most recently updated |
 | `tack add <slug> <summary> [opts]` | Add a tack (`--project`, `--depends-on`) |
 | `tack start <slug> <tack-id>` | Start a tack (checks dependencies) |
 | `tack done <slug> <tack-id>` | Complete a tack |
-| `tack drop <slug> <tack-id>` | Drop a tack |
+| `tack drop <slug> <tack-id>` | Mark tack as dropped (preserved for history) |
+| `tack remove <slug> <tack-id> [--force]` | Delete a tack (use `--force` to strip dependent refs) |
 | `tack deliverable <slug> <tack-id> <label> <url>` | Set the change request |
 | `tack before <slug> <tack-id> <text>` | Add a pre-work todo |
 | `tack after <slug> <tack-id> <text>` | Add a post-work todo |
 | `tack todo done <slug> <tack-id> <todo-id>` | Complete a todo |
-| `tack todo drop <slug> <tack-id> <todo-id>` | Remove a todo |
+| `tack todo rm <slug> <tack-id> <todo-id>` | Delete a todo |
 | `tack link <slug> <tack-id> <label> <url>` | Add a reference link |
-| `tack rm <slug> [--force]` | Delete a route |
+| `tack rm <slug> [--force]` | Delete an entire route |
 
 ## Design Principles
 

@@ -423,3 +423,32 @@ export function remove(slug: string): void {
   }
   unlinkSync(path);
 }
+
+export function removeTack(
+  slug: string,
+  tackId: string,
+  opts: { force?: boolean } = {},
+): Route {
+  const route = load(slug);
+  findTack(route, tackId);
+
+  const dependents = route.tacks.filter((t) =>
+    t.id !== tackId && t.depends_on?.includes(tackId),
+  );
+
+  if (dependents.length > 0 && !opts.force) {
+    const depIds = dependents.map((t) => t.id).join(", ");
+    throw new Error(
+      `Cannot remove ${tackId}: depended on by ${depIds}. Pass --force to strip references.`,
+    );
+  }
+
+  for (const dep of dependents) {
+    dep.depends_on = dep.depends_on!.filter((id) => id !== tackId);
+    if (dep.depends_on.length === 0) delete dep.depends_on;
+  }
+
+  route.tacks = route.tacks.filter((t) => t.id !== tackId);
+  save(route);
+  return route;
+}
