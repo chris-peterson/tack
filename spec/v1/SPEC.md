@@ -248,10 +248,12 @@ the current date per [TD-04].
 **[CL-12]** `tack todo rm <slug> <tack-id> <todo-id>` — When invoked, the CLI
 shall delete the specified todo item from its array.
 
-**[CL-13]** `tack link <slug> <tack-id> <label> <url>` — When invoked, the
-CLI shall add a link to the specified tack. When the URL matches a PR/MR
-pattern and the tack has no deliverable, the link shall be promoted to the
-tack's deliverable instead of being added to `links`.
+**[CL-13]** `tack link add <slug> <tack-id> <label> <url>` — When invoked,
+the CLI shall add a link to the specified tack. When the URL matches a
+PR/MR pattern and the tack has no deliverable, the link shall be promoted
+to the tack's deliverable instead of being added to `links`. If the URL
+already exists on the tack (as the `deliverable` URL or in `links`), the
+CLI shall not add a duplicate.
 
 **[CL-14]** `tack list` — When invoked, the CLI shall list all route files in
 `~/.tack/routes/` with their slug, number of tacks, and number of open tacks.
@@ -325,6 +327,11 @@ If any other tack's `depends_on` array references the tack being deleted, the
 operation shall fail with an error listing the dependents, unless `--force` is
 passed. When `--force` is passed, the references to the deleted tack shall be
 stripped from all dependent tacks' `depends_on` arrays.
+
+**[CL-26]** `tack link rm <slug> <tack-id> <url>` — When invoked, the CLI
+shall remove the link with the matching URL from the specified tack's
+`links` array. If no link with that URL exists, the CLI shall fail with
+an error.
 
 ---
 

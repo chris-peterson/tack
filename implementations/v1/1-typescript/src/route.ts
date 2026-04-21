@@ -292,6 +292,9 @@ export function addLink(slug: string, tackId: string, label: string, url: string
   const route = load(slug);
   const tack = findTack(route, tackId);
 
+  if (tack.deliverable?.url === url) return tack;
+  if (tack.links?.some((l) => l.url === url)) return tack;
+
   if (!tack.deliverable && isPrOrMrUrl(url)) {
     tack.deliverable = { label, url };
   } else {
@@ -299,6 +302,19 @@ export function addLink(slug: string, tackId: string, label: string, url: string
     tack.links.push({ label, url });
   }
 
+  save(route);
+  return tack;
+}
+
+export function removeLink(slug: string, tackId: string, url: string): Tack {
+  const route = load(slug);
+  const tack = findTack(route, tackId);
+  const idx = tack.links?.findIndex((l) => l.url === url) ?? -1;
+  if (idx < 0) {
+    throw new Error(`No link with url "${url}" on ${slug}/${tackId}`);
+  }
+  tack.links!.splice(idx, 1);
+  if (tack.links!.length === 0) delete tack.links;
   save(route);
   return tack;
 }

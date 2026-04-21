@@ -191,11 +191,19 @@ tack todo rm auth-rewrite t1 a2
 
 ## Links
 
-### `tack link <slug> <tack-id> <label> <url>`
+### `tack link add <slug> <tack-id> <label> <url>`
 
 Add a reference link to a tack.
 
 ```bash
-tack link auth-rewrite t1 "Design doc" https://docs.example.com/auth
-tack link auth-rewrite t1 "Slack thread" https://slack.com/archives/C123/p456
+tack link add auth-rewrite t1 "Design doc" https://docs.example.com/auth
+tack link add auth-rewrite t1 "Slack thread" https://slack.com/archives/C123/p456
+```
+
+### `tack link rm <slug> <tack-id> <url>`
+
+Remove a link from a tack by URL. Fails if no link with that URL exists.
+
+```bash
+tack link rm auth-rewrite t1 https://slack.com/archives/C123/p456
 ```

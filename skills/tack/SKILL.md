@@ -63,7 +63,7 @@ When a URL is pasted or referenced during a session, capture it as a link on
 the current tack:
 
 ```bash
-tack link <slug> <tack-id> "<label>" "<url>"
+tack link add <slug> <tack-id> "<label>" "<url>"
 ```
 
 Do not duplicate URLs already recorded as a deliverable. Do not prompt — just
@@ -127,7 +127,8 @@ tack before <slug> <id> <text>     Add pre-work todo
 tack after <slug> <id> <text>      Add post-work todo
 tack todo done <slug> <id> <todo>  Complete a todo
 tack todo rm <slug> <id> <todo>    Delete a todo
-tack link <slug> <id> <label> <url>  Add a link
+tack link add <slug> <id> <label> <url>  Add a link
+tack link rm <slug> <id> <url>     Remove a link
 tack session <slug> <session-id>   Record a session
 tack rm <slug> [--force]           Delete an entire route
 tack completions zsh               Install shell completions

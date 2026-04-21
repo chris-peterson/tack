@@ -63,5 +63,5 @@ over "task", "item", "change", or "entry".
 5. `tack status` — display route state
 6. `tack add` — add a tack to a route
 7. `tack done` — mark a tack as done
-8. `tack link` — attach a link to a tack
+8. `tack link add` / `tack link rm` — attach or remove a link on a tack
 9. Integration packaging (Claude Code plugin, etc.)

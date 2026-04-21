@@ -29,7 +29,8 @@ Usage:
   tack after <slug> <tack-id> <text>
   tack todo done <slug> <tack-id> <todo-id>
   tack todo rm <slug> <tack-id> <todo-id>
-  tack link <slug> <tack-id> <label> <url>
+  tack link add <slug> <tack-id> <label> <url>
+  tack link rm <slug> <tack-id> <url>
   tack session <slug> <session-id>
   tack find <url> [--json]
   tack rm <slug> [--force]
@@ -227,9 +228,19 @@ function run(): void {
     }
 
     case "link": {
-      if (rest.length < 4) usage();
-      const tack = route.addLink(rest[0], rest[1], rest[2], rest[3]);
-      console.log(formatTack(tack));
+      const sub = rest[0];
+      const subArgs = rest.slice(1);
+      if (sub === "add") {
+        if (subArgs.length < 4) usage();
+        const tack = route.addLink(subArgs[0], subArgs[1], subArgs[2], subArgs[3]);
+        console.log(formatTack(tack));
+      } else if (sub === "rm") {
+        if (subArgs.length < 3) usage();
+        const tack = route.removeLink(subArgs[0], subArgs[1], subArgs[2]);
+        console.log(formatTack(tack));
+      } else {
+        usage();
+      }
       break;
     }
 

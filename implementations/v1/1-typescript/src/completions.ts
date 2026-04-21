@@ -45,6 +45,21 @@ _tack_todo_ids() {
   (( \${#ids} )) && compadd -a ids
 }
 
+_tack_link_urls() {
+  local slug="$1" tack_id="$2"
+  local tack_dir="\${TACK_HOME:-$HOME/.tack}/routes"
+  local route_file="$tack_dir/$slug.yaml"
+  [[ -f "$route_file" ]] || return
+  local -a urls
+  urls=( \${(f)"$(awk -v tid="$tack_id" '
+    /^  - id: / { in_tack = ($3 == tid) ? 1 : 0; in_links = 0; next }
+    in_tack && /^    links:/ { in_links = 1; next }
+    in_tack && /^    [a-z]/ { in_links = 0 }
+    in_tack && in_links && /^      url: / { print $2 }
+  ' "$route_file")"} )
+  (( \${#urls} )) && compadd -a urls
+}
+
 _tack_tree_path() {
   local tack_dir="\${TACK_HOME:-$HOME/.tack}/routes"
   [[ -d "$tack_dir" ]] || return
@@ -241,12 +256,28 @@ _tack() {
       esac
       ;;
     link)
-      # tack link <slug> <tack-id> <label> <url>
+      # tack link {add|rm} ...
       case "$CURRENT" in
-        3) _tack_routes ;;
-        4) _tack_tack_ids "\${words[3]}" ;;
-        5) _message 'label' ;;
-        6) _message 'url' ;;
+        3) local -a subcmds; subcmds=('add:Add a link' 'rm:Remove a link'); _describe 'subcommand' subcmds ;;
+        4) _tack_routes ;;
+        5) _tack_tack_ids "\${words[4]}" ;;
+        *)
+          case "\${words[3]}" in
+            add)
+              # tack link add <slug> <tack-id> <label> <url>
+              case "$CURRENT" in
+                6) _message 'label' ;;
+                7) _message 'url' ;;
+              esac
+              ;;
+            rm)
+              # tack link rm <slug> <tack-id> <url>
+              case "$CURRENT" in
+                6) _tack_link_urls "\${words[4]}" "\${words[5]}" ;;
+              esac
+              ;;
+          esac
+          ;;
       esac
       ;;
     session)

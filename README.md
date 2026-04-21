@@ -41,7 +41,7 @@ tack start auth-rewrite t1
 tack deliverable auth-rewrite t1 "Session middleware PR" https://github.com/org/api-server/pull/42
 
 # Add reference links
-tack link auth-rewrite t1 "Design doc" https://docs.example.com/auth-design
+tack link add auth-rewrite t1 "Design doc" https://docs.example.com/auth-design
 
 # Complete
 tack done auth-rewrite t1
@@ -91,7 +91,8 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 | `tack after <slug> <tack-id> <text>` | Add a post-work todo |
 | `tack todo done <slug> <tack-id> <todo-id>` | Complete a todo |
 | `tack todo rm <slug> <tack-id> <todo-id>` | Delete a todo |
-| `tack link <slug> <tack-id> <label> <url>` | Add a reference link |
+| `tack link add <slug> <tack-id> <label> <url>` | Add a reference link |
+| `tack link rm <slug> <tack-id> <url>` | Remove a reference link |
 | `tack rm <slug> [--force]` | Delete an entire route |
 
 ## Design Principles

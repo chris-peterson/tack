@@ -22,7 +22,7 @@ output=""
 urls=$(echo "$prompt" | grep -oE 'https://(github\.com/[^/]+/[^/]+/(pull|issues)|gitlab\.[^[:space:]]*/-/(merge_requests|issues))/[0-9]+' | head -3 || true)
 if [ -n "$urls" ]; then
   for url in $urls; do
-    output="${output}PR/MR URL detected in user message: ${url} — use \`tack deliverable\` to record it on the active route, or \`tack link\` if it's a reference.\n"
+    output="${output}PR/MR URL detected in user message: ${url} — use \`tack deliverable\` to record it on the active route, or \`tack link add\` if it's a reference.\n"
   done
 fi
 

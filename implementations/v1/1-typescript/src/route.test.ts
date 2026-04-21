@@ -384,6 +384,54 @@ describe("addLink", () => {
     assert.equal(t.links!.length, 1);
     assert.equal(t.links![0].url, "https://github.com/acme/repo/pull/2");
   });
+
+  it("is idempotent when the url already exists in links", () => {
+    route.init("link-dup");
+    route.addTack("link-dup", "Task");
+    route.addLink("link-dup", "t1", "Doc", "https://example.com/doc");
+    const t = route.addLink("link-dup", "t1", "Doc v2", "https://example.com/doc");
+    assert.equal(t.links!.length, 1);
+    assert.equal(t.links![0].label, "Doc");
+  });
+
+  it("is idempotent when the url already matches the deliverable", () => {
+    route.init("link-dup-deliverable");
+    route.addTack("link-dup-deliverable", "Task");
+    route.setDeliverable("link-dup-deliverable", "t1", "PR", "https://github.com/acme/repo/pull/1");
+    const t = route.addLink("link-dup-deliverable", "t1", "Same PR", "https://github.com/acme/repo/pull/1");
+    assert.equal(t.deliverable!.label, "PR");
+    assert.equal(t.links, undefined);
+  });
+});
+
+describe("removeLink", () => {
+  it("removes a link by url", () => {
+    route.init("link-rm");
+    route.addTack("link-rm", "Task");
+    route.addLink("link-rm", "t1", "A", "https://example.com/a");
+    route.addLink("link-rm", "t1", "B", "https://example.com/b");
+    const t = route.removeLink("link-rm", "t1", "https://example.com/a");
+    assert.equal(t.links!.length, 1);
+    assert.equal(t.links![0].url, "https://example.com/b");
+  });
+
+  it("deletes the links field when the last link is removed", () => {
+    route.init("link-rm-last");
+    route.addTack("link-rm-last", "Task");
+    route.addLink("link-rm-last", "t1", "Only", "https://example.com/only");
+    const t = route.removeLink("link-rm-last", "t1", "https://example.com/only");
+    assert.equal(t.links, undefined);
+  });
+
+  it("throws when url does not match any link", () => {
+    route.init("link-rm-missing");
+    route.addTack("link-rm-missing", "Task");
+    route.addLink("link-rm-missing", "t1", "A", "https://example.com/a");
+    assert.throws(
+      () => route.removeLink("link-rm-missing", "t1", "https://example.com/missing"),
+      /No link with url/,
+    );
+  });
 });
 
 describe("markDone promotes PR link to deliverable", () => {
