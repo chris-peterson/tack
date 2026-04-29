@@ -1,17 +1,16 @@
 spec := "v1"
-impl := "1-typescript"
 
 # Show available recipes
 default:
     @just --list
 
-# Run the current implementation
+# Run the CLI
 run *args:
-    cd implementations/{{spec}}/{{impl}} && npm start -- {{args}}
+    npm start -- {{args}}
 
-# Run tests for the current implementation
+# Run tests
 test:
-    cd implementations/{{spec}}/{{impl}} && npm test
+    npm test
 
 # Validate the JSON Schema
 validate-schema:
@@ -33,7 +32,5 @@ try:
 tack:
     claude --plugin-dir . "/tack:tack"
 
-# Install the CLI and Claude Code plugin
 install:
-    cd implementations/{{spec}}/{{impl}} && npm install -g .
     claude plugin install tack

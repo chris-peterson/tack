@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
 import { execSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { delimiter, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import * as route from "./route.js";
 import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind } from "./display.js";
@@ -34,8 +35,63 @@ Usage:
   tack session <slug> <session-id>
   tack find <url> [--json]
   tack rm <slug> [--force]
+  tack install-cli [--dir <path>]
   tack completions zsh`);
   process.exit(1);
+}
+
+type Source = { path: string; kind: "shim" | "node" };
+
+function resolveSource(): Source {
+  // Plugin install: prefer the bash shim that lazy-builds dist on first run.
+  const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT;
+  if (pluginRoot) {
+    const shim = join(pluginRoot, "bin", "tack");
+    if (existsSync(shim)) return { path: shim, kind: "shim" };
+  }
+  // npm install: point at the running cli.js directly.
+  return { path: fileURLToPath(import.meta.url), kind: "node" };
+}
+
+function pathContains(targetDir: string): boolean {
+  const target = resolve(targetDir);
+  const entries = (process.env.PATH ?? "").split(delimiter);
+  for (const entry of entries) {
+    if (!entry) continue;
+    try {
+      if (resolve(entry) === target) return true;
+    } catch {
+      continue;
+    }
+  }
+  return false;
+}
+
+function installCli(dir: string | undefined): void {
+  const source = resolveSource();
+  const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
+  const targetDir = dir ? resolve(dir) : join(home, ".local", "bin");
+  const target = join(targetDir, "tack");
+  mkdirSync(targetDir, { recursive: true });
+
+  const wrapper = source.kind === "shim"
+    ? `#!/usr/bin/env bash\nexec "${source.path}" "$@"\n`
+    : `#!/usr/bin/env bash\nexec node "${source.path}" "$@"\n`;
+
+  let existing: string | null = null;
+  try { existing = readFileSync(target, "utf-8"); } catch {}
+
+  if (existing === wrapper) {
+    console.log(`already installed: ${target} -> ${source.path}`);
+  } else {
+    writeFileSync(target, wrapper);
+    chmodSync(target, 0o755);
+    console.log(`installed: ${target} -> ${source.path}`);
+  }
+
+  if (!pathContains(targetDir)) {
+    console.log(`warning: ${targetDir} is not on $PATH — add it to your shell rc`);
+  }
 }
 
 function run(): void {
@@ -278,6 +334,16 @@ function run(): void {
       const r = route.removeTack(rest[0], rest[1], { force });
       console.log(`Removed: ${rest[0]}/${rest[1]}`);
       console.log(formatRoute(r));
+      break;
+    }
+
+    case "install-cli": {
+      const { values } = parseArgs({
+        args: rest,
+        options: { dir: { type: "string" } },
+        allowPositionals: true,
+      });
+      installCli(values.dir as string | undefined);
       break;
     }
 

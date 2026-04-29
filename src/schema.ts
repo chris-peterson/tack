@@ -5,7 +5,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const SCHEMA_PATH = resolve(__dirname, "../../../..", "schema", "route.schema.json");
+const SCHEMA_PATH = resolve(__dirname, "..", "schema", "route.schema.json");
 
 let cachedValidator: ValidateFunction | null = null;
 

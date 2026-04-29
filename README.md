@@ -6,17 +6,21 @@ tack captures the non-linear reality of how development actually happens — piv
 
 ## Installation
 
-### Claude Code Plugin
-
 ```bash
 claude plugin marketplace add https://github.com/chris-peterson/claude-marketplace
 claude plugin install tack@chris-peterson
 ```
 
-### CLI Only
+The plugin bundles the CLI. To make `tack` callable from any shell, run once:
+
+```text
+/tack install-cli
+```
+
+This drops a `tack` wrapper at `~/.local/bin/tack` (use `--dir <path>` to override). Then:
 
 ```bash
-npm install -g tack
+tack completions zsh
 ```
 
 ## Quick Start
@@ -94,6 +98,8 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 | `tack link add <slug> <tack-id> <label> <url>` | Add a reference link |
 | `tack link rm <slug> <tack-id> <url>` | Remove a reference link |
 | `tack rm <slug> [--force]` | Delete an entire route |
+| `tack install-cli [--dir <path>]` | Drop a `tack` wrapper on PATH (plugin install) |
+| `tack completions zsh` | Install zsh completion script |
 
 ## Design Principles
 
