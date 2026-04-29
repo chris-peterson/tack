@@ -154,6 +154,7 @@ _tack() {
     'link:Add a link to a tack'
     'session:Record a session'
     'rm:Delete a route'
+    'install-cli:Drop a tack wrapper on PATH'
     'completions:Output shell completion script'
   )
 
@@ -293,6 +294,10 @@ _tack() {
         3) _tack_routes ;;
         *) _arguments '--force[Skip confirmation]' ;;
       esac
+      ;;
+    install-cli)
+      # tack install-cli [--dir <path>]
+      _arguments '--dir[Install directory (default ~/.local/bin)]:dir:_files -/'
       ;;
     completions)
       # tack completions <shell>
