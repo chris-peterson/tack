@@ -32,7 +32,5 @@ try:
 tack:
     claude --plugin-dir . "/tack:tack"
 
-# Install the CLI and Claude Code plugin
 install:
-    npm install -g .
     claude plugin install tack

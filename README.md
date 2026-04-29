@@ -6,8 +6,6 @@ tack captures the non-linear reality of how development actually happens — piv
 
 ## Installation
 
-### Claude Code Plugin (recommended)
-
 ```bash
 claude plugin marketplace add https://github.com/chris-peterson/claude-marketplace
 claude plugin install tack@chris-peterson
@@ -23,12 +21,6 @@ This drops a `tack` wrapper at `~/.local/bin/tack` (use `--dir <path>` to overri
 
 ```bash
 tack completions zsh
-```
-
-### CLI Only
-
-```bash
-npm install -g tack
 ```
 
 ## Quick Start
