@@ -17,11 +17,7 @@ The plugin bundles the CLI. To make `tack` callable from any shell, run once:
 /tack install-cli
 ```
 
-This drops a `tack` wrapper at `~/.local/bin/tack` (use `--dir <path>` to override). Then:
-
-```bash
-tack completions zsh
-```
+This drops a `tack` wrapper at `~/.local/bin/tack` (use `--dir <path>` to override) **and** installs the zsh completion script to `~/.zsh/completions/_tack`. Run `exec zsh` to pick up completions.
 
 ## Quick Start
 
@@ -98,7 +94,7 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 | `tack link add <slug> <tack-id> <label> <url>` | Add a reference link |
 | `tack link rm <slug> <tack-id> <url>` | Remove a reference link |
 | `tack rm <slug> [--force]` | Delete an entire route |
-| `tack install-cli [--dir <path>]` | Drop a `tack` wrapper on PATH (plugin install) |
+| `tack install-cli [--dir <path>]` | Install `tack` wrapper on PATH + zsh completions (plugin install) |
 | `tack completions zsh` | Install zsh completion script |
 
 ## Design Principles

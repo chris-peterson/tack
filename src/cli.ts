@@ -35,7 +35,7 @@ Usage:
   tack session <slug> <session-id>
   tack find <url> [--json]
   tack rm <slug> [--force]
-  tack install-cli [--dir <path>]
+  tack install-cli [--dir <path>]    (also installs zsh completions)
   tack completions zsh`);
   process.exit(1);
 }
@@ -92,6 +92,46 @@ function installCli(dir: string | undefined): void {
   if (!pathContains(targetDir)) {
     console.log(`warning: ${targetDir} is not on $PATH — add it to your shell rc`);
   }
+
+  installZshCompletions();
+}
+
+function installZshCompletions(): void {
+  const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
+  const zshrc = join(home, ".zshrc");
+  const dir = join(home, ".zsh", "completions");
+  const file = join(dir, "_tack");
+  mkdirSync(dir, { recursive: true });
+
+  let existing: string | null = null;
+  try { existing = readFileSync(file, "utf-8"); } catch {}
+
+  if (existing === ZSH_COMPLETION) {
+    console.log(`completions already installed: ${file}`);
+  } else {
+    writeFileSync(file, ZSH_COMPLETION);
+    console.log(`completions installed: ${file}`);
+  }
+
+  let zshrcContent = "";
+  try { zshrcContent = readFileSync(zshrc, "utf-8"); } catch {}
+  const hasFpath = zshrcContent.includes(".zsh/completions");
+  const hasCompinit = zshrcContent.includes("compinit");
+  const fpathLine = `fpath=(~/.zsh/completions $fpath)`;
+
+  if (!hasFpath && hasCompinit) {
+    const updated = zshrcContent.replace(
+      /(.*compinit.*)/,
+      `${fpathLine}\n$1`,
+    );
+    writeFileSync(zshrc, updated);
+    console.log("Updated ~/.zshrc (added fpath before compinit).");
+  } else if (!hasFpath && !hasCompinit) {
+    const block = `\n${fpathLine}\nautoload -Uz compinit && compinit\n`;
+    execSync(`echo '${block}' >> ${zshrc}`);
+    console.log("Updated ~/.zshrc (added fpath + compinit).");
+  }
+  console.log("Restart your shell to activate completions.");
 }
 
 function run(): void {
@@ -350,33 +390,7 @@ function run(): void {
     case "completions": {
       const shell = rest[0];
       if (shell === "zsh") {
-        const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
-        const zshrc = join(home, ".zshrc");
-        const dir = join(home, ".zsh", "completions");
-        const file = join(dir, "_tack");
-        mkdirSync(dir, { recursive: true });
-        writeFileSync(file, ZSH_COMPLETION);
-        console.log(`Installed: ${file}`);
-
-        let zshrcContent = "";
-        try { zshrcContent = readFileSync(zshrc, "utf-8"); } catch {}
-        const hasFpath = zshrcContent.includes(".zsh/completions");
-        const hasCompinit = zshrcContent.includes("compinit");
-        const fpathLine = `fpath=(~/.zsh/completions $fpath)`;
-
-        if (!hasFpath && hasCompinit) {
-          const updated = zshrcContent.replace(
-            /(.*compinit.*)/,
-            `${fpathLine}\n$1`,
-          );
-          writeFileSync(zshrc, updated);
-          console.log("Updated ~/.zshrc (added fpath before compinit).");
-        } else if (!hasFpath && !hasCompinit) {
-          const block = `\n${fpathLine}\nautoload -Uz compinit && compinit\n`;
-          execSync(`echo '${block}' >> ${zshrc}`);
-          console.log("Updated ~/.zshrc (added fpath + compinit).");
-        }
-        console.log("Restart your shell to activate.");
+        installZshCompletions();
       } else {
         console.error(shell ? `Unsupported shell: ${shell}` : "Usage: tack completions <shell>");
         console.error("Supported shells: zsh");

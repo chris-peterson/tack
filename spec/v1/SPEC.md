@@ -277,6 +277,11 @@ default text format.
 **[CL-19]** `tack completions <shell>` — When invoked, the CLI shall install
 shell tab completions. Supported shells: `zsh`.
 
+**[CL-19a]** `tack install-cli [--dir <path>]` — In addition to dropping the
+`tack` wrapper on PATH, the CLI shall install the zsh completion script (the
+same artifact `tack completions zsh` produces). A single invocation
+provisions both PATH access and tab completion.
+
 **[CL-20]** When tab completing tack IDs, the shell shall display each tack's
 summary as a completion description alongside the ID.
 
