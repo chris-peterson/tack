@@ -14,10 +14,19 @@ claude plugin install tack@chris-peterson
 The plugin bundles the CLI. To make `tack` callable from any shell, run once:
 
 ```text
-/tack install-cli
+/tack:tack install-cli
 ```
 
 This drops a `tack` wrapper at `~/.local/bin/tack` (use `--dir <path>` to override) **and** installs the zsh completion script to `~/.zsh/completions/_tack`. Run `exec zsh` to pick up completions.
+
+### Updating
+
+Third-party Claude Code marketplaces have auto-update **off by default**. To stay current with new tack releases, either:
+
+- **Enable auto-update once** via `/plugin` → Marketplaces → `chris-peterson` → Enable auto-update. Future releases install on the next session start.
+- **Or update manually** with `claude plugin update tack@chris-peterson`.
+
+Confirm what's installed: `tack --version`. See [`CHANGELOG.md`](CHANGELOG.md) for release notes.
 
 ## Quick Start
 

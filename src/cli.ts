@@ -36,7 +36,8 @@ Usage:
   tack find <url> [--json]
   tack rm <slug> [--force]
   tack install-cli [--dir <path>]    (also installs zsh completions)
-  tack completions zsh`);
+  tack completions zsh
+  tack --version`);
   process.exit(1);
 }
 
@@ -136,6 +137,18 @@ function installZshCompletions(): void {
 
 function run(): void {
   const args = process.argv.slice(2);
+
+  if (args[0] === "--version" || args[0] === "-v") {
+    const pluginRoot =
+      process.env.CLAUDE_PLUGIN_ROOT ??
+      resolve(fileURLToPath(import.meta.url), "..", "..");
+    const manifest = JSON.parse(
+      readFileSync(join(pluginRoot, ".claude-plugin", "plugin.json"), "utf8"),
+    );
+    console.log(`tack ${manifest.version}`);
+    return;
+  }
+
   if (args.length === 0) usage();
 
   const command = args[0];

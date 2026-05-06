@@ -17,11 +17,20 @@ todo items.
 
 ### Session start (no arguments or "status")
 
-1. Run `tack tree -d 2` to get an overview of all routes and their tacks.
-2. Identify **active routes** — those with open tacks (not `done` or `dropped`).
-3. Record the current Claude Code session ID on each active route:
+1. **Check CLI freshness.** Read `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`'s
+   `version` and compare to `tack --version`. If they differ, surface a one-line
+   note and offer to re-run `/tack:tack install-cli`:
+
+   > tack CLI on PATH is `<cli_version>` but the plugin is `<plugin_version>`.
+   > Run `/tack:tack install-cli` to refresh the shell wrapper.
+
+   Don't block. If `tack` isn't on PATH at all, skip the check silently — the
+   user invokes via slash commands and the plugin install is current.
+2. Run `tack tree -d 2` to get an overview of all routes and their tacks.
+3. Identify **active routes** — those with open tacks (not `done` or `dropped`).
+4. Record the current Claude Code session ID on each active route:
    `tack session <slug> $CLAUDE_SESSION_ID` (skip if already recorded).
-4. Present a brief summary of active work — route names, open tacks, and any
+5. Present a brief summary of active work — route names, open tacks, and any
    blocked items. Keep it to a few lines; the user can drill deeper with
    `tack tree <slug>` or glob queries like `tack tree '**/deliverable'`.
 
