@@ -41,8 +41,9 @@ active route's tack `project` fields, ask a single non-blocking question:
 
 > This doesn't seem related to any current route — tangent?
 
-- If the user confirms, run `tack init <slug> --tangent` with a slug derived
-  from the project name, then `tack add <slug> <summary>` for the first tack.
+- If the user confirms, run `tack init <slug> --group tangent` with a slug
+  derived from the project name, then `tack add <slug> <summary>` for the
+  first tack.
 - If the user declines or ignores, do not ask again in this session.
 
 ### Tack creation discipline
@@ -119,7 +120,7 @@ tack tree '**/depends_on'          # All dependency chains
 ## CLI Reference
 
 ```text
-tack init <slug> [--tangent] [--group <slug>]  Create a new route
+tack init <slug> [--group <slug>]  Create a new route
 tack list [--json]                 List all routes
 tack status [slug] [--json] [--all]  Show route details (dropped hidden unless --all)
 tack tree [path] [-d <depth>]      Browse routes/tacks (glob: */*/deliverable)

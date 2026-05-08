@@ -1,6 +1,6 @@
 # Specification
 
-The v1 spec defines 43 requirements across 9 categories:
+The v1 spec defines 73 requirements across 9 categories:
 **RT** (Route), **TK** (Tack), **DV** (Deliverable), **TD** (Todo),
 **DP** (Dependencies), **LK** (Links), **ST** (Storage), **CL** (CLI),
 **AG** (Agent Integration).
@@ -42,7 +42,7 @@ Route (1 YAML file per route)
 | DP | DP-01 to DP-04 | Dependency tracking and enforcement |
 | LK | LK-01 | Link structure (label + url) |
 | ST | ST-01 to ST-05 | Storage location, directory creation, validation |
-| CL | CL-01 to CL-16 | CLI commands and output behavior |
+| CL | CL-01 to CL-29 (plus CL-19a) | CLI commands and output behavior |
 | AG | AG-01 to AG-09 | Claude Code agent integration |
 
 ## Anti-Requirements

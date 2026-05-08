@@ -105,7 +105,9 @@ change when the route is updated.
 to the current date if not already present.
 
 **[TK-04]** When `status` is set to `done`, if the tack has `after` items with
-`done: false`, those items shall be surfaced to the user before proceeding.
+`done: false`, those items shall be surfaced in the response so the calling
+agent can confirm or close them out. The CLI persists the status change before
+displaying the pending items; gating responsibility lies with the caller.
 
 **[TK-05]** Tack IDs shall be unique within a route. When a new tack is
 added, its ID shall be `t<N>` where N is one greater than the highest existing
@@ -338,6 +340,25 @@ shall remove the link with the matching URL from the specified tack's
 `links` array. If no link with that URL exists, the CLI shall fail with
 an error.
 
+**[CL-27]** `tack edit <slug> <tack-id> <summary>` — When invoked, the CLI
+shall update the specified tack's `summary` field in place and refresh
+`updated_at`.
+
+**[CL-28]** `tack merge <slug> <source-id> <target-id>` — When invoked, the
+CLI shall merge the source tack into the target: todos (`before`/`after`)
+and `links` are appended to the target (with new sequential todo IDs); if
+the source has a `deliverable` and the target does not, the deliverable is
+moved to the target; if both tacks have a deliverable, the target's
+deliverable is kept and the source's is dropped along with the source; the
+source tack is then set to status `dropped` (preserving its ID per [TK-05]).
+
+> Note: callers wanting to preserve a source deliverable when both tacks
+> have one should record it as a link on the target before merging.
+
+**[CL-29]** `tack --version` / `tack -v` — When invoked, the CLI shall print
+the `version` field of `.claude-plugin/plugin.json` (resolved from the
+plugin root) and exit zero.
+
 ---
 
 ### AG — Agent Integration
@@ -346,15 +367,16 @@ an error.
 and writes tack route files using the CLI defined in the CL category.
 
 **[AG-02]** When a session begins, the agent shall load all active routes
-(routes with at least one tack whose status is not `done` or `dropped`) in
-the background to build context about current work.
+(routes with at least one tack whose status is not `done` or `dropped`)
+without blocking the user prompt, to build context about current work.
 
 **[AG-03]** When the user begins work in a project that is not referenced by
-any active route's tack deliverables, the agent shall ask whether to create a
-new route. The project is inferred from the deliverable URL
-(`<protocol>://<forge-instance>/<project-path>/...`). The question shall be
-phrased as a single non-blocking line (e.g., "This doesn't seem related to
-any current route — new route?").
+any active route, the agent shall ask whether to create a new route. The
+"current project" is identified by the active git branch slug or by the
+deliverable URL on a recent tack (`<protocol>://<forge-instance>/<project-path>/...`).
+A `UserPromptSubmit` hook may emit the prompt non-blockingly when no active
+route's slug matches the current branch. The question shall be a single line
+(e.g., "This doesn't seem related to any current route — tangent?").
 
 **[AG-04]** When the user confirms a new route, the agent shall create the
 route and add the first tack.

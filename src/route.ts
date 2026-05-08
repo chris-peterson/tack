@@ -387,7 +387,11 @@ export function recent(opts: { count?: number; since?: string } = {}): { slug: s
   routes.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 
   if (opts.since) {
-    const sinceDate = new Date(opts.since).toISOString();
+    const parsed = new Date(opts.since);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new Error(`Invalid --since value: ${opts.since}`);
+    }
+    const sinceDate = parsed.toISOString();
     routes = routes.filter((r) => r.updated_at >= sinceDate);
   }
 
