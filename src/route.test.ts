@@ -553,3 +553,60 @@ describe("removeTack", () => {
     assert.deepEqual(t3!.depends_on, ["t2"]);
   });
 });
+
+describe("pin/unpin", () => {
+  let cwd: string;
+
+  beforeEach(() => {
+    cwd = mkdtempSync(join(tmpdir(), "tack-pin-"));
+  });
+
+  it("readPin returns null when no pin file exists", () => {
+    assert.equal(route.readPin(cwd), null);
+  });
+
+  it("writePin persists slug + pinned_at", () => {
+    route.init("pin-target");
+    const pin = route.writePin("pin-target", cwd);
+    assert.equal(pin.slug, "pin-target");
+    assert.ok(pin.pinned_at);
+    const round = route.readPin(cwd);
+    assert.equal(round?.slug, "pin-target");
+  });
+
+  it("writePin includes session_id from env when set", () => {
+    route.init("pin-with-session");
+    const prev = process.env.CLAUDE_SESSION_ID;
+    process.env.CLAUDE_SESSION_ID = "sess-123";
+    try {
+      const pin = route.writePin("pin-with-session", cwd);
+      assert.equal(pin.session_id, "sess-123");
+    } finally {
+      if (prev === undefined) delete process.env.CLAUDE_SESSION_ID;
+      else process.env.CLAUDE_SESSION_ID = prev;
+    }
+  });
+
+  it("writePin fails for unknown slug", () => {
+    assert.throws(() => route.writePin("does-not-exist", cwd), /not found/i);
+  });
+
+  it("deletePin removes the file and returns true", () => {
+    route.init("pin-removable");
+    route.writePin("pin-removable", cwd);
+    assert.equal(route.deletePin(cwd), true);
+    assert.equal(route.readPin(cwd), null);
+  });
+
+  it("deletePin returns false when no pin exists", () => {
+    assert.equal(route.deletePin(cwd), false);
+  });
+
+  it("writePin overwrites an existing pin", () => {
+    route.init("pin-first");
+    route.init("pin-second");
+    route.writePin("pin-first", cwd);
+    route.writePin("pin-second", cwd);
+    assert.equal(route.readPin(cwd)?.slug, "pin-second");
+  });
+});

@@ -34,6 +34,8 @@ Usage:
   tack link rm <slug> <tack-id> <url>
   tack session <slug> <session-id>
   tack find <url> [--json]
+  tack pin [<slug>]                  Pin a route to the current cwd (no slug: show current pin)
+  tack unpin                         Clear the cwd pin
   tack rm <slug> [--force]
   tack install-cli [--dir <path>]    (also installs zsh completions)
   tack completions zsh
@@ -366,6 +368,28 @@ function run(): void {
       if (!url) usage();
       const matches = route.find(url);
       console.log(jsonFlag ? JSON.stringify(matches, null, 2) : formatFind(matches));
+      break;
+    }
+
+    case "pin": {
+      if (rest[0]) {
+        const pin = route.writePin(rest[0]);
+        console.log(`pinned ${pin.slug} → ${process.cwd()}/.tack`);
+      } else {
+        const pin = route.readPin();
+        if (pin) {
+          console.log(`${pin.slug} (pinned ${pin.pinned_at})`);
+        } else {
+          console.log("no pin set for current directory");
+          process.exit(1);
+        }
+      }
+      break;
+    }
+
+    case "unpin": {
+      const removed = route.deletePin();
+      console.log(removed ? `unpinned ${process.cwd()}/.tack` : "no pin to remove");
       break;
     }
 

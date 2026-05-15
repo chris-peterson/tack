@@ -8,7 +8,33 @@ development actually happens — pivots, context switches, expanding scope — s
 that work-in-progress survives context exhaustion, crashes, and session
 boundaries.
 
-The schema is the primary deliverable. The CLI is a convenience wrapper.
+The schema is the primary deliverable. The CLI encapsulates schema
+operations as a deterministic primitive. A separate Claude Code plugin
+bundles hooks and a skill that layer reasoning on top — picking the active
+route, prompting on ambiguity, capturing URLs — using the CLI as its only
+write path.
+
+```mermaid
+%%{ init: { 'look': 'handDrawn' } }%%
+flowchart LR
+    subgraph deterministic ["Deterministic"]
+        cli["tack CLI"]
+        schema["~/.tack/routes/*.yaml"]
+        cli --> schema
+    end
+
+    subgraph plugin ["Claude Code plugin"]
+        hooks["hooks"]
+        skill["tack skill"]
+        hooks --> skill
+    end
+
+    skill --> cli
+```
+
+The CLI and YAML schema are the durable, tool-agnostic layer. The plugin is
+a Claude-Code-specific surface that wraps the CLI; other agents or tools can
+target the same schema by speaking to the CLI directly.
 
 ---
 
@@ -198,6 +224,18 @@ canonical validation source for route files.
 JSON Schema. If validation fails, the CLI shall report the errors and exit
 without modifying the file.
 
+**[ST-06]** A pointer file at `<cwd>/.tack` shall record the active route
+for a working directory. The file is YAML with the following fields:
+- `slug` (string, required) — the pinned route's slug
+- `pinned_at` (string, required) — ISO 8601 timestamp of when the pin was
+  written
+- `session_id` (string, optional) — informational; the Claude Code session
+  that wrote the pin
+
+The pointer file is per-cwd state, not part of the route schema. Users may
+commit it to share assignment across a team or `.gitignore` it for per-dev
+state. The CLI does not opine on either choice.
+
 ---
 
 ### CL — CLI
@@ -359,9 +397,25 @@ source tack is then set to status `dropped` (preserving its ID per [TK-05]).
 the `version` field of `.claude-plugin/plugin.json` (resolved from the
 plugin root) and exit zero.
 
+**[CL-30]** `tack pin <slug>` — When invoked, the CLI shall write a pointer
+file at `<cwd>/.tack` recording the given slug as the active route for the
+current working directory per [ST-06]. The CLI shall fail if no route file
+exists for the given slug. When invoked without arguments (`tack pin`), the
+CLI shall display the current cwd's pin if one exists, or report that no pin
+is set.
+
+**[CL-31]** `tack unpin` — When invoked, the CLI shall delete the pointer
+file at `<cwd>/.tack` if it exists. The command shall succeed silently if no
+pin is set; absence of a pin is not an error.
+
 ---
 
 ### AG — Agent Integration
+
+The CLI encapsulates schema operations; the skill encapsulates reasoning.
+Inference (what's active, which route to attach to, when to prompt) lives in
+the skill and uses CLI primitives. Hooks emit reminders (see HK); the skill
+acts on them.
 
 **[AG-01]** The agent shall be implemented as a Claude Code skill that reads
 and writes tack route files using the CLI defined in the CL category.
@@ -370,24 +424,38 @@ and writes tack route files using the CLI defined in the CL category.
 (routes with at least one tack whose status is not `done` or `dropped`)
 without blocking the user prompt, to build context about current work.
 
-**[AG-03]** When the user begins work in a project that is not referenced by
-any active route, the agent shall ask whether to create a new route. The
-"current project" is identified by the active git branch slug or by the
-deliverable URL on a recent tack (`<protocol>://<forge-instance>/<project-path>/...`).
-A `UserPromptSubmit` hook may emit the prompt non-blockingly when no active
-route's slug matches the current branch. The question shall be a single line
-(e.g., "This doesn't seem related to any current route — tangent?").
+**[AG-03]** The agent shall maintain the answer to "what am I working on?"
+for the current working directory by running the following resolution
+procedure in order, stopping at the first confident match:
 
-**[AG-04]** When the user confirms a new route, the agent shall create the
-route and add the first tack.
+1. **Pin** — Read `<cwd>/.tack` per [ST-06]. If present and the referenced
+   route exists with at least one open tack, the pinned route is active.
+2. **URL match** — When a PR/MR/issue URL is in scope (recently emitted by
+   a tool, pasted by the user, or passed as a hint), run `tack find <url>
+   --json` and use the matched route if exactly one is returned.
+3. **Branch slug** — When the cwd is a git repository, run `tack list
+   --json` and use the route whose slug equals the current branch name if
+   it has at least one open tack.
+4. **Single open route** — If exactly one route has an open tack, use it.
+5. **Ambiguous or unknown** — Prompt the user via `AskUserQuestion` with
+   candidates: in-progress routes, recently-updated routes (via `tack
+   recent --json`), or a "start a new route" option. On the user's pick,
+   record the answer with `tack pin <slug>` per [AG-10].
 
-**[AG-05]** When a tack produces a deliverable (PR/MR URL appears in the
-session), the agent shall record it on the current tack automatically without
-prompting the user.
+**[AG-04]** When the user confirms a new route during resolution per [AG-03],
+the agent shall run `tack init <slug>` and add the first tack with `tack add`.
 
-**[AG-06]** When a URL is pasted or referenced during a session, the agent
-shall capture it as a link on the current tack automatically. URLs already
-recorded as a deliverable per [AG-05] shall not be duplicated as links.
+**[AG-05]** When a hook emits a deliverable reminder per [HK-02], or a PR/MR
+URL otherwise appears in the session, the agent shall record the URL on the
+active route's current tack via `tack deliverable <slug> <tack-id> <label>
+<url>` without prompting the user. If no active tack exists, the agent shall
+add one with `tack add` and then record the deliverable.
+
+**[AG-06]** When a hook emits a link reminder per [HK-02], or a non-PR/MR
+URL is referenced in the session, the agent shall capture it via `tack link
+add <slug> <tack-id> <label> <url>` on the active tack. URLs already recorded
+as a deliverable per [AG-05] shall not be duplicated; the CLI enforces this
+per [CL-13].
 
 **[AG-07]** The agent shall not prompt the user more than once per distinct
 event. If the user ignores or dismisses a prompt, the agent shall not re-ask
@@ -399,6 +467,52 @@ pending `after` todo items per [TK-04] before moving on.
 **[AG-09]** When the agent begins operating on a route, it shall record the
 current Claude Code session ID in the route's `sessions` array per [RT-09].
 If the session ID already exists, it shall not duplicate.
+
+**[AG-10]** When the agent resolves an active route via [AG-03] in a way
+that is not already pinned (URL match, branch slug, single-open-route, or
+user pick), the agent shall pin the result with `tack pin <slug>` so future
+resolutions are immediate. The agent shall not pin speculatively — only
+after a confident match or user confirmation. The agent shall `tack unpin`
+when the user explicitly switches focus or when the pinned route's last open
+tack transitions to `done` or `dropped`.
+
+---
+
+### HK — Hooks
+
+Hooks are scaffolding around the agent. They surface signals the agent might
+otherwise miss (URLs in tool output, URLs in user prompts, version drift),
+and they emit reminder text the agent reads as additional context. Hooks
+never write to route files directly; the skill performs all writes via the
+CLI per [AG-05] and [AG-06].
+
+**[HK-01]** A `SessionStart` hook shall compare the installed CLI wrapper's
+version to the plugin's `version` per [CL-29]. When they differ, the hook
+shall emit a one-line note suggesting `tack install-cli`. The hook shall
+silently no-op when `tack` is not on `PATH` and shall never block session
+start.
+
+**[HK-02]** A `PostToolUse` hook scoped to the `Bash` tool shall scan tool
+output for PR/MR and issue URLs. When a match is found, the hook shall emit
+reminder text instructing the agent to record the URL via the tack skill
+per [AG-05] or [AG-06] depending on URL type.
+
+**[HK-03]** A `UserPromptSubmit` hook shall scan the user's prompt for
+PR/MR and issue URLs and emit the same kind of reminder as [HK-02]. The
+hook is responsible for noticing URLs the user pastes inline rather than
+through a Bash tool call.
+
+**[HK-04]** The `UserPromptSubmit` hook shall also, once per session, check
+whether an active route exists for the current cwd by running the same
+resolution procedure as [AG-03] steps 1–4 (without prompting the user). If
+no route resolves, the hook shall emit a one-line nudge suggesting the user
+invoke the tack skill to identify or create a route. The hook shall debounce
+so this nudge fires at most once per session.
+
+**[HK-05]** Hook reminders are advisory. The agent shall act on them via
+the tack skill rather than the hook running CLI commands directly. This
+routes all schema writes through one path and lets the agent apply context
+(which slug, which tack) the hook cannot see.
 
 ---
 

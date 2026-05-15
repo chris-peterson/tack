@@ -1,12 +1,36 @@
 # Specification
 
-The v1 spec defines 73 requirements across 9 categories:
-**RT** (Route), **TK** (Tack), **DV** (Deliverable), **TD** (Todo),
-**DP** (Dependencies), **LK** (Links), **ST** (Storage), **CL** (CLI),
-**AG** (Agent Integration).
+tack v1 is a tool-agnostic route schema with a deterministic CLI and a
+Claude Code plugin that layers reasoning on top.
 
 > [!TIP]
 > View the full spec source: [spec/v1/SPEC.md](https://github.com/chris-peterson/tack/blob/main/spec/v1/SPEC.md)
+
+## Architecture
+
+```mermaid
+%%{ init: { 'look': 'handDrawn' } }%%
+flowchart LR
+    subgraph deterministic ["Deterministic"]
+        cli["tack CLI"]
+        schema["~/.tack/routes/*.yaml"]
+        cli --> schema
+    end
+
+    subgraph plugin ["Claude Code plugin"]
+        hooks["hooks"]
+        skill["tack skill"]
+        hooks --> skill
+    end
+
+    skill --> cli
+```
+
+The CLI and YAML schema are the durable, tool-agnostic layer — the CLI does
+nothing beyond schema CRUD. The plugin is the Claude-Code-specific surface
+that picks the active route, captures URLs, and resolves ambiguity by
+prompting the user. Other agents or tools can target the same schema by
+speaking to the CLI directly.
 
 ## Data Model
 
@@ -33,17 +57,18 @@ Route (1 YAML file per route)
 
 ## Requirement Categories
 
-| Category | ID Range | Description |
-|---|---|---|
-| RT | RT-01 to RT-10 | Route schema structure and constraints |
-| TK | TK-01 to TK-07 | Tack fields, statuses, and ID sequencing |
-| DV | DV-01 to DV-02 | Deliverable (single change request per tack) |
-| TD | TD-01 to TD-05 | Todo items (before/after arrays with IDs) |
-| DP | DP-01 to DP-04 | Dependency tracking and enforcement |
-| LK | LK-01 | Link structure (label + url) |
-| ST | ST-01 to ST-05 | Storage location, directory creation, validation |
-| CL | CL-01 to CL-29 (plus CL-19a) | CLI commands and output behavior |
-| AG | AG-01 to AG-09 | Claude Code agent integration |
+| Category | Description |
+|---|---|
+| RT | Route schema structure and constraints |
+| TK | Tack fields, statuses, and ID sequencing |
+| DV | Deliverable (single change request per tack) |
+| TD | Todo items (before/after arrays with IDs) |
+| DP | Dependency tracking and enforcement |
+| LK | Link structure (label + url) |
+| ST | Storage location, directory creation, validation, cwd pointer file |
+| CL | CLI commands and output behavior |
+| AG | Claude Code agent integration (skill responsibilities) |
+| HK | Hook responsibilities (nudges, freshness checks) |
 
 ## Anti-Requirements
 

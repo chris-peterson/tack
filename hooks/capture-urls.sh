@@ -18,4 +18,4 @@ output=$(echo "$input" | jq -r '.tool_result.stdout // empty' 2>/dev/null)
 url=$(echo "$output" | grep -oE 'https://(github\.com/[^/]+/[^/]+/(pull|issues)|gitlab\.[^[:space:]]*/-/(merge_requests|issues))/[0-9]+' | head -1)
 [ -z "$url" ] && exit 0
 
-echo "A PR/MR URL appeared: $url — record it as a deliverable on the active tack."
+echo "A PR/MR/issue URL appeared in tool output: $url — use the tack skill to record it on the active route's current tack (deliverable for PR/MR, link otherwise). The skill owns route resolution; don't run tack commands directly without it."

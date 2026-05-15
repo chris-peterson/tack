@@ -22,7 +22,7 @@ output=""
 urls=$(echo "$prompt" | grep -oE 'https://(github\.com/[^/]+/[^/]+/(pull|issues)|gitlab\.[^[:space:]]*/-/(merge_requests|issues))/[0-9]+' | head -3 || true)
 if [ -n "$urls" ]; then
   for url in $urls; do
-    output="${output}PR/MR URL detected in user message: ${url} — use \`tack deliverable\` to record it on the active route, or \`tack link add\` if it's a reference.\n"
+    output="${output}PR/MR/issue URL in user message: ${url} — use the tack skill to record it on the active route (deliverable for PR/MR, link otherwise). The skill owns route resolution.\n"
   done
 fi
 
@@ -34,40 +34,26 @@ nudge_file="${nudge_dir}/${session_id}"
 if [ ! -f "$nudge_file" ] && command -v tack >/dev/null 2>&1; then
   touch "$nudge_file"
 
-  # Try to match a route to the current git branch
-  branch=""
-  if [ -n "$cwd" ] && [ -d "$cwd/.git" ]; then
-    branch=$(git -C "$cwd" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+  has_route=false
+
+  # Step 1: pin file at cwd
+  if [ -n "$cwd" ] && [ -f "$cwd/.tack" ]; then
+    has_route=true
   fi
 
-  has_route=false
-  if [ -n "$branch" ]; then
-    tack_dir="${TACK_HOME:-$HOME/.tack}/routes"
-    if [ -d "$tack_dir" ]; then
-      # Check if any route slug matches the branch name
-      for f in "$tack_dir"/*.yaml; do
-        [ -f "$f" ] || continue
-        slug=$(basename "$f" .yaml)
-        if [ "$slug" = "$branch" ]; then
-          has_route=true
-          break
-        fi
-      done
-      # Also check if any route has an open tack (not done or dropped)
-      if [ "$has_route" = false ]; then
-        for f in "$tack_dir"/*.yaml; do
-          [ -f "$f" ] || continue
-          if grep -qE 'status: (pending|in_progress|blocked)' "$f" 2>/dev/null; then
-            has_route=true
-            break
-          fi
-        done
+  # Step 2: branch slug matches a route
+  if [ "$has_route" = false ] && [ -n "$cwd" ] && [ -d "$cwd/.git" ]; then
+    branch=$(git -C "$cwd" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+    if [ -n "$branch" ]; then
+      tack_dir="${TACK_HOME:-$HOME/.tack}/routes"
+      if [ -f "$tack_dir/$branch.yaml" ]; then
+        has_route=true
       fi
     fi
   fi
 
   if [ "$has_route" = false ]; then
-    output="${output}No tack route is active for this session. Consider running \`tack init <slug>\` to track this work.\n"
+    output="${output}No tack route resolves for this cwd (no pin, no branch-slug match). Use the tack skill to identify or create a route for this work — the skill owns route resolution and will prompt if needed.\n"
   fi
 fi
 

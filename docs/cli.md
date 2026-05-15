@@ -207,3 +207,31 @@ Remove a link from a tack by URL. Fails if no link with that URL exists.
 ```bash
 tack link rm auth-rewrite t1 https://slack.com/archives/C123/p456
 ```
+
+## Pinning
+
+A pin marks a route as active for a working directory. The tack skill reads
+the pin first when resolving "what am I working on?", so pinned routes win
+over branch-slug or single-open-route heuristics.
+
+### `tack pin [<slug>]`
+
+Pin a route to the current directory. Writes a `.tack` YAML file at the cwd
+root. Invoking with no slug prints the current pin (exit 1 if no pin is set).
+
+```bash
+tack pin auth-rewrite    # pin
+tack pin                 # show current pin
+```
+
+The pin file holds `slug`, `pinned_at`, and an optional `session_id`. Commit
+it for shared assignment across a team, or `.gitignore` it for per-dev state.
+
+### `tack unpin`
+
+Clear the pin for the current directory. Exits zero whether or not a pin
+existed.
+
+```bash
+tack unpin
+```

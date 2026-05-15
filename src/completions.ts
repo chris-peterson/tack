@@ -153,6 +153,8 @@ _tack() {
     'todo:Manage todo items'
     'link:Add a link to a tack'
     'session:Record a session'
+    'pin:Pin a route to the current cwd'
+    'unpin:Clear the cwd pin'
     'rm:Delete a route'
     'install-cli:Drop a tack wrapper on PATH'
     'completions:Output shell completion script'
@@ -287,6 +289,15 @@ _tack() {
         3) _tack_routes ;;
         4) _message 'session-id' ;;
       esac
+      ;;
+    pin)
+      # tack pin [<slug>]
+      case "$CURRENT" in
+        3) _tack_routes ;;
+      esac
+      ;;
+    unpin)
+      # tack unpin (no args)
       ;;
     rm)
       # tack rm <slug> [--force]

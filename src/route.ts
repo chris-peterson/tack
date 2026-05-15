@@ -444,6 +444,44 @@ export function remove(slug: string): void {
   unlinkSync(path);
 }
 
+export interface Pin {
+  slug: string;
+  pinned_at: string;
+  session_id?: string;
+}
+
+function pinPath(cwd: string): string {
+  return join(cwd, ".tack");
+}
+
+export function readPin(cwd: string = process.cwd()): Pin | null {
+  const path = pinPath(cwd);
+  if (!existsSync(path)) return null;
+  const data = parse(readFileSync(path, "utf-8")) as Pin;
+  return data;
+}
+
+export function writePin(slug: string, cwd: string = process.cwd()): Pin {
+  if (!existsSync(routePath(slug))) {
+    throw new Error(`Route not found: ${slug}`);
+  }
+  const pin: Pin = {
+    slug,
+    pinned_at: now(),
+  };
+  const sessionId = process.env.CLAUDE_SESSION_ID;
+  if (sessionId) pin.session_id = sessionId;
+  writeFileSync(pinPath(cwd), stringify(pin), "utf-8");
+  return pin;
+}
+
+export function deletePin(cwd: string = process.cwd()): boolean {
+  const path = pinPath(cwd);
+  if (!existsSync(path)) return false;
+  unlinkSync(path);
+  return true;
+}
+
 export function removeTack(
   slug: string,
   tackId: string,
