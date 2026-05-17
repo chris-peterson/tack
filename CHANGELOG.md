@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.1
+
+### Build / Packaging
+
+- Ship pre-built `dist/` instead of compiling on first run. `typescript` moved to `devDependencies`; `bin/tack` now installs runtime deps only (`npm install --omit=dev`) if `node_modules` is missing, and skips the compile step. Plugin install footprint drops from ~31M to ~4M per cached version.
+
 ## 0.11.0
 
 ### Features

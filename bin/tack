@@ -1,18 +1,24 @@
 #!/usr/bin/env bash
-# tack — lazy-build shim. Builds the TS CLI on first run if dist is missing,
-# then execs node against it. Used by the Claude plugin install path.
+# tack — runs the pre-built CLI shipped in dist/. Installs runtime deps on
+# first use if node_modules is missing. The plugin install path expects
+# dist/ to be present in the cloned source (it's committed to the repo).
 set -e
 
 PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$PLUGIN_ROOT/dist/cli.js"
 
 if [ ! -f "$DIST" ]; then
+  echo "tack: dist/cli.js missing — this install is broken; rebuild with 'npm run build'" >&2
+  exit 1
+fi
+
+if [ ! -d "$PLUGIN_ROOT/node_modules" ]; then
   if ! command -v npm >/dev/null 2>&1; then
-    echo "tack: npm is required to build the CLI on first run" >&2
+    echo "tack: npm is required to install runtime dependencies on first run" >&2
     exit 1
   fi
-  echo "tack: building CLI (one-time)..." >&2
-  (cd "$PLUGIN_ROOT" && npm install --silent && npm run build --silent)
+  echo "tack: installing runtime dependencies (one-time)..." >&2
+  (cd "$PLUGIN_ROOT" && npm install --omit=dev --silent)
 fi
 
 exec node "$DIST" "$@"
