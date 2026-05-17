@@ -1,6 +1,6 @@
 {
   "name": "tack",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Route-aware agent that tracks AI-assisted development work — pivots, deliverables, and dependencies — across session boundaries",
   "author": {
     "name": "chris-peterson"

@@ -102,10 +102,20 @@ Add a tack to a route.
 | Option | Description |
 |---|---|
 | `--depends-on <id,...>` | Comma-separated tack IDs this depends on |
+| `--done` | Create the tack already marked done (for backfilling merged work) |
+| `--date <ts>` | When used with `--done`, set `done_at` to this `YYYY-MM-DD` or ISO 8601 date-time instead of "now" |
+| `--deliverable <url>` | Set the deliverable URL on creation. The label is auto-derived from the URL (`repo #N` for GitHub PRs/issues, `repo !N` for GitLab MRs). For a custom label, use `tack deliverable` after creation. |
+
+Unknown flags fail with a usage error rather than being silently ignored.
 
 ```bash
 tack add auth-rewrite "Replace session middleware"
 tack add auth-rewrite "Update SDK" --depends-on t1
+
+# Backfill a tack for an already-merged PR
+tack add auth-rewrite "Vault role migration" \
+  --done --date 2026-04-30 \
+  --deliverable https://github.com/org/repo/pull/42
 ```
 
 ### `tack start <slug> <tack-id>`
@@ -116,12 +126,16 @@ Start a tack. Fails if dependencies are unmet.
 tack start auth-rewrite t1
 ```
 
-### `tack done <slug> <tack-id>`
+### `tack done <slug> <tack-id> [--date <ts>]`
 
-Complete a tack. Shows pending after-todos if any exist.
+Complete a tack. `done_at` is stamped with the current ISO 8601 date-time
+unless `--date <ts>` is given, in which case the supplied `YYYY-MM-DD` date
+or full ISO 8601 date-time is used instead — supports backfilling work that
+merged earlier than today. Shows pending after-todos if any exist.
 
 ```bash
 tack done auth-rewrite t1
+tack done auth-rewrite t1 --date 2026-04-30
 ```
 
 ### `tack drop <slug> <tack-id>`
@@ -147,12 +161,16 @@ tack remove auth-rewrite t1 --force   # t2 depended on t1; its depends_on is str
 
 ## Deliverable
 
-### `tack deliverable <slug> <tack-id> <label> <url>`
+### `tack deliverable <slug> <tack-id> <label> <url> [--force]`
 
-Set the change request for a tack.
+Set the change request for a tack. If a deliverable is already recorded, the
+command refuses with an error showing the existing label and URL — this
+prevents a typo'd tack ID from silently clobbering an unrelated tack's
+deliverable. Pass `--force` to overwrite intentionally.
 
 ```bash
 tack deliverable auth-rewrite t1 "Session PR" https://github.com/org/repo/pull/42
+tack deliverable auth-rewrite t1 "New session PR" https://github.com/org/repo/pull/43 --force
 ```
 
 ## Todos

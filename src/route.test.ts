@@ -123,12 +123,35 @@ describe("startTack", () => {
 });
 
 describe("markDone", () => {
-  it("marks tack as done with date", () => {
+  it("marks tack as done with an ISO date-time", () => {
     route.init("done-test");
     route.addTack("done-test", "Task");
     const { tack } = route.markDone("done-test", "t1");
     assert.equal(tack.status, "done");
-    assert.ok(tack.done_at);
+    assert.match(tack.done_at!, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+  });
+
+  it("accepts an explicit ISO date via --at", () => {
+    route.init("done-backfill-date");
+    route.addTack("done-backfill-date", "Task");
+    const { tack } = route.markDone("done-backfill-date", "t1", { at: "2026-04-30" });
+    assert.equal(tack.done_at, "2026-04-30");
+  });
+
+  it("accepts an explicit ISO date-time via --at", () => {
+    route.init("done-backfill-dt");
+    route.addTack("done-backfill-dt", "Task");
+    const { tack } = route.markDone("done-backfill-dt", "t1", { at: "2026-04-30T17:00:00Z" });
+    assert.equal(tack.done_at, "2026-04-30T17:00:00Z");
+  });
+
+  it("rejects an invalid timestamp", () => {
+    route.init("done-backfill-bad");
+    route.addTack("done-backfill-bad", "Task");
+    assert.throws(
+      () => route.markDone("done-backfill-bad", "t1", { at: "not-a-date" }),
+      /Invalid timestamp/,
+    );
   });
 
   it("returns pending after items", () => {
@@ -137,6 +160,89 @@ describe("markDone", () => {
     route.addAfter("done-after", "t1", "Deploy to prod");
     const { pendingTodo } = route.markDone("done-after", "t1");
     assert.deepEqual(pendingTodo, ["Deploy to prod"]);
+  });
+});
+
+describe("addTack backfill", () => {
+  it("creates an already-done tack with current ISO timestamp", () => {
+    route.init("add-done");
+    const t = route.addTack("add-done", "Already merged", { done: true });
+    assert.equal(t.status, "done");
+    assert.match(t.done_at!, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+  });
+
+  it("creates an already-done tack with an explicit date", () => {
+    route.init("add-done-date");
+    const t = route.addTack("add-done-date", "Merged ages ago", {
+      done: true,
+      doneAt: "2026-04-09",
+    });
+    assert.equal(t.status, "done");
+    assert.equal(t.done_at, "2026-04-09");
+  });
+
+  it("sets a deliverable when one is provided at creation", () => {
+    route.init("add-deliverable");
+    const t = route.addTack("add-deliverable", "Merged work", {
+      done: true,
+      doneAt: "2026-04-30",
+      deliverable: { label: "repo #42", url: "https://github.com/owner/repo/pull/42" },
+    });
+    assert.equal(t.deliverable!.url, "https://github.com/owner/repo/pull/42");
+    assert.equal(t.deliverable!.label, "repo #42");
+  });
+
+  it("rejects an invalid doneAt", () => {
+    route.init("add-done-bad");
+    assert.throws(
+      () => route.addTack("add-done-bad", "Task", { done: true, doneAt: "yesterday" }),
+      /Invalid timestamp/,
+    );
+  });
+});
+
+describe("deriveDeliverableLabel", () => {
+  it("parses GitHub PR URLs", () => {
+    assert.equal(
+      route.deriveDeliverableLabel("https://github.com/owner/repo/pull/42"),
+      "repo #42",
+    );
+  });
+
+  it("parses GitHub issue URLs", () => {
+    assert.equal(
+      route.deriveDeliverableLabel("https://github.com/owner/repo/issues/7"),
+      "repo #7",
+    );
+  });
+
+  it("parses GitLab MR URLs", () => {
+    assert.equal(
+      route.deriveDeliverableLabel("https://gitlab.example.com/group/sub/repo/-/merge_requests/99"),
+      "repo !99",
+    );
+  });
+
+  it("parses GitLab issue URLs", () => {
+    assert.equal(
+      route.deriveDeliverableLabel("https://gitlab.example.com/group/repo/-/issues/12"),
+      "repo #12",
+    );
+  });
+
+  it("falls back to the URL for unknown patterns", () => {
+    const url = "https://example.com/foo/bar";
+    assert.equal(route.deriveDeliverableLabel(url), url);
+  });
+});
+
+describe("backward-compat date-only done_at", () => {
+  it("loads a route whose done_at is a bare YYYY-MM-DD", () => {
+    route.init("legacy-date");
+    const t = route.addTack("legacy-date", "Task");
+    route.markDone("legacy-date", t.id, { at: "2026-04-30" });
+    const reloaded = route.load("legacy-date");
+    assert.equal(reloaded.tacks[0].done_at, "2026-04-30");
   });
 });
 
@@ -158,11 +264,23 @@ describe("setDeliverable", () => {
     assert.equal(t.deliverable!.url, "https://github.com/pr/42");
   });
 
-  it("overwrites existing deliverable", () => {
-    route.init("dlv-overwrite");
-    route.addTack("dlv-overwrite", "Task");
-    route.setDeliverable("dlv-overwrite", "t1", "PR #1", "https://github.com/pr/1");
-    const t = route.setDeliverable("dlv-overwrite", "t1", "PR #2", "https://github.com/pr/2");
+  it("refuses to overwrite an existing deliverable without force", () => {
+    route.init("dlv-protected");
+    route.addTack("dlv-protected", "Task");
+    route.setDeliverable("dlv-protected", "t1", "PR #1", "https://github.com/pr/1");
+    assert.throws(
+      () => route.setDeliverable("dlv-protected", "t1", "PR #2", "https://github.com/pr/2"),
+      /already has a deliverable/,
+    );
+    const t = route.load("dlv-protected").tacks[0];
+    assert.equal(t.deliverable!.url, "https://github.com/pr/1");
+  });
+
+  it("overwrites existing deliverable with force", () => {
+    route.init("dlv-force");
+    route.addTack("dlv-force", "Task");
+    route.setDeliverable("dlv-force", "t1", "PR #1", "https://github.com/pr/1");
+    const t = route.setDeliverable("dlv-force", "t1", "PR #2", "https://github.com/pr/2", { force: true });
     assert.equal(t.deliverable!.label, "PR #2");
   });
 });

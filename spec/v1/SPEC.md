@@ -119,7 +119,10 @@ change when the route is updated.
   `dropped`
 
 **[TK-02]** Each tack shall contain the following optional fields:
-- `done_at` (string) — ISO 8601 date (YYYY-MM-DD) when the tack was completed
+- `done_at` (string) — ISO 8601 date (`YYYY-MM-DD`) or date-time
+  (`YYYY-MM-DDTHH:MM:SSZ`) when the tack was completed. The CLI writes the
+  full date-time on new completions; bare dates are accepted on read for
+  backward compatibility with routes created before v0.11.0.
 - `depends_on` (array of strings) — IDs of tacks within the same route that
   must complete first
 - `deliverable` (object) — the change request this tack produces
@@ -128,7 +131,9 @@ change when the route is updated.
 - `links` (array) — external references
 
 **[TK-03]** When `status` is set to `done`, the `done_at` field shall be set
-to the current date if not already present.
+to the current ISO 8601 date-time if not already present. Callers may supply
+an explicit timestamp (date or date-time) per [CL-05] to backfill already-merged
+work.
 
 **[TK-04]** When `status` is set to `done`, if the tack has `after` items with
 `done: false`, those items shall be surfaced in the response so the calling
@@ -170,10 +175,12 @@ and `after` (post-work). Both arrays use the same item schema.
 - `done` (boolean) — whether the instruction has been completed
 
 **[TD-03]** Each todo item shall contain the following optional fields:
-- `done_at` (string) — ISO 8601 date (YYYY-MM-DD) when completed
+- `done_at` (string) — ISO 8601 date (`YYYY-MM-DD`) or date-time
+  (`YYYY-MM-DDTHH:MM:SSZ`) when completed. New writes use the full date-time;
+  bare dates remain valid on read.
 
 **[TD-04]** When `done` is set to `true`, the `done_at` field shall be set to
-the current date if not already present.
+the current ISO 8601 date-time if not already present.
 
 **[TD-05]** Todo IDs shall be unique within their respective array (before or
 after). When a new todo is added, its ID shall use the next sequential number
@@ -254,14 +261,26 @@ and any pending todo items. Tacks with status `dropped` shall be omitted by
 default; when `--all` is passed, dropped tacks shall be included. When invoked
 without a slug, the CLI shall display a summary of all routes.
 
-**[CL-04]** `tack add <slug> <summary> [--depends-on <id,...>]` — When invoked, the CLI shall add a new tack to the
-specified route with the next sequential ID.
+**[CL-04]** `tack add <slug> <summary> [--depends-on <id,...>] [--done] [--date <ts>] [--deliverable <url>]` —
+When invoked, the CLI shall add a new tack to the specified route with the
+next sequential ID. When `--done` is passed, the tack shall be created with
+status `done` and `done_at` set to the current ISO 8601 date-time, or to the
+explicit value of `--date <ts>` (a `YYYY-MM-DD` date or full ISO 8601
+date-time) when supplied — this is the supported path for backfilling
+already-merged work. When `--deliverable <url>` is passed, the tack shall be
+created with its `deliverable` field set; the label is auto-derived from the
+URL using the same PR/MR/issue pattern as [CL-13]. When the URL does not match
+a recognized pattern, the URL itself is used as the label. The CLI shall
+reject unknown flags with a usage error rather than silently ignoring them.
 
-**[CL-05]** `tack done <slug> <tack-id>` — When invoked, the CLI shall set the
-specified tack's status to `done` and `done_at` to the current date. If the
-tack has pending `after` items, they shall be displayed. If the tack has no
-deliverable and its `links` array contains a PR/MR URL, the first matching
-link shall be promoted to the tack's deliverable and removed from `links`.
+**[CL-05]** `tack done <slug> <tack-id> [--date <ts>]` — When invoked, the CLI
+shall set the specified tack's status to `done`. `done_at` shall be set to the
+current ISO 8601 date-time, or to the explicit value of `--date <ts>`
+(`YYYY-MM-DD` or full ISO 8601 date-time) when supplied — used to backfill
+work that merged on a prior date. If the tack has pending `after` items, they
+shall be displayed. If the tack has no deliverable and its `links` array
+contains a PR/MR URL, the first matching link shall be promoted to the tack's
+deliverable and removed from `links`.
 
 **[CL-06]** `tack drop <slug> <tack-id>` — When invoked, the CLI shall set the
 specified tack's status to `dropped`. The tack shall remain in the route file
@@ -272,8 +291,12 @@ tack created in error, use [CL-25].
 the specified tack's status to `in_progress`. If the tack has `depends_on`
 entries with unmet dependencies, the operation shall fail per [DP-03].
 
-**[CL-08]** `tack deliverable <slug> <tack-id> <label> <url>` — When invoked,
-the CLI shall set the deliverable on the specified tack.
+**[CL-08]** `tack deliverable <slug> <tack-id> <label> <url> [--force]` —
+When invoked, the CLI shall set the deliverable on the specified tack. If the
+tack already has a deliverable, the CLI shall fail with an error showing the
+existing deliverable's label and URL unless `--force` is passed. The
+overwrite guard prevents typo'd tack IDs from silently clobbering an
+unrelated tack's deliverable.
 
 **[CL-09]** `tack before <slug> <tack-id> <text>` — When invoked, the CLI
 shall add a pre-work todo item to the specified tack with `done: false`.

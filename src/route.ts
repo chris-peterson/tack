@@ -32,8 +32,18 @@ function now(): string {
   return new Date().toISOString();
 }
 
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_DATE_TIME =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
+
+export function normalizeTimestamp(input: string): string {
+  if (ISO_DATE.test(input) || ISO_DATE_TIME.test(input)) {
+    const parsed = new Date(input);
+    if (!Number.isNaN(parsed.getTime())) return input;
+  }
+  throw new Error(
+    `Invalid timestamp: ${input} (expected YYYY-MM-DD or ISO 8601 date-time)`,
+  );
 }
 
 export function load(slug: string): Route {
@@ -156,7 +166,12 @@ function detectCycle(route: Route, tackId: string, dependsOn: string[]): void {
 export function addTack(
   slug: string,
   summary: string,
-  opts: { dependsOn?: string[] } = {}
+  opts: {
+    dependsOn?: string[];
+    done?: boolean;
+    doneAt?: string;
+    deliverable?: { label: string; url: string };
+  } = {}
 ): Tack {
   const route = load(slug);
   const id = nextTackId(route);
@@ -169,22 +184,32 @@ export function addTack(
   const tack: Tack = {
     id,
     summary,
-    status: "pending",
+    status: opts.done ? "done" : "pending",
   };
 
   if (opts.dependsOn?.length) tack.depends_on = opts.dependsOn;
+  if (opts.deliverable) tack.deliverable = opts.deliverable;
+  if (opts.done) tack.done_at = opts.doneAt ? normalizeTimestamp(opts.doneAt) : now();
 
   route.tacks.push(tack);
   save(route);
   return tack;
 }
 
-export function markDone(slug: string, tackId: string): { tack: Tack; pendingTodo: string[] } {
+export function markDone(
+  slug: string,
+  tackId: string,
+  opts: { at?: string } = {},
+): { tack: Tack; pendingTodo: string[] } {
   const route = load(slug);
   const tack = findTack(route, tackId);
 
   tack.status = "done";
-  if (!tack.done_at) tack.done_at = today();
+  if (opts.at) {
+    tack.done_at = normalizeTimestamp(opts.at);
+  } else if (!tack.done_at) {
+    tack.done_at = now();
+  }
 
   if (!tack.deliverable && tack.links?.length) {
     const prLink = tack.links.find((l) => isPrOrMrUrl(l.url));
@@ -230,9 +255,21 @@ export function startTack(slug: string, tackId: string): Tack {
   return tack;
 }
 
-export function setDeliverable(slug: string, tackId: string, label: string, url: string): Tack {
+export function setDeliverable(
+  slug: string,
+  tackId: string,
+  label: string,
+  url: string,
+  opts: { force?: boolean } = {},
+): Tack {
   const route = load(slug);
   const tack = findTack(route, tackId);
+  if (tack.deliverable && !opts.force) {
+    const existing = `${tack.deliverable.label} — ${tack.deliverable.url}`;
+    throw new Error(
+      `${tackId} already has a deliverable: ${existing}. Pass --force to overwrite.`,
+    );
+  }
   tack.deliverable = { label, url };
   save(route);
   return tack;
@@ -263,7 +300,7 @@ export function completeTodo(slug: string, tackId: string, todoId: string): Tack
   const tack = findTack(route, tackId);
   const { item } = findTodo(tack, todoId);
   item.done = true;
-  if (!item.done_at) item.done_at = today();
+  if (!item.done_at) item.done_at = now();
   save(route);
   return tack;
 }
@@ -281,11 +318,39 @@ export function dropTodo(slug: string, tackId: string, todoId: string): Tack {
   return tack;
 }
 
-const PR_MR_PATTERN =
-  /^https:\/\/(github\.com\/[^/]+\/[^/]+\/pull|gitlab\.[^/]*\/.*\/-\/merge_requests)\/[0-9]+/;
+type ChangeRefKind = "pr" | "mr" | "issue";
+interface ChangeRef {
+  repo: string;
+  number: string;
+  kind: ChangeRefKind;
+}
+
+function parseChangeRefUrl(url: string): ChangeRef | null {
+  const gh = url.match(
+    /^https:\/\/github\.com\/[^/]+\/([^/]+)\/(pull|issues)\/(\d+)/,
+  );
+  if (gh) {
+    return { repo: gh[1], number: gh[3], kind: gh[2] === "pull" ? "pr" : "issue" };
+  }
+  const gl = url.match(
+    /^https:\/\/gitlab\.[^/]*\/.*?\/([^/]+)\/-\/(merge_requests|issues)\/(\d+)/,
+  );
+  if (gl) {
+    return { repo: gl[1], number: gl[3], kind: gl[2] === "merge_requests" ? "mr" : "issue" };
+  }
+  return null;
+}
 
 function isPrOrMrUrl(url: string): boolean {
-  return PR_MR_PATTERN.test(url);
+  const ref = parseChangeRefUrl(url);
+  return ref !== null && (ref.kind === "pr" || ref.kind === "mr");
+}
+
+export function deriveDeliverableLabel(url: string): string {
+  const ref = parseChangeRefUrl(url);
+  if (!ref) return url;
+  const sigil = ref.kind === "mr" ? "!" : "#";
+  return `${ref.repo} ${sigil}${ref.number}`;
 }
 
 export function addLink(slug: string, tackId: string, label: string, url: string): Tack {

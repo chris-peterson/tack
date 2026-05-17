@@ -18,14 +18,14 @@ Usage:
   tack list [--json]
   tack recent [--count <n>] [--since <date>]
   tack tree [path] [-d <depth>]    (path supports glob: */*/deliverable)
-  tack add <slug> <summary> [--depends-on <id,...>]
+  tack add <slug> <summary> [--depends-on <id,...>] [--done] [--date <ts>] [--deliverable <url>]
   tack edit <slug> <tack-id> <summary>
   tack merge <slug> <source-id> <target-id>
   tack start <slug> <tack-id>
-  tack done <slug> <tack-id>
+  tack done <slug> <tack-id> [--date <ts>]
   tack drop <slug> <tack-id>
   tack remove <slug> <tack-id> [--force]
-  tack deliverable <slug> <tack-id> <label> <url>
+  tack deliverable <slug> <tack-id> <label> <url> [--force]
   tack before <slug> <tack-id> <text>
   tack after <slug> <tack-id> <text>
   tack todo done <slug> <tack-id> <todo-id>
@@ -245,16 +245,27 @@ function run(): void {
         args: rest.slice(2),
         options: {
           "depends-on": { type: "string" },
+          done: { type: "boolean" },
+          date: { type: "string" },
+          deliverable: { type: "string" },
         },
-        strict: false,
+        allowPositionals: true,
       });
 
       const dependsOn = values["depends-on"]
         ? (values["depends-on"] as string).split(",")
         : undefined;
 
+      const deliverableUrl = values.deliverable as string | undefined;
+      const deliverable = deliverableUrl
+        ? { label: route.deriveDeliverableLabel(deliverableUrl), url: deliverableUrl }
+        : undefined;
+
       const tack = route.addTack(slug, summary, {
         dependsOn,
+        done: values.done as boolean | undefined,
+        doneAt: values.date as string | undefined,
+        deliverable,
       });
       console.log(formatTack(tack));
       break;
@@ -269,7 +280,16 @@ function run(): void {
 
     case "done": {
       if (!rest[0] || !rest[1]) usage();
-      const { tack, pendingTodo } = route.markDone(rest[0], rest[1]);
+      const { values: doneValues } = parseArgs({
+        args: rest.slice(2),
+        options: {
+          date: { type: "string" },
+        },
+        allowPositionals: true,
+      });
+      const { tack, pendingTodo } = route.markDone(rest[0], rest[1], {
+        at: doneValues.date as string | undefined,
+      });
       console.log(formatTack(tack));
       if (pendingTodo.length) {
         console.log("\nPending todo items:");
@@ -288,8 +308,21 @@ function run(): void {
     }
 
     case "deliverable": {
-      if (rest.length < 4) usage();
-      const tack = route.setDeliverable(rest[0], rest[1], rest[2], rest[3]);
+      const { values: dlvValues, positionals: dlvPositionals } = parseArgs({
+        args: rest,
+        options: {
+          force: { type: "boolean" },
+        },
+        allowPositionals: true,
+      });
+      if (dlvPositionals.length < 4) usage();
+      const tack = route.setDeliverable(
+        dlvPositionals[0],
+        dlvPositionals[1],
+        dlvPositionals[2],
+        dlvPositionals[3],
+        { force: dlvValues.force as boolean | undefined },
+      );
       console.log(formatTack(tack));
       break;
     }

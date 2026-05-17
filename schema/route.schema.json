@@ -76,8 +76,11 @@
         },
         "done_at": {
           "type": "string",
-          "format": "date",
-          "description": "Date when the tack was completed (YYYY-MM-DD)"
+          "anyOf": [
+            {"format": "date"},
+            {"format": "date-time"}
+          ],
+          "description": "ISO 8601 date or date-time when the tack was completed. Bare YYYY-MM-DD is accepted for backward compatibility; new writes emit full date-time."
         },
         "depends_on": {
           "type": "array",
@@ -149,8 +152,11 @@
         },
         "done_at": {
           "type": "string",
-          "format": "date",
-          "description": "Date when completed (YYYY-MM-DD)"
+          "anyOf": [
+            {"format": "date"},
+            {"format": "date-time"}
+          ],
+          "description": "ISO 8601 date or date-time when completed. Bare YYYY-MM-DD is accepted for backward compatibility; new writes emit full date-time."
         }
       }
     },

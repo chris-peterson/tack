@@ -82,10 +82,39 @@ tool output or user prompts. When you see one:
    - PR/MR URLs → `tack deliverable <slug> <tack-id> "<label>" "<url>"`
    - Other URLs (issues, docs, threads) → `tack link add <slug> <tack-id>
      "<label>" "<url>"`
+
+   Before calling `tack deliverable`, verify the tack ID with `tack tree
+   <slug>` (or read the YAML). `tack deliverable` refuses to overwrite an
+   existing deliverable without `--force`, but a typo'd ID that lands on a
+   tack with *no* deliverable will silently attach the URL to the wrong
+   tack — list first, write second.
 4. **Mention what you did in one line.** Don't prompt; just record.
 
 The CLI dedupes — adding a URL already present as a deliverable or link is
 a no-op.
+
+## Backfilling already-merged work
+
+When triaging existing CRs into routes (typically during `/wip`
+consolidation), the work was completed before the current moment and the
+date matters for downstream timeline views. Use the explicit-date forms:
+
+```bash
+# Brand-new tack for a CR that already merged
+tack add <slug> "<summary>" --done --date <YYYY-MM-DD> \
+  --deliverable "<url>"
+
+# Existing tack that should be marked done at a prior date
+tack done <slug> <tack-id> --date <YYYY-MM-DD>
+```
+
+`--date` accepts either `YYYY-MM-DD` or a full ISO 8601 date-time. Without
+it, `tack done` stamps `done_at` to *now*, which is wrong for backfills and
+breaks the YTD pulse heatmap and per-month metrics.
+
+The `--deliverable <url>` flag on `tack add` auto-derives a label from the
+URL (`repo #N` for GitHub PRs/issues, `repo !N` for GitLab MRs). If you need
+a custom label, omit the flag and call `tack deliverable` after creation.
 
 ## Tack creation discipline
 
@@ -152,13 +181,16 @@ tack recent [--count <n>] [--since <date>]  Recently-updated routes
 tack find <url> [--json]           Find routes/tacks by URL
 tack add <slug> <summary>          Add a tack
   [--depends-on <id,...>]
+  [--done] [--date <ts>]           Create already-done (for backfill)
+  [--deliverable <url>]            Set deliverable on creation (label auto-derived)
 tack edit <slug> <tack-id> <summary>  Edit a tack summary
 tack merge <slug> <src-id> <tgt-id>  Merge source into target (drops source)
 tack start <slug> <tack-id>        Start a tack
 tack done <slug> <tack-id>         Complete a tack
+  [--date <ts>]                    Backfill done_at (YYYY-MM-DD or ISO date-time)
 tack drop <slug> <tack-id>         Mark dropped (preserved for history)
 tack remove <slug> <tack-id> [--force]  Delete a tack (use for accidents)
-tack deliverable <slug> <id> <label> <url>   Set deliverable
+tack deliverable <slug> <id> <label> <url> [--force]  Set deliverable (refuses overwrite without --force)
 tack before <slug> <id> <text>     Add pre-work todo
 tack after <slug> <id> <text>      Add post-work todo
 tack todo done <slug> <id> <todo>  Complete a todo
