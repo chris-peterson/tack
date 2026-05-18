@@ -151,11 +151,13 @@ _tack() {
     'before:Add a pre-work todo'
     'after:Add a post-work todo'
     'todo:Manage todo items'
+    'depends:Add or remove a tack dependency'
     'link:Add a link to a tack'
     'session:Record a session'
     'pin:Pin a route to the current cwd'
     'unpin:Clear the cwd pin'
     'rm:Delete a route'
+    'rename:Rename a route'
     'install-cli:Drop a tack wrapper on PATH'
     'completions:Output shell completion script'
   )
@@ -177,8 +179,26 @@ _tack() {
       ;;
     status)
       # tack status [slug] [--json] [--all]
+      # tack status set <slug> <tack-id> <status>
       case "$CURRENT" in
-        3) _tack_routes; _arguments '--json[Output JSON]' '--all[Include dropped tacks]' ;;
+        3) local -a subcmds; subcmds=('set:Set a tack status with no guards'); _describe 'subcommand' subcmds; _tack_routes; _arguments '--json[Output JSON]' '--all[Include dropped tacks]' ;;
+        4)
+          if [[ "\${words[3]}" == "set" ]]; then
+            _tack_routes
+          else
+            _arguments '--json[Output JSON]' '--all[Include dropped tacks]'
+          fi
+          ;;
+        5)
+          if [[ "\${words[3]}" == "set" ]]; then
+            _tack_tack_ids "\${words[4]}"
+          fi
+          ;;
+        6)
+          if [[ "\${words[3]}" == "set" ]]; then
+            compadd pending in_progress done blocked dropped
+          fi
+          ;;
         *) _arguments '--json[Output JSON]' '--all[Include dropped tacks]' ;;
       esac
       ;;
@@ -281,6 +301,22 @@ _tack() {
               ;;
           esac
           ;;
+      esac
+      ;;
+    depends)
+      # tack depends {add|rm} <slug> <tack-id> <dep-id>
+      case "$CURRENT" in
+        3) local -a subcmds; subcmds=('add:Add a dependency' 'rm:Remove a dependency'); _describe 'subcommand' subcmds ;;
+        4) _tack_routes ;;
+        5) _tack_tack_ids "\${words[4]}" ;;
+        6) _tack_tack_ids "\${words[4]}" ;;
+      esac
+      ;;
+    rename)
+      # tack rename <old-slug> <new-slug>
+      case "$CURRENT" in
+        3) _tack_routes ;;
+        4) _message 'new-slug' ;;
       esac
       ;;
     session)

@@ -95,6 +95,142 @@ describe("startTack", () => {
         const t = route.startTack("start-ok", "t2");
         assert.equal(t.status, "in_progress");
     });
+    it("error points at depends rm and status set", () => {
+        route.init("start-err-hint");
+        route.addTack("start-err-hint", "First");
+        route.addTack("start-err-hint", "Second", { dependsOn: ["t1"] });
+        assert.throws(() => route.startTack("start-err-hint", "t2"), /depends rm.*status set/s);
+    });
+});
+describe("setStatus", () => {
+    it("writes the status with no guards", () => {
+        route.init("set-status");
+        route.addTack("set-status", "First");
+        route.addTack("set-status", "Second", { dependsOn: ["t1"] });
+        const t = route.setStatus("set-status", "t2", "in_progress");
+        assert.equal(t.status, "in_progress");
+    });
+    it("stamps done_at when transitioning to done", () => {
+        route.init("set-status-done");
+        route.addTack("set-status-done", "Task");
+        const t = route.setStatus("set-status-done", "t1", "done");
+        assert.equal(t.status, "done");
+        assert.ok(t.done_at);
+    });
+    it("preserves existing done_at on a re-set", () => {
+        route.init("set-status-done-keep");
+        route.addTack("set-status-done-keep", "Task");
+        route.markDone("set-status-done-keep", "t1", { at: "2026-04-30" });
+        const t = route.setStatus("set-status-done-keep", "t1", "done");
+        assert.equal(t.done_at, "2026-04-30");
+    });
+    it("supports blocked", () => {
+        route.init("set-status-blocked");
+        route.addTack("set-status-blocked", "Task");
+        const t = route.setStatus("set-status-blocked", "t1", "blocked");
+        assert.equal(t.status, "blocked");
+    });
+    it("throws for missing tack", () => {
+        route.init("set-status-bad");
+        assert.throws(() => route.setStatus("set-status-bad", "t99", "done"), /not found/i);
+    });
+});
+describe("addDependency", () => {
+    it("adds a dependency to a tack", () => {
+        route.init("dep-add");
+        route.addTack("dep-add", "First");
+        route.addTack("dep-add", "Second");
+        const t = route.addDependency("dep-add", "t2", "t1");
+        assert.deepEqual(t.depends_on, ["t1"]);
+    });
+    it("is idempotent when the dependency already exists", () => {
+        route.init("dep-add-dup");
+        route.addTack("dep-add-dup", "First");
+        route.addTack("dep-add-dup", "Second", { dependsOn: ["t1"] });
+        const t = route.addDependency("dep-add-dup", "t2", "t1");
+        assert.deepEqual(t.depends_on, ["t1"]);
+    });
+    it("rejects self-dependency", () => {
+        route.init("dep-add-self");
+        route.addTack("dep-add-self", "Task");
+        assert.throws(() => route.addDependency("dep-add-self", "t1", "t1"), /self/i);
+    });
+    it("rejects nonexistent dependency target", () => {
+        route.init("dep-add-missing");
+        route.addTack("dep-add-missing", "Task");
+        assert.throws(() => route.addDependency("dep-add-missing", "t1", "t99"), /not found/i);
+    });
+    it("rejects a cycle", () => {
+        route.init("dep-add-cycle");
+        route.addTack("dep-add-cycle", "First");
+        route.addTack("dep-add-cycle", "Second", { dependsOn: ["t1"] });
+        assert.throws(() => route.addDependency("dep-add-cycle", "t1", "t2"), /circular/i);
+    });
+});
+describe("removeDependency", () => {
+    it("removes a dependency from a tack", () => {
+        route.init("dep-rm");
+        route.addTack("dep-rm", "First");
+        route.addTack("dep-rm", "Second", { dependsOn: ["t1"] });
+        const t = route.removeDependency("dep-rm", "t2", "t1");
+        assert.equal(t.depends_on, undefined);
+    });
+    it("leaves other deps in place", () => {
+        route.init("dep-rm-partial");
+        route.addTack("dep-rm-partial", "First");
+        route.addTack("dep-rm-partial", "Second");
+        route.addTack("dep-rm-partial", "Third", { dependsOn: ["t1", "t2"] });
+        const t = route.removeDependency("dep-rm-partial", "t3", "t1");
+        assert.deepEqual(t.depends_on, ["t2"]);
+    });
+    it("throws when the dependency is not set", () => {
+        route.init("dep-rm-missing");
+        route.addTack("dep-rm-missing", "First");
+        route.addTack("dep-rm-missing", "Second");
+        assert.throws(() => route.removeDependency("dep-rm-missing", "t2", "t1"), /does not depend on/i);
+    });
+});
+describe("rename", () => {
+    it("renames a route file and updates the slug field", () => {
+        route.init("rename-src");
+        route.addTack("rename-src", "Task");
+        const r = route.rename("rename-src", "rename-dst");
+        assert.equal(r.slug, "rename-dst");
+        const reloaded = route.load("rename-dst");
+        assert.equal(reloaded.slug, "rename-dst");
+        assert.equal(reloaded.tacks.length, 1);
+        assert.throws(() => route.load("rename-src"), /not found/i);
+    });
+    it("preserves the route id across rename", () => {
+        route.init("rename-id-src");
+        const original = route.load("rename-id-src");
+        route.rename("rename-id-src", "rename-id-dst");
+        const renamed = route.load("rename-id-dst");
+        assert.equal(renamed.id, original.id);
+    });
+    it("refuses if the destination already exists", () => {
+        route.init("rename-collide-src");
+        route.init("rename-collide-dst");
+        assert.throws(() => route.rename("rename-collide-src", "rename-collide-dst"), /already exists/);
+    });
+    it("refuses if the source does not exist", () => {
+        assert.throws(() => route.rename("ghost-src", "ghost-dst"), /not found/i);
+    });
+    it("refuses if old and new slug match", () => {
+        route.init("rename-noop");
+        assert.throws(() => route.rename("rename-noop", "rename-noop"), /same/i);
+    });
+    it("refuses when another route's depends_on references the old slug", async () => {
+        const { writeFileSync, readFileSync } = await import("node:fs");
+        const yaml = await import("yaml");
+        route.init("rename-target");
+        route.init("rename-referer");
+        const refererPath = join(tmp, "routes", "rename-referer.yaml");
+        const data = yaml.parse(readFileSync(refererPath, "utf-8"));
+        data.depends_on = ["rename-target"];
+        writeFileSync(refererPath, yaml.stringify(data), "utf-8");
+        assert.throws(() => route.rename("rename-target", "rename-target-new"), /referenced by rename-referer/);
+    });
 });
 describe("markDone", () => {
     it("marks tack as done with an ISO date-time", () => {

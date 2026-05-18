@@ -6,6 +6,7 @@ import { delimiter, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import * as route from "./route.js";
+import { TACK_STATUSES, type TackStatus } from "./types.js";
 import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind } from "./display.js";
 import { ZSH_COMPLETION } from "./completions.js";
 
@@ -14,7 +15,9 @@ function usage(): never {
 
 Usage:
   tack init <slug> [--group <slug>]
+  tack rename <old-slug> <new-slug>
   tack status [slug] [--all]
+  tack status set <slug> <tack-id> <pending|in_progress|done|blocked|dropped>
   tack list [--json]
   tack recent [--count <n>] [--since <date>]
   tack tree [path] [-d <depth>]    (path supports glob: */*/deliverable)
@@ -30,6 +33,8 @@ Usage:
   tack after <slug> <tack-id> <text>
   tack todo done <slug> <tack-id> <todo-id>
   tack todo rm <slug> <tack-id> <todo-id>
+  tack depends add <slug> <tack-id> <dep-id>
+  tack depends rm <slug> <tack-id> <dep-id>
   tack link add <slug> <tack-id> <label> <url>
   tack link rm <slug> <tack-id> <url>
   tack session <slug> <session-id>
@@ -175,6 +180,18 @@ function run(): void {
     }
 
     case "status": {
+      if (rest[0] === "set") {
+        if (rest.length < 4) usage();
+        if (!(TACK_STATUSES as readonly string[]).includes(rest[3])) {
+          console.error(
+            `Invalid status: ${rest[3]} (expected one of: ${TACK_STATUSES.join(", ")})`,
+          );
+          process.exit(1);
+        }
+        const tack = route.setStatus(rest[1], rest[2], rest[3] as TackStatus);
+        console.log(formatTack(tack));
+        break;
+      }
       const jsonFlag = rest.includes("--json");
       const allFlag = rest.includes("--all");
       const slug = rest.filter((a) => a !== "--json" && a !== "--all")[0];
@@ -385,6 +402,31 @@ function run(): void {
       } else {
         usage();
       }
+      break;
+    }
+
+    case "depends": {
+      const sub = rest[0];
+      const subArgs = rest.slice(1);
+      if (sub === "add") {
+        if (subArgs.length < 3) usage();
+        const tack = route.addDependency(subArgs[0], subArgs[1], subArgs[2]);
+        console.log(formatTack(tack));
+      } else if (sub === "rm") {
+        if (subArgs.length < 3) usage();
+        const tack = route.removeDependency(subArgs[0], subArgs[1], subArgs[2]);
+        console.log(formatTack(tack));
+      } else {
+        usage();
+      }
+      break;
+    }
+
+    case "rename": {
+      if (!rest[0] || !rest[1]) usage();
+      const r = route.rename(rest[0], rest[1]);
+      console.log(`Renamed: ${rest[0]} → ${rest[1]}`);
+      console.log(formatRoute(r));
       break;
     }
 

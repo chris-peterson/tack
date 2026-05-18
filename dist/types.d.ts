@@ -12,7 +12,8 @@ export interface Link {
     label: string;
     url: string;
 }
-export type TackStatus = "pending" | "in_progress" | "done" | "blocked" | "dropped";
+export declare const TACK_STATUSES: readonly ["pending", "in_progress", "done", "blocked", "dropped"];
+export type TackStatus = (typeof TACK_STATUSES)[number];
 export interface Tack {
     id: string;
     summary: string;

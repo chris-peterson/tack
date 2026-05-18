@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.12.0
+
+### Features
+
+- **`tack depends add/rm`** — Edit a tack's `depends_on` array after creation without hand-editing YAML. `add` is idempotent and refuses self-edges and cycles; `rm` errors if the dependency isn't set and drops the field when the array empties.
+- **`tack status set <slug> <tack-id> <status>`** — Direct status write with no guards. Subsumes `start`/`done`/`drop` mechanically (those keep their conveniences). Use it to revert a `done` tack to `pending`, put a tack into `blocked`, or otherwise reach states the guarded commands refuse to produce. Stamps `done_at` when transitioning to `done` and the field isn't already set.
+- **`tack rename <old-slug> <new-slug>`** — Rename a route file and its in-YAML `slug` field while preserving the route's `id`. Refuses if the destination exists or if any other route's `depends_on` references the old slug.
+
+Closes #1.
+
+### Fixes
+
+- `tack start`'s unmet-dependency error now names the two resolution paths — `tack depends rm` to drop the edge when the work is actually parallel, or `tack status set` to write the inconsistent status anyway. Previously the error just said "unmet dependencies" with no guidance, so users hand-edited the YAML.
+
+### Spec / Docs
+
+- New requirements: `[CL-32]` depends add, `[CL-33]` depends rm, `[CL-34]` status set, `[CL-35]` rename. `[CL-07]` tightened to describe the new error-message guidance.
+- `docs/cli.md` adds a Dependencies section and a Status entry under Tacks; `tack rename` joins the Routes section.
+
 ## 0.11.1
 
 ### Build / Packaging

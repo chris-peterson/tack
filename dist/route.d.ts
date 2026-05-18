@@ -1,4 +1,4 @@
-import type { Route, Tack } from "./types.js";
+import type { Route, Tack, TackStatus } from "./types.js";
 export declare function isOpen(t: Tack): boolean;
 export declare function loadAll(): Route[];
 export declare function normalizeTimestamp(input: string): string;
@@ -29,6 +29,10 @@ export declare function markDone(slug: string, tackId: string, opts?: {
 };
 export declare function markDropped(slug: string, tackId: string): Tack;
 export declare function startTack(slug: string, tackId: string): Tack;
+export declare function setStatus(slug: string, tackId: string, status: TackStatus): Tack;
+export declare function addDependency(slug: string, tackId: string, depId: string): Tack;
+export declare function removeDependency(slug: string, tackId: string, depId: string): Tack;
+export declare function rename(oldSlug: string, newSlug: string): Route;
 export declare function setDeliverable(slug: string, tackId: string, label: string, url: string, opts?: {
     force?: boolean;
 }): Tack;

@@ -85,6 +85,23 @@ boundaries, `?` matches a single character.
 **Tab completion** resolves each level progressively — routes append `/` so you
 can keep drilling without retyping.
 
+### `tack rename <old-slug> <new-slug>`
+
+Rename a route. The route file is renamed, the `slug` field inside the YAML
+is updated, and the route's `id` is preserved. Fails if `<new-slug>` already
+exists, if `<old-slug>` does not exist, or if another route's `depends_on`
+references `<old-slug>` (clear the reference first, then rename).
+
+```bash
+tack rename oss-quality opensource-contributions
+```
+
+Note on stale pins: any `<cwd>/.tack` pin files referencing the old slug
+fail to resolve on the next session — `tack pin <old-slug>` and any
+write targeting the old slug error with `Route not found`. The old name
+is **not** resurrected, so there's no risk of a split route. Re-pin from
+the affected working directory when you next visit it.
+
 ### `tack rm <slug> [--force]`
 
 Delete a route. Requires `--force` to confirm.
@@ -120,10 +137,34 @@ tack add auth-rewrite "Vault role migration" \
 
 ### `tack start <slug> <tack-id>`
 
-Start a tack. Fails if dependencies are unmet.
+Start a tack. Fails if any declared dependency isn't `done`. The error
+names two ways forward:
+
+- **The work is actually parallel.** The declared edge no longer reflects
+  reality — drop it: `tack depends rm <slug> <tack-id> <dep-id>`. The
+  schema then matches what's happening.
+- **You want the inconsistent state intentionally.** Keep the edge and
+  write the status anyway: `tack status set <slug> <tack-id> in_progress`.
+  Rare — preserves the dependency record for later audit while letting
+  both tacks be in flight.
 
 ```bash
 tack start auth-rewrite t1
+```
+
+### `tack status set <slug> <tack-id> <status>`
+
+Set a tack's status directly, with no guards. Valid statuses: `pending`,
+`in_progress`, `done`, `blocked`, `dropped`. When the new status is `done`
+and `done_at` is not already set, it is stamped to the current time.
+
+Use this as the escape hatch for representing states the guarded commands
+([start], [done], [drop]) refuse to produce — reverting a `done` tack to
+`pending`, putting a tack into `blocked`, etc.
+
+```bash
+tack status set auth-rewrite t1 blocked
+tack status set auth-rewrite t1 pending   # revert a premature mark-done
 ```
 
 ### `tack done <slug> <tack-id> [--date <ts>]`
@@ -157,6 +198,30 @@ wrong route. If other tacks depend on the target, the operation fails unless
 ```bash
 tack remove auth-rewrite t3
 tack remove auth-rewrite t1 --force   # t2 depended on t1; its depends_on is stripped
+```
+
+## Dependencies
+
+Tack-level dependencies declare ordering within a route — child tacks
+default to refusing `tack start` until parents reach `done`. Use the
+commands below to edit those edges after creation.
+
+### `tack depends add <slug> <tack-id> <dep-id>`
+
+Append a dependency. Idempotent — adding an existing dependency is a no-op.
+Refuses self-dependencies and cycles.
+
+```bash
+tack depends add auth-rewrite t3 t1
+```
+
+### `tack depends rm <slug> <tack-id> <dep-id>`
+
+Remove a dependency. Fails if the dependency isn't set. If this empties the
+list, the field is removed from the YAML.
+
+```bash
+tack depends rm auth-rewrite t3 t1
 ```
 
 ## Deliverable

@@ -3,9 +3,9 @@
 Tracking status of the requirements declared in [`spec/v1/SPEC.md`](spec/v1/SPEC.md).
 Updated after each `/spec-audit`.
 
-**Last audit:** 2026-05-08
+**Last audit:** 2026-05-18
 **Spec version:** v1
-**Coverage:** 73 / 73 normative requirements (100%) + 5 deferred (FUT-01..05)
+**Coverage:** 77 / 77 normative requirements (100%) + 5 deferred (FUT-01..05)
 
 After this session's edits the spec now covers the three commands that
 shipped without coverage (`edit`, `merge`, `--version`), and the wording
@@ -23,7 +23,7 @@ on `--tangent` is fixed by routing through `--group tangent`.
 | DP-01..04 | 4 | All Covered | `src/route.ts` |
 | LK-01 | 1 | Covered | `src/types.ts` |
 | ST-01..05 | 5 | All Covered | `src/route.ts` |
-| CL-01..29 (+19a) | 30 | All Covered | CL-27/28/29 added 2026-05-08 |
+| CL-01..35 (+19a) | 36 | All Covered | CL-32..35 added + CL-07 error guidance tightened 2026-05-18 (issue #1) |
 | AG-01..09 | 9 | All Covered | AG-02 / AG-03 wording tightened 2026-05-08 |
 | FUT-01..05 | 5 | Deferred | Backup feature — out of scope for v1 |
 

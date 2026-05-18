@@ -289,7 +289,11 @@ tack created in error, use [CL-25].
 
 **[CL-07]** `tack start <slug> <tack-id>` — When invoked, the CLI shall set
 the specified tack's status to `in_progress`. If the tack has `depends_on`
-entries with unmet dependencies, the operation shall fail per [DP-03].
+entries with unmet dependencies, the operation shall fail per [DP-03]. The
+error message shall guide the user to either drop the edge with
+[CL-33] (`tack depends rm`) when the declared ordering no longer holds, or
+to bypass the guard with [CL-34] (`tack status set`) when the inconsistent
+state is intentional.
 
 **[CL-08]** `tack deliverable <slug> <tack-id> <label> <url> [--force]` —
 When invoked, the CLI shall set the deliverable on the specified tack. If the
@@ -430,6 +434,33 @@ is set.
 **[CL-31]** `tack unpin` — When invoked, the CLI shall delete the pointer
 file at `<cwd>/.tack` if it exists. The command shall succeed silently if no
 pin is set; absence of a pin is not an error.
+
+**[CL-32]** `tack depends add <slug> <tack-id> <dep-id>` — When invoked, the
+CLI shall append `<dep-id>` to the specified tack's `depends_on` array. If
+the dependency already exists, the operation shall be a no-op (idempotent).
+The CLI shall reject self-dependencies and shall reject additions that would
+introduce a circular dependency, consistent with [TK-07].
+
+**[CL-33]** `tack depends rm <slug> <tack-id> <dep-id>` — When invoked, the
+CLI shall remove `<dep-id>` from the specified tack's `depends_on` array. If
+the array becomes empty, the field shall be omitted from the YAML. If
+`<dep-id>` is not present, the CLI shall fail with an error.
+
+**[CL-34]** `tack status set <slug> <tack-id> <status>` — When invoked, the
+CLI shall set the specified tack's `status` field to the given value
+(`pending`, `in_progress`, `done`, `blocked`, or `dropped`) without enforcing
+[DP-03] dependency guards. When the new status is `done` and `done_at` is
+not already set, the CLI shall stamp `done_at` per [TK-03]. This command is
+the supported escape hatch for representing states the guarded commands
+([CL-05], [CL-06], [CL-07]) refuse to produce (e.g., reverting a `done` tack
+to `pending`, or putting a tack into `blocked`).
+
+**[CL-35]** `tack rename <old-slug> <new-slug>` — When invoked, the CLI
+shall rename the route file from `<old-slug>.yaml` to `<new-slug>.yaml` and
+update the `slug` field inside the file. The route's `id` ([RT-08]) shall
+be preserved. The CLI shall fail if `<new-slug>` already exists as a route,
+if `<old-slug>` does not exist, or if any other route's `depends_on`
+references `<old-slug>` (per [DP-01]).
 
 ---
 

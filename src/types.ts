@@ -15,7 +15,15 @@ export interface Link {
   url: string;
 }
 
-export type TackStatus = "pending" | "in_progress" | "done" | "blocked" | "dropped";
+export const TACK_STATUSES = [
+  "pending",
+  "in_progress",
+  "done",
+  "blocked",
+  "dropped",
+] as const;
+
+export type TackStatus = (typeof TACK_STATUSES)[number];
 
 export interface Tack {
   id: string;

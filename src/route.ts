@@ -1,10 +1,10 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, renameSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { parse, stringify } from "yaml";
 import { validate } from "./schema.js";
-import type { Route, Tack, TodoItem } from "./types.js";
+import type { Route, Tack, TackStatus, TodoItem } from "./types.js";
 
 const TACK_DIR = join(process.env.TACK_HOME ?? join(homedir(), ".tack"), "routes");
 
@@ -246,13 +246,119 @@ export function startTack(slug: string, tackId: string): Tack {
       return dep && dep.status !== "done";
     });
     if (unmet.length) {
-      throw new Error(`Cannot start ${tackId}: unmet dependencies: ${unmet.join(", ")}`);
+      throw new Error(
+        `Cannot start ${tackId}: unmet dependencies: ${unmet.join(", ")}. ` +
+          `Drop the edge with \`tack depends rm ${slug} ${tackId} <dep-id>\` ` +
+          `if these are actually parallel, or use \`tack status set ${slug} ${tackId} in_progress\` ` +
+          `to write the status anyway.`,
+      );
     }
   }
 
   tack.status = "in_progress";
   save(route);
   return tack;
+}
+
+export function setStatus(
+  slug: string,
+  tackId: string,
+  status: TackStatus,
+): Tack {
+  const route = load(slug);
+  const tack = findTack(route, tackId);
+  tack.status = status;
+  if (status === "done" && !tack.done_at) {
+    tack.done_at = now();
+  }
+  save(route);
+  return tack;
+}
+
+export function addDependency(
+  slug: string,
+  tackId: string,
+  depId: string,
+): Tack {
+  const route = load(slug);
+  const tack = findTack(route, tackId);
+
+  if (tackId === depId) {
+    throw new Error(`Cannot depend on self: ${tackId}`);
+  }
+  findTack(route, depId);
+
+  if (tack.depends_on?.includes(depId)) {
+    return tack;
+  }
+
+  const proposed = [...(tack.depends_on ?? []), depId];
+  detectCycle(route, tackId, proposed);
+
+  tack.depends_on = proposed;
+  save(route);
+  return tack;
+}
+
+export function removeDependency(
+  slug: string,
+  tackId: string,
+  depId: string,
+): Tack {
+  const route = load(slug);
+  const tack = findTack(route, tackId);
+
+  if (!tack.depends_on?.includes(depId)) {
+    throw new Error(
+      `${tackId} does not depend on ${depId} in route ${slug}`,
+    );
+  }
+
+  tack.depends_on = tack.depends_on.filter((id) => id !== depId);
+  if (tack.depends_on.length === 0) delete tack.depends_on;
+
+  save(route);
+  return tack;
+}
+
+export function rename(oldSlug: string, newSlug: string): Route {
+  if (oldSlug === newSlug) {
+    throw new Error(`Old and new slug are the same: ${oldSlug}`);
+  }
+
+  const oldPath = routePath(oldSlug);
+  const newPath = routePath(newSlug);
+
+  if (!existsSync(oldPath)) {
+    throw new Error(`Route not found: ${oldSlug}`);
+  }
+  if (existsSync(newPath)) {
+    throw new Error(`Route already exists: ${newSlug}`);
+  }
+
+  const all = loadAll();
+  const referers = all
+    .filter((r) => r.slug !== oldSlug && r.depends_on?.includes(oldSlug))
+    .map((r) => r.slug);
+  if (referers.length > 0) {
+    throw new Error(
+      `Cannot rename ${oldSlug}: referenced by ${referers.join(", ")}. ` +
+        `Remove the reference from depends_on first.`,
+    );
+  }
+
+  const route = all.find((r) => r.slug === oldSlug)!;
+  route.slug = newSlug;
+  route.updated_at = now();
+
+  const result = validate(route);
+  if (!result.valid) {
+    throw new Error(`Route validation failed:\n${result.errors.join("\n")}`);
+  }
+
+  writeFileSync(oldPath, stringify(route), "utf-8");
+  renameSync(oldPath, newPath);
+  return route;
 }
 
 export function setDeliverable(
