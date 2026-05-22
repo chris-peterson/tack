@@ -79,11 +79,17 @@ export function list() {
         slug: r.slug, group: r.group, total: r.tacks.length, open: r.tacks.filter(isOpen).length,
     }));
 }
-function nextTackId(route) {
+function nextTackNumber(route) {
     if (route.tacks.length === 0)
-        return "t1";
+        return 1;
     const max = Math.max(...route.tacks.map((t) => parseInt(t.id.slice(1), 10)));
-    return `t${max + 1}`;
+    if (Number.isNaN(max)) {
+        throw new Error(`Route ${route.slug} has a tack with a non-numeric id; cannot compute next id`);
+    }
+    return max + 1;
+}
+function nextTackId(route) {
+    return `t${nextTackNumber(route)}`;
 }
 function nextTodoId(items, prefix) {
     if (items.length === 0)
@@ -167,20 +173,25 @@ export function markDone(slug, tackId, opts = {}) {
     else if (!tack.done_at) {
         tack.done_at = now();
     }
+    let ambiguousDeliverable = [];
     if (!tack.deliverable && tack.links?.length) {
-        const prLink = tack.links.find((l) => isPrOrMrUrl(l.url));
-        if (prLink) {
+        const prLinks = tack.links.filter((l) => isPrOrMrUrl(l.url));
+        if (prLinks.length === 1) {
+            const prLink = prLinks[0];
             tack.deliverable = { label: prLink.label, url: prLink.url };
             tack.links = tack.links.filter((l) => l !== prLink);
             if (tack.links.length === 0)
                 delete tack.links;
+        }
+        else if (prLinks.length > 1) {
+            ambiguousDeliverable = prLinks.map((l) => ({ label: l.label, url: l.url }));
         }
     }
     const pendingTodo = (tack.after ?? [])
         .filter((a) => !a.done)
         .map((a) => a.text);
     save(route);
-    return { tack, pendingTodo };
+    return { tack, pendingTodo, ambiguousDeliverable };
 }
 export function markDropped(slug, tackId) {
     const route = load(slug);
@@ -285,6 +296,11 @@ export function setDeliverable(slug, tackId, label, url, opts = {}) {
         throw new Error(`${tackId} already has a deliverable: ${existing}. Pass --force to overwrite.`);
     }
     tack.deliverable = { label, url };
+    if (tack.links?.length) {
+        tack.links = tack.links.filter((l) => l.url !== url);
+        if (tack.links.length === 0)
+            delete tack.links;
+    }
     save(route);
     return tack;
 }
@@ -360,14 +376,9 @@ export function addLink(slug, tackId, label, url) {
         return tack;
     if (tack.links?.some((l) => l.url === url))
         return tack;
-    if (!tack.deliverable && isPrOrMrUrl(url)) {
-        tack.deliverable = { label, url };
-    }
-    else {
-        if (!tack.links)
-            tack.links = [];
-        tack.links.push({ label, url });
-    }
+    if (!tack.links)
+        tack.links = [];
+    tack.links.push({ label, url });
     save(route);
     return tack;
 }
@@ -511,6 +522,84 @@ export function deletePin(cwd = process.cwd()) {
         return false;
     unlinkSync(path);
     return true;
+}
+export function moveTack(srcSlug, srcTackId, dstSlug, opts = {}) {
+    if (srcSlug === dstSlug) {
+        throw new Error(`Source and destination routes are the same: ${srcSlug}`);
+    }
+    const srcRoute = load(srcSlug);
+    const dstRoute = load(dstSlug);
+    findTack(srcRoute, srcTackId);
+    const movingIds = new Set([srcTackId]);
+    if (opts.includeDependents) {
+        let changed = true;
+        while (changed) {
+            changed = false;
+            for (const t of srcRoute.tacks) {
+                if (movingIds.has(t.id))
+                    continue;
+                if (t.depends_on?.some((dep) => movingIds.has(dep))) {
+                    movingIds.add(t.id);
+                    changed = true;
+                }
+            }
+        }
+    }
+    const moving = srcRoute.tacks.filter((t) => movingIds.has(t.id));
+    const staying = srcRoute.tacks.filter((t) => !movingIds.has(t.id));
+    const outgoing = [];
+    for (const t of moving) {
+        for (const dep of t.depends_on ?? []) {
+            if (!movingIds.has(dep))
+                outgoing.push({ from: t.id, to: dep });
+        }
+    }
+    const incoming = [];
+    for (const t of staying) {
+        for (const dep of t.depends_on ?? []) {
+            if (movingIds.has(dep))
+                incoming.push({ from: t.id, to: dep });
+        }
+    }
+    if (outgoing.length > 0 || incoming.length > 0) {
+        const lines = [];
+        if (outgoing.length > 0) {
+            lines.push("  outgoing (moving → staying):");
+            for (const e of outgoing)
+                lines.push(`    ${e.from} → ${e.to}`);
+        }
+        if (incoming.length > 0) {
+            lines.push("  incoming (staying → moving):");
+            for (const e of incoming)
+                lines.push(`    ${e.from} → ${e.to}`);
+        }
+        const includeHint = !opts.includeDependents && incoming.length > 0 && outgoing.length === 0
+            ? `  - tack move ${srcSlug}/${srcTackId} ${dstSlug} --include-dependents   move the dependent chain together\n`
+            : "";
+        throw new Error(`Cannot move ${srcSlug}/${srcTackId} to ${dstSlug}: depends_on edges cross the route boundary. ` +
+            `Tack IDs are route-local; cross-route references are not supported.\n` +
+            lines.join("\n") +
+            `\nResolve by:\n` +
+            includeHint +
+            `  - tack depends rm <slug> <tack-id> <dep-id>                       break each edge\n`);
+    }
+    let nextN = nextTackNumber(dstRoute);
+    const idMap = new Map();
+    for (const t of moving)
+        idMap.set(t.id, `t${nextN++}`);
+    const movedReport = [];
+    for (const src of moving) {
+        const dst = { ...structuredClone(src), id: idMap.get(src.id) };
+        if (src.depends_on?.length) {
+            dst.depends_on = src.depends_on.map((dep) => idMap.get(dep));
+        }
+        dstRoute.tacks.push(dst);
+        movedReport.push({ srcId: src.id, dstId: dst.id, summary: src.summary });
+    }
+    srcRoute.tacks = staying;
+    save(dstRoute);
+    save(srcRoute);
+    return { srcRoute, dstRoute, moved: movedReport };
 }
 export function removeTack(slug, tackId, opts = {}) {
     const route = load(slug);

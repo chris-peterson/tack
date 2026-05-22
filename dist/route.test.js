@@ -354,6 +354,24 @@ describe("setDeliverable", () => {
         const t = route.setDeliverable("dlv-force", "t1", "PR #2", "https://github.com/pr/2", { force: true });
         assert.equal(t.deliverable.label, "PR #2");
     });
+    it("strips a matching link when the URL is also present in links", () => {
+        route.init("dlv-strip");
+        route.addTack("dlv-strip", "Task");
+        route.addLink("dlv-strip", "t1", "PR A", "https://github.com/acme/repo/pull/1");
+        route.addLink("dlv-strip", "t1", "Design", "https://example.com/design");
+        const t = route.setDeliverable("dlv-strip", "t1", "PR A", "https://github.com/acme/repo/pull/1");
+        assert.equal(t.deliverable.url, "https://github.com/acme/repo/pull/1");
+        assert.equal(t.links.length, 1);
+        assert.equal(t.links[0].url, "https://example.com/design");
+    });
+    it("deletes the links field when stripping leaves it empty", () => {
+        route.init("dlv-strip-empty");
+        route.addTack("dlv-strip-empty", "Task");
+        route.addLink("dlv-strip-empty", "t1", "PR A", "https://github.com/acme/repo/pull/1");
+        const t = route.setDeliverable("dlv-strip-empty", "t1", "PR A", "https://github.com/acme/repo/pull/1");
+        assert.equal(t.deliverable.url, "https://github.com/acme/repo/pull/1");
+        assert.equal(t.links, undefined);
+    });
 });
 describe("addBefore", () => {
     it("adds a before todo with sequential ids", () => {
@@ -514,24 +532,23 @@ describe("addLink", () => {
         assert.equal(t.links[0].label, "Design doc");
         assert.equal(t.links[0].url, "https://example.com/design");
     });
-    it("promotes a GitHub PR link to deliverable", () => {
-        route.init("link-pr-promote");
-        route.addTack("link-pr-promote", "Task");
-        const t = route.addLink("link-pr-promote", "t1", "My PR", "https://github.com/acme/repo/pull/42");
-        assert.ok(t.deliverable);
-        assert.equal(t.deliverable.label, "My PR");
-        assert.equal(t.deliverable.url, "https://github.com/acme/repo/pull/42");
-        assert.equal(t.links, undefined);
+    it("does not promote a GitHub PR link to deliverable by default", () => {
+        route.init("link-pr-no-promote");
+        route.addTack("link-pr-no-promote", "Task");
+        const t = route.addLink("link-pr-no-promote", "t1", "My PR", "https://github.com/acme/repo/pull/42");
+        assert.equal(t.deliverable, undefined);
+        assert.equal(t.links.length, 1);
+        assert.equal(t.links[0].url, "https://github.com/acme/repo/pull/42");
     });
-    it("promotes a GitLab MR link to deliverable", () => {
-        route.init("link-mr-promote");
-        route.addTack("link-mr-promote", "Task");
-        const t = route.addLink("link-mr-promote", "t1", "My MR", "https://gitlab.example.com/group/proj/-/merge_requests/99");
-        assert.ok(t.deliverable);
-        assert.equal(t.deliverable.url, "https://gitlab.example.com/group/proj/-/merge_requests/99");
-        assert.equal(t.links, undefined);
+    it("does not promote a GitLab MR link to deliverable by default", () => {
+        route.init("link-mr-no-promote");
+        route.addTack("link-mr-no-promote", "Task");
+        const t = route.addLink("link-mr-no-promote", "t1", "My MR", "https://gitlab.example.com/group/proj/-/merge_requests/99");
+        assert.equal(t.deliverable, undefined);
+        assert.equal(t.links.length, 1);
+        assert.equal(t.links[0].url, "https://gitlab.example.com/group/proj/-/merge_requests/99");
     });
-    it("adds PR link to links if deliverable already set", () => {
+    it("adds a PR link alongside an existing deliverable", () => {
         route.init("link-pr-existing");
         route.addTack("link-pr-existing", "Task");
         route.setDeliverable("link-pr-existing", "t1", "First PR", "https://github.com/acme/repo/pull/1");
@@ -581,7 +598,7 @@ describe("removeLink", () => {
         assert.throws(() => route.removeLink("link-rm-missing", "t1", "https://example.com/missing"), /No link with url/);
     });
 });
-describe("markDone promotes PR link to deliverable", () => {
+describe("markDone deliverable promotion", () => {
     it("promotes a PR link when no deliverable is set", () => {
         route.init("done-promote");
         route.addTack("done-promote", "Task");
@@ -598,8 +615,29 @@ describe("markDone promotes PR link to deliverable", () => {
         route.addTack("done-no-overwrite", "Task");
         route.setDeliverable("done-no-overwrite", "t1", "Original", "https://github.com/acme/repo/pull/1");
         route.addLink("done-no-overwrite", "t1", "Other PR", "https://github.com/acme/repo/pull/2");
-        const { tack } = route.markDone("done-no-overwrite", "t1");
+        const { tack, ambiguousDeliverable } = route.markDone("done-no-overwrite", "t1");
         assert.equal(tack.deliverable.url, "https://github.com/acme/repo/pull/1");
+        assert.deepEqual(ambiguousDeliverable, []);
+    });
+    it("refuses to pick when two or more PR/MR links are present", () => {
+        route.init("done-ambiguous");
+        route.addTack("done-ambiguous", "Task");
+        route.addLink("done-ambiguous", "t1", "PR A", "https://github.com/acme/repo/pull/1");
+        route.addLink("done-ambiguous", "t1", "PR B", "https://github.com/acme/repo/pull/2");
+        const { tack, ambiguousDeliverable } = route.markDone("done-ambiguous", "t1");
+        assert.equal(tack.status, "done");
+        assert.equal(tack.deliverable, undefined);
+        assert.equal(ambiguousDeliverable.length, 2);
+        assert.equal(ambiguousDeliverable[0].url, "https://github.com/acme/repo/pull/1");
+        assert.equal(ambiguousDeliverable[1].url, "https://github.com/acme/repo/pull/2");
+        assert.equal(tack.links.length, 2);
+    });
+    it("returns an empty ambiguousDeliverable when promotion succeeds", () => {
+        route.init("done-single");
+        route.addTack("done-single", "Task");
+        route.addLink("done-single", "t1", "Only PR", "https://github.com/acme/repo/pull/9");
+        const { ambiguousDeliverable } = route.markDone("done-single", "t1");
+        assert.deepEqual(ambiguousDeliverable, []);
     });
 });
 describe("recordSession", () => {
@@ -734,5 +772,134 @@ describe("pin/unpin", () => {
         route.writePin("pin-first", cwd);
         route.writePin("pin-second", cwd);
         assert.equal(route.readPin(cwd)?.slug, "pin-second");
+    });
+});
+describe("moveTack", () => {
+    it("moves a tack and preserves all metadata", () => {
+        route.init("move-src");
+        route.init("move-dst");
+        route.addTack("move-src", "Original task");
+        route.setDeliverable("move-src", "t1", "PR #5", "https://github.com/acme/repo/pull/5");
+        route.addLink("move-src", "t1", "Design", "https://example.com/design");
+        route.addBefore("move-src", "t1", "Read the spec");
+        route.addAfter("move-src", "t1", "Update docs");
+        route.startTack("move-src", "t1");
+        const result = route.moveTack("move-src", "t1", "move-dst");
+        assert.equal(result.moved.length, 1);
+        assert.equal(result.moved[0].srcId, "t1");
+        assert.equal(result.moved[0].dstId, "t1");
+        const src = route.load("move-src");
+        assert.equal(src.tacks.length, 0);
+        const dst = route.load("move-dst");
+        assert.equal(dst.tacks.length, 1);
+        const moved = dst.tacks[0];
+        assert.equal(moved.summary, "Original task");
+        assert.equal(moved.status, "in_progress");
+        assert.equal(moved.deliverable.url, "https://github.com/acme/repo/pull/5");
+        assert.equal(moved.links.length, 1);
+        assert.equal(moved.links[0].url, "https://example.com/design");
+        assert.equal(moved.before.length, 1);
+        assert.equal(moved.before[0].text, "Read the spec");
+        assert.equal(moved.after.length, 1);
+        assert.equal(moved.after[0].text, "Update docs");
+    });
+    it("assigns the next sequential id in the destination", () => {
+        route.init("move-src-2");
+        route.init("move-dst-2");
+        route.addTack("move-dst-2", "Existing task");
+        route.addTack("move-src-2", "Incoming task");
+        const result = route.moveTack("move-src-2", "t1", "move-dst-2");
+        assert.equal(result.moved[0].dstId, "t2");
+        const dst = route.load("move-dst-2");
+        assert.equal(dst.tacks.length, 2);
+        assert.equal(dst.tacks[1].id, "t2");
+        assert.equal(dst.tacks[1].summary, "Incoming task");
+    });
+    it("refuses when src tack has an outgoing depends_on edge", () => {
+        route.init("move-out-src");
+        route.init("move-out-dst");
+        route.addTack("move-out-src", "First");
+        route.addTack("move-out-src", "Second", { dependsOn: ["t1"] });
+        assert.throws(() => route.moveTack("move-out-src", "t2", "move-out-dst"), (err) => {
+            assert.match(err.message, /depends_on edges cross the route boundary/);
+            assert.doesNotMatch(err.message, /--include-dependents/);
+            return true;
+        });
+        assert.equal(route.load("move-out-src").tacks.length, 2);
+        assert.equal(route.load("move-out-dst").tacks.length, 0);
+    });
+    it("refuses when src tack has an incoming depends_on edge and hints --include-dependents", () => {
+        route.init("move-in-src");
+        route.init("move-in-dst");
+        route.addTack("move-in-src", "Foundation");
+        route.addTack("move-in-src", "Depends on foundation", { dependsOn: ["t1"] });
+        assert.throws(() => route.moveTack("move-in-src", "t1", "move-in-dst"), (err) => {
+            assert.match(err.message, /depends_on edges cross the route boundary/);
+            assert.match(err.message, /--include-dependents/);
+            return true;
+        });
+        assert.equal(route.load("move-in-src").tacks.length, 2);
+        assert.equal(route.load("move-in-dst").tacks.length, 0);
+    });
+    it("does not hint --include-dependents when both outgoing and incoming edges exist", () => {
+        route.init("move-middle-src");
+        route.init("move-middle-dst");
+        route.addTack("move-middle-src", "Root");
+        route.addTack("move-middle-src", "Middle", { dependsOn: ["t1"] });
+        route.addTack("move-middle-src", "Leaf", { dependsOn: ["t2"] });
+        assert.throws(() => route.moveTack("move-middle-src", "t2", "move-middle-dst"), (err) => {
+            assert.match(err.message, /depends_on edges cross the route boundary/);
+            assert.doesNotMatch(err.message, /--include-dependents/);
+            return true;
+        });
+    });
+    it("--include-dependents moves the dependent chain and remaps ids", () => {
+        route.init("move-chain-src");
+        route.init("move-chain-dst");
+        route.addTack("move-chain-src", "Root");
+        route.addTack("move-chain-src", "Middle", { dependsOn: ["t1"] });
+        route.addTack("move-chain-src", "Leaf", { dependsOn: ["t2"] });
+        const result = route.moveTack("move-chain-src", "t1", "move-chain-dst", {
+            includeDependents: true,
+        });
+        assert.equal(result.moved.length, 3);
+        const src = route.load("move-chain-src");
+        assert.equal(src.tacks.length, 0);
+        const dst = route.load("move-chain-dst");
+        assert.equal(dst.tacks.length, 3);
+        const root = dst.tacks.find((t) => t.summary === "Root");
+        const middle = dst.tacks.find((t) => t.summary === "Middle");
+        const leaf = dst.tacks.find((t) => t.summary === "Leaf");
+        assert.deepEqual(middle.depends_on, [root.id]);
+        assert.deepEqual(leaf.depends_on, [middle.id]);
+    });
+    it("--include-dependents still refuses if a staying tack depends on a moving tack", () => {
+        route.init("move-partial-src");
+        route.init("move-partial-dst");
+        route.addTack("move-partial-src", "Root");
+        route.addTack("move-partial-src", "Middle", { dependsOn: ["t1"] });
+        route.addTack("move-partial-src", "Sibling", { dependsOn: ["t1"] });
+        assert.throws(() => route.moveTack("move-partial-src", "t2", "move-partial-dst", {
+            includeDependents: true,
+        }), /depends_on edges cross the route boundary/);
+    });
+    it("refuses when src and dst are the same route", () => {
+        route.init("move-same");
+        route.addTack("move-same", "Task");
+        assert.throws(() => route.moveTack("move-same", "t1", "move-same"), /Source and destination routes are the same/);
+    });
+    it("throws when source route does not exist", () => {
+        route.init("move-only-dst");
+        assert.throws(() => route.moveTack("missing-src", "t1", "move-only-dst"), /not found/i);
+    });
+    it("throws when destination route does not exist", () => {
+        route.init("move-only-src");
+        route.addTack("move-only-src", "Task");
+        assert.throws(() => route.moveTack("move-only-src", "t1", "missing-dst"), /not found/i);
+    });
+    it("throws when source tack does not exist", () => {
+        route.init("move-no-tack-src");
+        route.init("move-no-tack-dst");
+        assert.throws(() => route.moveTack("move-no-tack-src", "t99", "move-no-tack-dst"), /Tack not found/);
     });
 });

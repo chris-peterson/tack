@@ -24,6 +24,7 @@ Usage:
   tack add <slug> <summary> [--depends-on <id,...>] [--done] [--date <ts>] [--deliverable <url>]
   tack edit <slug> <tack-id> <summary>
   tack merge <slug> <source-id> <target-id>
+  tack move <src-slug>/<tack-id> <dst-slug> [--include-dependents]
   tack start <slug> <tack-id>
   tack done <slug> <tack-id> [--date <ts>]
   tack drop <slug> <tack-id>
@@ -304,7 +305,7 @@ function run(): void {
         },
         allowPositionals: true,
       });
-      const { tack, pendingTodo } = route.markDone(rest[0], rest[1], {
+      const { tack, pendingTodo, ambiguousDeliverable } = route.markDone(rest[0], rest[1], {
         at: doneValues.date as string | undefined,
       });
       console.log(formatTack(tack));
@@ -312,6 +313,14 @@ function run(): void {
         console.log("\nPending todo items:");
         for (const text of pendingTodo) {
           console.log(`  [ ] ${text}`);
+        }
+      }
+      if (ambiguousDeliverable.length) {
+        console.error(
+          `\nMultiple PR/MR links present — no deliverable promoted. Pick one with:`,
+        );
+        for (const link of ambiguousDeliverable) {
+          console.error(`  tack deliverable ${rest[0]} ${rest[1]} "${link.label}" ${link.url}`);
         }
       }
       break;
@@ -385,6 +394,35 @@ function run(): void {
       if (rest.length < 3) usage();
       const tack = route.mergeTacks(rest[0], rest[1], rest[2]);
       console.log(formatTack(tack));
+      break;
+    }
+
+    case "move": {
+      const { values: moveValues, positionals: movePositionals } = parseArgs({
+        args: rest,
+        options: {
+          "include-dependents": { type: "boolean" },
+        },
+        allowPositionals: true,
+      });
+      if (movePositionals.length < 2) usage();
+      const srcPath = movePositionals[0];
+      const dstSlug = movePositionals[1];
+      const parts = srcPath.split("/");
+      if (parts.length !== 2 || !parts[0] || !parts[1]) {
+        console.error(`Invalid source path: ${srcPath} (expected <src-slug>/<tack-id>)`);
+        process.exit(1);
+      }
+      const result = route.moveTack(parts[0], parts[1], dstSlug, {
+        includeDependents: moveValues["include-dependents"] as boolean | undefined,
+      });
+      const lines = result.moved.map(
+        (m) => `  ${parts[0]}/${m.srcId} → ${dstSlug}/${m.dstId}: ${m.summary}`,
+      );
+      console.log(`Moved ${result.moved.length} tack(s):`);
+      console.log(lines.join("\n"));
+      console.log("");
+      console.log(formatRoute(result.dstRoute));
       break;
     }
 

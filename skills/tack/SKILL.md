@@ -137,8 +137,34 @@ todos exist, surface them before moving on:
 > - a1: Update deployment docs
 > - a2: Notify the team
 
+If the tack has no deliverable but two or more PR/MR links in `links`,
+`tack done` completes the status change and prints a `Multiple PR/MR
+links present` warning to stderr listing the candidates. Read that
+warning and either run `tack deliverable <slug> <tack-id> <label> <url>`
+with the user's chosen URL, or surface the candidates to the user to
+pick. Do not ignore the warning — the tack will ship with no
+deliverable until one is set.
+
 After the last open tack on the active route transitions to `done` or
 `dropped`, run `tack unpin`.
+
+## Moving tacks between routes
+
+When the user reorganizes routes (e.g. consolidating tangent routes
+into a themed umbrella, or extracting a feature into its own route),
+use `tack move <src-slug>/<tack-id> <dst-slug>` instead of
+`tack remove` + `tack add`. `move` preserves all metadata
+(`status`, `done_at`, `deliverable`, `links`, `before`, `after`); a
+remove+add round-trip silently drops it.
+
+`depends_on` references are route-local. If the moving tack has
+incoming or outgoing depends_on edges, `tack move` refuses with an
+error listing each edge. Resolve by either:
+
+- `tack move <src>/<id> <dst> --include-dependents` to move the whole
+  dependent chain together (use this when the closure of dependents
+  belongs in the new route too)
+- `tack depends rm <slug> <tack-id> <dep-id>` to break the edge first
 
 ## Prompt discipline
 
@@ -185,6 +211,8 @@ tack add <slug> <summary>          Add a tack
   [--deliverable <url>]            Set deliverable on creation (label auto-derived)
 tack edit <slug> <tack-id> <summary>  Edit a tack summary
 tack merge <slug> <src-id> <tgt-id>  Merge source into target (drops source)
+tack move <src-slug>/<tack-id> <dst-slug>  Move a tack to another route (preserves metadata)
+  [--include-dependents]             Also move tacks that depend on the source
 tack start <slug> <tack-id>        Start a tack
 tack done <slug> <tack-id>         Complete a tack
   [--date <ts>]                    Backfill done_at (YYYY-MM-DD or ISO date-time)

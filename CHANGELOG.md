@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.13.0
+
+> ⚠️ Behavior changes in `tack link add` and `tack done` may affect automation that relied on silent PR/MR → deliverable promotion. See Breaking Changes below.
+
+### Breaking Changes
+
+- **`tack link add` no longer auto-promotes PR/MR URLs to `deliverable`.** Previously, calling `tack link add` with a PR/MR URL on a tack with no deliverable silently set it as the deliverable. The URL now always records as a link. To set a deliverable, call `tack deliverable` explicitly. The old behavior bit when porting a tack whose source schema was "no deliverable, just links" — the destination ended up with a deliverable that wasn't there before, changing data shape and downstream dashboard enrichment.
+- **`tack done` no longer silently picks one of several PR/MR links to promote.** With exactly one PR/MR link, the convenience promotion still happens (unchanged). With two or more, the status change still completes but no link is promoted; the CLI emits a stderr warning listing the candidates and the `tack deliverable` command to pick one. Scripts that relied on first-wins behavior in the ambiguous case must now invoke `tack deliverable` explicitly.
+
+### Features
+
+- **`tack move <src-slug>/<tack-id> <dst-slug> [--include-dependents]`** — Relocate a tack between routes, preserving all metadata (`status`, `done_at`, `deliverable`, `links`, `before`, `after`). The moved tack takes the next sequential ID in the destination; source IDs are not reused. Because tack IDs are route-local, `depends_on` references cannot cross route boundaries — the command refuses moves that would orphan edges and lists every offending one so you can break it with `tack depends rm` or include the dependent chain with `--include-dependents`.
+
+### Fixes
+
+- **`tack deliverable` now strips a matching link from `links`** when setting a deliverable with the same URL. A URL no longer appears in both `deliverable` and `links` simultaneously — eliminates duplicate rows in `tack find` and keeps the data shape consistent with the new `link add` / `done` semantics.
+
+### Other
+
+- **Skill updates** — `tack` skill now documents `tack move` and tells agents to read stderr after `tack done` for the multi-PR/MR ambiguity warning.
+- **Spec updates** — CL-13 rewritten (link add no longer promotes), CL-05 extended (done-time disambiguation), CL-36 added (tack move).
+- **Internal refactor** — `nextTackId` extracted to share with `moveTack`; raises a clear error on non-numeric tack IDs.
+- **zsh completion** — `tack move` uses a dedicated path completer that stops at `<slug>/<tack-id>` (no trailing `/` or aspect drill-down).
+
+Closes #2.
+
 ## 0.12.0
 
 ### Features

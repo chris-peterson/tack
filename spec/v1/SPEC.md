@@ -279,8 +279,12 @@ current ISO 8601 date-time, or to the explicit value of `--date <ts>`
 (`YYYY-MM-DD` or full ISO 8601 date-time) when supplied — used to backfill
 work that merged on a prior date. If the tack has pending `after` items, they
 shall be displayed. If the tack has no deliverable and its `links` array
-contains a PR/MR URL, the first matching link shall be promoted to the tack's
-deliverable and removed from `links`.
+contains exactly one PR/MR URL, that link shall be promoted to the tack's
+deliverable and removed from `links`. If the tack has no deliverable and the
+`links` array contains two or more PR/MR URLs, the CLI shall not promote any
+of them — the status change still completes, and the CLI shall emit a warning
+to stderr naming the candidates and the `tack deliverable` command to pick
+one.
 
 **[CL-06]** `tack drop <slug> <tack-id>` — When invoked, the CLI shall set the
 specified tack's status to `dropped`. The tack shall remain in the route file
@@ -316,11 +320,11 @@ the current date per [TD-04].
 shall delete the specified todo item from its array.
 
 **[CL-13]** `tack link add <slug> <tack-id> <label> <url>` — When invoked,
-the CLI shall add a link to the specified tack. When the URL matches a
-PR/MR pattern and the tack has no deliverable, the link shall be promoted
-to the tack's deliverable instead of being added to `links`. If the URL
-already exists on the tack (as the `deliverable` URL or in `links`), the
-CLI shall not add a duplicate.
+the CLI shall add a link to the specified tack's `links` array. The URL
+is always recorded as a link, even when it matches a PR/MR pattern;
+setting a deliverable is the separate, explicit operation of
+`tack deliverable` ([CL-08]). If the URL already exists on the tack (as
+the `deliverable` URL or in `links`), the CLI shall not add a duplicate.
 
 **[CL-14]** `tack list` — When invoked, the CLI shall list all route files in
 `~/.tack/routes/` with their slug, number of tacks, and number of open tacks.
@@ -461,6 +465,33 @@ update the `slug` field inside the file. The route's `id` ([RT-08]) shall
 be preserved. The CLI shall fail if `<new-slug>` already exists as a route,
 if `<old-slug>` does not exist, or if any other route's `depends_on`
 references `<old-slug>` (per [DP-01]).
+
+**[CL-36]** `tack move <src-slug>/<tack-id> <dst-slug> [--include-dependents]`
+— When invoked, the CLI shall remove the specified tack from the source
+route's `tacks` array and append it to the destination route's `tacks`
+array with a new sequential ID per [TK-05] (ID continues from the
+destination's existing maximum; source IDs are not reused per [CL-25]).
+All tack metadata — `summary`, `status`, `done_at`, `deliverable`,
+`links`, `before`, `after` — shall be preserved verbatim.
+
+Because tack IDs are route-local per [TK-05], `depends_on` references
+cannot cross route boundaries. The CLI shall refuse the move if the
+tack being moved has any incoming or outgoing `depends_on` edge that
+would cross the boundary (a moving tack depending on a staying tack, or a
+staying tack depending on a moving tack), and shall display each
+offending edge in the error so the user can resolve it with [CL-33]
+(`tack depends rm`) or by including the dependent chain.
+
+When `--include-dependents` is passed, the move set is expanded to the
+transitive closure of tacks that depend on the source tack within the
+source route. Their `depends_on` arrays are rewritten to reference the
+new IDs assigned in the destination. The cross-boundary refusal still
+applies — if any staying tack depends on a moving tack, the move
+shall fail.
+
+The CLI shall fail if `<src-slug>` and `<dst-slug>` are the same route, if
+either route does not exist, or if `<tack-id>` does not exist in the
+source route.
 
 ---
 

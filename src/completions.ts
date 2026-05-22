@@ -60,6 +60,38 @@ _tack_link_urls() {
   (( \${#urls} )) && compadd -a urls
 }
 
+_tack_move_src() {
+  local tack_dir="\${TACK_HOME:-$HOME/.tack}/routes"
+  [[ -d "$tack_dir" ]] || return
+  local cur="\${words[CURRENT]}"
+
+  # slug/ → complete tack IDs only, no trailing slash, no aspect drill-down
+  if [[ "$cur" == */* ]]; then
+    local slug="\${cur%%/*}"
+    local route_file="$tack_dir/$slug.yaml"
+    [[ -f "$route_file" ]] || return
+    local -a tack_ids tack_descs
+    local id summary
+    while IFS= read -r line; do
+      if [[ "$line" =~ '^  - id: (.+)' ]]; then
+        id="\${match[1]}"
+      elif [[ -n "$id" && "$line" =~ '^    summary: (.+)' ]]; then
+        summary="\${match[1]}"
+        tack_ids+=("$slug/$id")
+        tack_descs+=("$slug/$id ($summary)")
+        id=""
+      fi
+    done < "$route_file"
+    (( \${#tack_ids} )) && compadd -l -d tack_descs -a tack_ids
+    return
+  fi
+
+  # no slash → route slugs with / suffix to continue typing the tack-id
+  local -a slugs
+  slugs=( "$tack_dir"/*.yaml(N:t:r) )
+  (( \${#slugs} )) && compadd -S / -q -a slugs
+}
+
 _tack_tree_path() {
   local tack_dir="\${TACK_HOME:-$HOME/.tack}/routes"
   [[ -d "$tack_dir" ]] || return
@@ -147,6 +179,7 @@ _tack() {
     'remove:Delete a tack from a route'
     'edit:Edit a tack summary'
     'merge:Merge a tack into another'
+    'move:Move a tack to another route'
     'deliverable:Set a deliverable on a tack'
     'before:Add a pre-work todo'
     'after:Add a post-work todo'
@@ -250,6 +283,14 @@ _tack() {
         3) _tack_routes ;;
         4) _tack_tack_ids "\${words[3]}" ;;
         5) _tack_tack_ids "\${words[3]}" ;;
+      esac
+      ;;
+    move)
+      # tack move <src-slug>/<tack-id> <dst-slug> [--include-dependents]
+      case "$CURRENT" in
+        3) _tack_move_src ;;
+        4) _tack_routes ;;
+        *) _arguments '--include-dependents[Move dependents too]' ;;
       esac
       ;;
     deliverable)

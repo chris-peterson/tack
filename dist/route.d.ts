@@ -1,4 +1,4 @@
-import type { Route, Tack, TackStatus } from "./types.js";
+import type { Link, Route, Tack, TackStatus } from "./types.js";
 export declare function isOpen(t: Tack): boolean;
 export declare function loadAll(): Route[];
 export declare function normalizeTimestamp(input: string): string;
@@ -26,6 +26,7 @@ export declare function markDone(slug: string, tackId: string, opts?: {
 }): {
     tack: Tack;
     pendingTodo: string[];
+    ambiguousDeliverable: Link[];
 };
 export declare function markDropped(slug: string, tackId: string): Tack;
 export declare function startTack(slug: string, tackId: string): Tack;
@@ -79,6 +80,18 @@ export interface Pin {
 export declare function readPin(cwd?: string): Pin | null;
 export declare function writePin(slug: string, cwd?: string): Pin;
 export declare function deletePin(cwd?: string): boolean;
+export interface MoveResult {
+    srcRoute: Route;
+    dstRoute: Route;
+    moved: {
+        srcId: string;
+        dstId: string;
+        summary: string;
+    }[];
+}
+export declare function moveTack(srcSlug: string, srcTackId: string, dstSlug: string, opts?: {
+    includeDependents?: boolean;
+}): MoveResult;
 export declare function removeTack(slug: string, tackId: string, opts?: {
     force?: boolean;
 }): Route;

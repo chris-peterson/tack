@@ -200,6 +200,30 @@ tack remove auth-rewrite t3
 tack remove auth-rewrite t1 --force   # t2 depended on t1; its depends_on is stripped
 ```
 
+### `tack move <src-slug>/<tack-id> <dst-slug> [--include-dependents]`
+
+Move a tack from one route to another, preserving all metadata
+(`status`, `done_at`, `deliverable`, `links`, `before`, `after`). The
+moved tack gets the next sequential ID in the destination; the source
+ID is not reused.
+
+Because tack IDs are route-local, `depends_on` references cannot cross
+route boundaries. If the source tack has any incoming or outgoing edge
+to a tack that isn't moving, the operation refuses and lists each
+offending edge so you can either break it with `tack depends rm` or
+move the dependent chain together.
+
+```bash
+tack move scratch/t3 auth-rewrite                  # one tack
+tack move scratch/t3 auth-rewrite --include-dependents  # t3 + everything that depends on t3
+```
+
+With `--include-dependents`, the move set expands to the transitive
+closure of tacks within the source route that depend on the target.
+Their `depends_on` arrays are rewritten to the new IDs in the
+destination. The cross-boundary refusal still applies — if a tack
+that's staying behind depends on a moving tack, the move fails.
+
 ## Dependencies
 
 Tack-level dependencies declare ordering within a route — child tacks
@@ -276,7 +300,9 @@ tack todo rm auth-rewrite t1 a2
 
 ### `tack link add <slug> <tack-id> <label> <url>`
 
-Add a reference link to a tack.
+Add a reference link to a tack. The URL is always recorded as a link —
+even when it points at a PR/MR — so links and deliverables stay
+explicit. Use `tack deliverable` to set the change request directly.
 
 ```bash
 tack link add auth-rewrite t1 "Design doc" https://docs.example.com/auth
