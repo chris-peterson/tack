@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { formatTack, formatRoute, formatList } from "./display.js";
+import { formatTack, formatRoute, formatList, treeData } from "./display.js";
 import type { Route, Tack } from "./types.js";
 
 describe("formatTack", () => {
@@ -94,6 +94,75 @@ describe("formatRoute", () => {
     assert.ok(out.includes("[>] t1: Build it"));
   });
 
+});
+
+describe("treeData", () => {
+  const routes: Route[] = [
+    {
+      id: "u1",
+      slug: "auth",
+      created_at: "2026-03-30T00:00:00Z",
+      updated_at: "2026-03-30T00:00:00Z",
+      tacks: [
+        {
+          id: "t1",
+          summary: "Build it",
+          status: "done",
+          deliverable: { label: "PR #1", url: "https://github.com/pr/1" },
+          depends_on: ["t0"],
+        },
+        { id: "t2", summary: "Test it", status: "pending" },
+      ],
+    },
+    {
+      id: "u2",
+      slug: "billing",
+      created_at: "2026-03-30T00:00:00Z",
+      updated_at: "2026-03-30T00:00:00Z",
+      tacks: [{ id: "t1", summary: "Invoices", status: "pending" }],
+    },
+  ];
+
+  it("returns all routes with no path", () => {
+    assert.deepEqual(treeData(routes), routes);
+  });
+
+  it("returns a single route for a slug", () => {
+    assert.equal(treeData(routes, "auth"), routes[0]);
+  });
+
+  it("returns a single tack for slug/tack", () => {
+    assert.equal(treeData(routes, "auth/t1"), routes[0].tacks[0]);
+  });
+
+  it("returns the aspect value for slug/tack/aspect", () => {
+    assert.deepEqual(treeData(routes, "auth/t1/deliverable"), {
+      deliverable: { label: "PR #1", url: "https://github.com/pr/1" },
+    });
+  });
+
+  it("reports an unknown aspect as an error object", () => {
+    assert.deepEqual(treeData(routes, "auth/t1/bogus"), { error: "Unknown aspect: bogus" });
+  });
+
+  it("returns matched routes for a slug-pattern glob", () => {
+    assert.deepEqual(treeData(routes, "b*"), [routes[1]]);
+  });
+
+  it("returns {slug, tack} matches for a two-part glob", () => {
+    assert.deepEqual(treeData(routes, "*/t2"), [{ slug: "auth", tack: routes[0].tacks[1] }]);
+  });
+
+  it("returns aspect matches for a three-part glob, skipping absent aspects", () => {
+    assert.deepEqual(treeData(routes, "*/*/deliverable"), [
+      {
+        slug: "auth",
+        tackId: "t1",
+        aspect: "deliverable",
+        value: { label: "PR #1", url: "https://github.com/pr/1" },
+      },
+    ]);
+  });
 });
 
 describe("formatList", () => {

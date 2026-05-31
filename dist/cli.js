@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import * as route from "./route.js";
 import { TACK_STATUSES } from "./types.js";
-import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind } from "./display.js";
+import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind, treeData } from "./display.js";
 import { ZSH_COMPLETION } from "./completions.js";
 function usage() {
     console.log(`tack — route tracker for AI-assisted development
@@ -17,8 +17,8 @@ Usage:
   tack status [slug] [--all]
   tack status set <slug> <tack-id> <pending|in_progress|done|blocked|dropped>
   tack list [--json]
-  tack recent [--count <n>] [--since <date>]
-  tack tree [path] [-d <depth>]    (path supports glob: */*/deliverable)
+  tack recent [--count <n>] [--since <date>] [--json]
+  tack tree [path] [-d <depth>] [--json]    (path supports glob: */*/deliverable)
   tack add <slug> <summary> [--depends-on <id,...>] [--done] [--date <ts>] [--deliverable <url>]
   tack edit <slug> <tack-id> <summary>
   tack merge <slug> <source-id> <target-id>
@@ -213,13 +213,16 @@ function run() {
                 options: {
                     count: { type: "string" },
                     since: { type: "string" },
+                    json: { type: "boolean" },
                 },
                 allowPositionals: true,
             });
             const count = recentValues.count ? parseInt(recentValues.count, 10) : undefined;
             const since = recentValues.since;
             const recentRoutes = route.recent({ count, since });
-            console.log(formatRecent(recentRoutes));
+            console.log(recentValues.json
+                ? JSON.stringify(recentRoutes, null, 2)
+                : formatRecent(recentRoutes));
             break;
         }
         case "tree": {
@@ -227,6 +230,7 @@ function run() {
                 args: rest,
                 options: {
                     depth: { type: "string", short: "d" },
+                    json: { type: "boolean" },
                 },
                 allowPositionals: true,
             });
@@ -237,7 +241,9 @@ function run() {
                 ? route.list().map((r) => r.slug)
                 : [treePath.split("/")[0]];
             const routes = slugs.map((s) => route.load(s));
-            console.log(formatTree(routes, treePath, depth));
+            console.log(treeValues.json
+                ? JSON.stringify(treeData(routes, treePath), null, 2)
+                : formatTree(routes, treePath, depth));
             break;
         }
         case "add": {

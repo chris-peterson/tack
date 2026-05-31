@@ -194,6 +194,10 @@ tack tree '*/t1'                   # Every t1 across all routes
 tack tree '**/depends_on'          # All dependency chains
 ```
 
+Add `--json` to any of these to get the structured data instead of the
+rendered tree — full route/tack objects for navigation paths, a flat array of
+matches for globs. Parse it with `jq` rather than scraping the text view.
+
 `*` matches within a segment, `**` matches across segments, `?` matches one character.
 
 ## CLI reference
@@ -202,8 +206,8 @@ tack tree '**/depends_on'          # All dependency chains
 tack init <slug> [--group <slug>]  Create a new route
 tack list [--json]                 List all routes
 tack status [slug] [--json] [--all]  Show route details (dropped hidden unless --all)
-tack tree [path] [-d <depth>]      Browse routes/tacks (glob: */*/deliverable)
-tack recent [--count <n>] [--since <date>]  Recently-updated routes
+tack tree [path] [-d <depth>] [--json]  Browse routes/tacks (glob: */*/deliverable)
+tack recent [--count <n>] [--since <date>] [--json]  Recently-updated routes
 tack find <url> [--json]           Find routes/tacks by URL
 tack add <slug> <summary>          Add a tack
   [--depends-on <id,...>]

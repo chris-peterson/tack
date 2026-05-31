@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.14.0
+
+### Features
+
+- **`tack tree` and `tack recent` now accept `--json`.** The flag emits the structured data behind the view instead of the rendered text, so output pipes straight into `jq`. For `tree`, the JSON shape follows the navigation depth — an array of routes (no path), one route (`<slug>`), one tack (`<slug>/<tack>`), or an aspect object (`<slug>/<tack>/<aspect>`) — and glob paths return a flat array of matches whose shape varies by pattern depth. This brings `tree` and `recent` in line with `status`, `list`, and `find`, which already supported `--json`.
+
+### Other
+
+- Documented `--json` across the CLI reference, including the commands that already supported it (`status`, `list`, `find`) and previously-undocumented `recent` and `find` sections.
+
 ## 0.13.0
 
 > ⚠️ Behavior changes in `tack link add` and `tack done` may affect automation that relied on silent PR/MR → deliverable promotion. See Breaking Changes below.

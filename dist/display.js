@@ -94,6 +94,99 @@ function formatAspect(tack, aspect) {
 function hasGlob(path) {
     return path.includes("*") || path.includes("?");
 }
+function aspectValue(tack, aspect) {
+    switch (aspect) {
+        case "deliverable":
+            return tack.deliverable ?? null;
+        case "before":
+            return tack.before ?? [];
+        case "after":
+            return tack.after ?? [];
+        case "links":
+            return tack.links ?? [];
+        case "depends_on":
+            return tack.depends_on ?? [];
+    }
+}
+function aspectPresent(value) {
+    return Array.isArray(value) ? value.length > 0 : value !== null;
+}
+function globData(routes, path) {
+    const expanded = expandDoublestar(path.split("/").filter(Boolean));
+    const seen = new Set();
+    const out = [];
+    const push = (item) => {
+        const key = JSON.stringify(item);
+        if (!seen.has(key)) {
+            seen.add(key);
+            out.push(item);
+        }
+    };
+    for (const parts of expanded) {
+        const [slugPat, tackPat, aspectPat] = parts;
+        const matchedRoutes = routes.filter((r) => globMatch(slugPat, r.slug));
+        if (parts.length === 1) {
+            for (const r of matchedRoutes)
+                push(r);
+            continue;
+        }
+        if (parts.length === 2) {
+            for (const r of matchedRoutes) {
+                for (const tack of r.tacks.filter((t) => globMatch(tackPat, t.id))) {
+                    push({ slug: r.slug, tack });
+                }
+            }
+            continue;
+        }
+        const matchedAspects = ASPECTS.filter((a) => globMatch(aspectPat, a));
+        for (const r of matchedRoutes) {
+            for (const tack of r.tacks.filter((t) => globMatch(tackPat, t.id))) {
+                for (const aspect of matchedAspects) {
+                    const value = aspectValue(tack, aspect);
+                    if (aspectPresent(value))
+                        push({ slug: r.slug, tackId: tack.id, aspect, value });
+                }
+            }
+        }
+    }
+    return out;
+}
+/**
+ * The structured data behind `formatTree`, for `tack tree --json`. The shape
+ * mirrors the navigation depth: all routes (no path), one route (slug), one
+ * tack (slug/tack), or a single aspect value (slug/tack/aspect). Glob paths
+ * return a flat array of matches whose shape varies by pattern depth.
+ */
+export function treeData(routes, path) {
+    if (path && hasGlob(path)) {
+        return globData(routes, path);
+    }
+    if (path?.includes("/")) {
+        const [slug, tackId, aspect] = path.split("/").filter(Boolean);
+        if (tackId) {
+            const route = routes.find((r) => r.slug === slug);
+            if (!route)
+                return { error: `Route not found: ${slug}` };
+            const tack = route.tacks.find((t) => t.id === tackId);
+            if (!tack)
+                return { error: `Tack not found: ${tackId} in route ${slug}` };
+            if (aspect) {
+                if (!ASPECTS.includes(aspect))
+                    return { error: `Unknown aspect: ${aspect}` };
+                return { [aspect]: aspectValue(tack, aspect) };
+            }
+            return tack;
+        }
+        path = slug;
+    }
+    if (path) {
+        const route = routes.find((r) => r.slug === path);
+        if (!route)
+            return { error: `Route not found: ${path}` };
+        return route;
+    }
+    return routes;
+}
 function expandDoublestar(parts) {
     if (!parts.some((p) => p === "**"))
         return [parts];

@@ -10,32 +10,67 @@ Create a new route.
 tack init auth-rewrite
 ```
 
-### `tack status [slug] [--all]`
+### `tack status [slug] [--all] [--json]`
 
 Show route details. Without a slug, shows a summary of all routes. Dropped
-tacks are hidden by default; pass `--all` to include them.
+tacks are hidden by default; pass `--all` to include them. `--json` emits the
+route object (or, without a slug, the route summary array) for scripting.
 
 ```bash
 tack status auth-rewrite
 tack status auth-rewrite --all
 tack status
+tack status auth-rewrite --json
 ```
 
-### `tack list`
+### `tack list [--json]`
 
-List all routes with open/total tack counts.
+List all routes with open/total tack counts. `--json` emits the full route
+objects.
 
 ```bash
 tack list
+tack list --json
 ```
 
-### `tack tree [path] [-d <depth>]`
+### `tack recent [--count <n>] [--since <date>] [--json]`
+
+List routes by most recent activity, with open/total counts and the
+`updated_at` timestamp. Filter with `--count` (cap the number of routes) and
+`--since` (a `YYYY-MM-DD` date or ISO 8601 date-time). `--json` emits the same
+rows as an array.
+
+```bash
+tack recent
+tack recent --count 5
+tack recent --since 2026-05-01 --json
+```
+
+### `tack find <url> [--json]`
+
+Find every tack that references a URL, in any deliverable or link. `--json`
+emits the matches as an array.
+
+```bash
+tack find https://github.com/org/repo/pull/42
+tack find https://github.com/org/repo/pull/42 --json
+```
+
+### `tack tree [path] [-d <depth>] [--json]`
 
 Browse routes and tacks as a navigable tree. Paths use `/`-separated segments
 with progressive drill-down. Supports glob wildcards (`*`, `?`) for querying
 across routes and tacks.
 
 **Depth levels:** 1 = routes only (default), 2 = routes + tacks, 3 = full details.
+
+**`--json`** returns the structured data behind the view instead of the
+rendered tree, so the output drops straight into `jq` and other tooling. The
+shape follows the navigation depth: no path → an array of full route objects;
+a slug → that route; `slug/tack` → that tack; `slug/tack/aspect` → an object
+holding the aspect value. Glob paths return a flat array of matches whose shape
+varies by pattern depth (routes, `{slug, tack}`, or `{slug, tackId, aspect,
+value}`). `--json` always emits full objects, so `-d` is ignored alongside it.
 
 ```bash
 # Browse all routes
@@ -55,6 +90,9 @@ tack tree -d 2
 
 # Full detail on everything
 tack tree -d 3
+
+# Pipe a route's tacks into jq
+tack tree auth-rewrite --json | jq '.tacks[] | select(.status == "in_progress")'
 ```
 
 **Glob queries** (quote the path to prevent shell expansion):

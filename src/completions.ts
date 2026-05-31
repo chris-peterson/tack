@@ -240,11 +240,15 @@ _tack() {
       _arguments '--json[Output JSON]'
       ;;
     tree)
-      # tack tree [path] [-d <depth>]
+      # tack tree [path] [-d <depth>] [--json]
       case "$CURRENT" in
-        3) _tack_tree_path; _arguments '-d[Expansion depth (1-3)]:depth:(1 2 3)' '--depth[Expansion depth (1-3)]:depth:(1 2 3)' ;;
-        *) _arguments '-d[Expansion depth (1-3)]:depth:(1 2 3)' '--depth[Expansion depth (1-3)]:depth:(1 2 3)' ;;
+        3) _tack_tree_path; _arguments '-d[Expansion depth (1-3)]:depth:(1 2 3)' '--depth[Expansion depth (1-3)]:depth:(1 2 3)' '--json[Output JSON]' ;;
+        *) _arguments '-d[Expansion depth (1-3)]:depth:(1 2 3)' '--depth[Expansion depth (1-3)]:depth:(1 2 3)' '--json[Output JSON]' ;;
       esac
+      ;;
+    recent)
+      # tack recent [--count <n>] [--since <date>] [--json]
+      _arguments '--count[Max routes]:count' '--since[Updated since date]:since' '--json[Output JSON]'
       ;;
     add)
       # tack add <slug> <summary> [--depends-on <id,...>]
