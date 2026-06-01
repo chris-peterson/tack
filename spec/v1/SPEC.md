@@ -165,8 +165,8 @@ represents the change request (PR/MR) that the tack produces.
 
 ### TD — Todo Items
 
-**[TD-01]** Todo items appear in two arrays on a tack: `before` (pre-work)
-and `after` (post-work). Both arrays use the same item schema.
+**[TD-01]** The system shall represent both `before` (pre-work) and `after`
+(post-work) todo items with the same item schema.
 
 **[TD-02]** Each todo item shall contain the following required fields:
 - `id` (string) — scoped identifier: `b<N>` for before items, `a<N>` for
@@ -321,7 +321,8 @@ shall delete the specified todo item from its array.
 
 **[CL-13]** `tack link add <slug> <tack-id> <label> <url>` — When invoked,
 the CLI shall add a link to the specified tack's `links` array. The URL
-is always recorded as a link, even when it matches a PR/MR pattern;
+is always recorded as a link, even when it matches a PR/MR pattern (the
+recognized forges are defined in [CL-37]);
 setting a deliverable is the separate, explicit operation of
 `tack deliverable` ([CL-08]). If the URL already exists on the tack (as
 the `deliverable` URL or in `links`), the CLI shall not add a duplicate.
@@ -357,25 +358,28 @@ provisions both PATH access and tab completion.
 summary as a completion description alongside the ID.
 
 **[CL-21]** `tack tree [path] [-d <depth>]` — When invoked without a path, the
-CLI shall display all routes as a navigable tree. The path uses `/`-separated
-segments supporting three levels:
+CLI shall display all routes as a navigable tree.
+
+**[CL-21a]** The `path` argument uses `/`-separated segments supporting three
+levels:
 - `<slug>` — display that route's tacks
 - `<slug>/<tack-id>` — display that tack's details
 - `<slug>/<tack-id>/<aspect>` — display only that aspect (`deliverable`,
   `before`, `after`, `links`, `depends_on`)
 
-Path segments may contain glob wildcards (`*`, `?`, `**`) which match against
-values at that level. `*` matches within a single segment, `**` matches across
-segment boundaries (e.g., `**/deliverable` finds deliverables at any depth,
-`ai-sdlc/**` shows everything under a route). Glob paths must be quoted to
-prevent shell expansion.
+**[CL-21b]** Path segments may contain glob wildcards (`*`, `?`, `**`) which
+match against values at that level. `*` matches within a single segment, `**`
+matches across segment boundaries (e.g., `**/deliverable` finds deliverables at
+any depth, `ai-sdlc/**` shows everything under a route). Glob paths must be
+quoted to prevent shell expansion.
 
-The `-d`/`--depth` option controls expansion: depth 1 = routes only, depth 2 =
-routes + tacks, depth 3 = routes + tacks + details. Default depth is 1 when no
-path is given, 2 when a route path is given.
+**[CL-21c]** The `-d`/`--depth` option controls expansion: depth 1 = routes
+only, depth 2 = routes + tacks, depth 3 = routes + tacks + details. Default
+depth is 1 when no path is given, 2 when a route path is given.
 
-Tab completion for the path argument shall resolve each level progressively
-with `/` suffixes, allowing filesystem-style drill-down without retyping.
+**[CL-21d]** Tab completion for the `path` argument shall resolve each level
+progressively with `/` suffixes, allowing filesystem-style drill-down without
+retyping.
 
 **[CL-22]** `tack recent [--count <n>] [--since <date>]` — When invoked, the
 CLI shall list routes sorted by `updated_at` descending, showing each route's
@@ -468,30 +472,38 @@ references `<old-slug>` (per [DP-01]).
 
 **[CL-36]** `tack move <src-slug>/<tack-id> <dst-slug> [--include-dependents]`
 — When invoked, the CLI shall remove the specified tack from the source
-route's `tacks` array and append it to the destination route's `tacks`
-array with a new sequential ID per [TK-05] (ID continues from the
-destination's existing maximum; source IDs are not reused per [CL-25]).
-All tack metadata — `summary`, `status`, `done_at`, `deliverable`,
-`links`, `before`, `after` — shall be preserved verbatim.
+route's `tacks` array and append it to the destination route's `tacks` array.
 
-Because tack IDs are route-local per [TK-05], `depends_on` references
-cannot cross route boundaries. The CLI shall refuse the move if the
-tack being moved has any incoming or outgoing `depends_on` edge that
-would cross the boundary (a moving tack depending on a staying tack, or a
-staying tack depending on a moving tack), and shall display each
-offending edge in the error so the user can resolve it with [CL-33]
-(`tack depends rm`) or by including the dependent chain.
+**[CL-36a]** The moved tack shall receive a new sequential ID per [TK-05] (ID
+continues from the destination's existing maximum; source IDs are not reused
+per [CL-25]). All tack metadata — `summary`, `status`, `done_at`,
+`deliverable`, `links`, `before`, `after` — shall be preserved verbatim.
 
-When `--include-dependents` is passed, the move set is expanded to the
-transitive closure of tacks that depend on the source tack within the
-source route. Their `depends_on` arrays are rewritten to reference the
-new IDs assigned in the destination. The cross-boundary refusal still
-applies — if any staying tack depends on a moving tack, the move
-shall fail.
+**[CL-36b]** Because tack IDs are route-local per [TK-05], `depends_on`
+references cannot cross route boundaries. The CLI shall refuse the move if the
+tack being moved has any incoming or outgoing `depends_on` edge that would
+cross the boundary (a moving tack depending on a staying tack, or a staying
+tack depending on a moving tack), and shall display each offending edge in the
+error so the user can resolve it with [CL-33] (`tack depends rm`) or by
+including the dependent chain.
 
-The CLI shall fail if `<src-slug>` and `<dst-slug>` are the same route, if
-either route does not exist, or if `<tack-id>` does not exist in the
+**[CL-36c]** When `--include-dependents` is passed, the move set is expanded to
+the transitive closure of tacks that depend on the source tack within the
+source route. Their `depends_on` arrays are rewritten to reference the new IDs
+assigned in the destination. The cross-boundary refusal of [CL-36b] still
+applies — if any staying tack depends on a moving tack, the move shall fail.
+
+**[CL-36d]** The CLI shall fail if `<src-slug>` and `<dst-slug>` are the same
+route, if either route does not exist, or if `<tack-id>` does not exist in the
 source route.
+
+**[CL-37]** The PR/MR/issue URL recognition used for deliverable
+auto-derivation and label extraction ([CL-04], [CL-13]) shall support two
+forges: GitHub (`https://github.com/<owner>/<repo>/pull/<n>` and
+`/issues/<n>`) and GitLab (`https://gitlab.<host>/<group>/<repo>/-/merge_requests/<n>`
+and `/-/issues/<n>`). URLs from other forges are recorded verbatim as links
+or labels but are not classified as PR/MR/issue. The hook scanners ([HK-02],
+[HK-03]) recognize the same two forges.
 
 ---
 
@@ -505,9 +517,9 @@ acts on them.
 **[AG-01]** The agent shall be implemented as a Claude Code skill that reads
 and writes tack route files using the CLI defined in the CL category.
 
-**[AG-02]** When a session begins, the agent shall load all active routes
-(routes with at least one tack whose status is not `done` or `dropped`)
-without blocking the user prompt, to build context about current work.
+**[AG-02]** When a session begins, the plugin's skill shall load all active
+routes (routes with at least one tack whose status is not `done` or `dropped`)
+to build context about current work.
 
 **[AG-03]** The agent shall maintain the answer to "what am I working on?"
 for the current working directory by running the following resolution
@@ -578,21 +590,24 @@ silently no-op when `tack` is not on `PATH` and shall never block session
 start.
 
 **[HK-02]** A `PostToolUse` hook scoped to the `Bash` tool shall scan tool
-output for PR/MR and issue URLs. When a match is found, the hook shall emit
-reminder text instructing the agent to record the URL via the tack skill
-per [AG-05] or [AG-06] depending on URL type.
+output for PR/MR and issue URLs (the recognized forges are defined in
+[CL-37]). When a match is found, the hook shall emit reminder text
+instructing the agent to record the URL via the tack skill per [AG-05] or
+[AG-06] depending on URL type.
 
 **[HK-03]** A `UserPromptSubmit` hook shall scan the user's prompt for
-PR/MR and issue URLs and emit the same kind of reminder as [HK-02]. The
+PR/MR and issue URLs ([CL-37]) and emit the same kind of reminder as
+[HK-02]. The
 hook is responsible for noticing URLs the user pastes inline rather than
 through a Bash tool call.
 
 **[HK-04]** The `UserPromptSubmit` hook shall also, once per session, check
-whether an active route exists for the current cwd by running the same
-resolution procedure as [AG-03] steps 1–4 (without prompting the user). If
-no route resolves, the hook shall emit a one-line nudge suggesting the user
-invoke the tack skill to identify or create a route. The hook shall debounce
-so this nudge fires at most once per session.
+whether a route exists for the current cwd by running [AG-03] step 1 (pin at
+cwd) and step 3 (branch-slug route) — existence-only, without verifying the
+route's open-tack state and without prompting the user. If neither resolves,
+the hook shall emit a one-line nudge suggesting the user invoke the tack skill
+to identify or create a route. The hook shall debounce so this nudge fires at
+most once per session.
 
 **[HK-05]** Hook reminders are advisory. The agent shall act on them via
 the tack skill rather than the hook running CLI commands directly. This
