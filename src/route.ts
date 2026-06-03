@@ -6,7 +6,9 @@ import { parse, stringify } from "yaml";
 import { validate } from "./schema.js";
 import type { Link, Route, Tack, TackStatus, TodoItem } from "./types.js";
 
-const TACK_DIR = join(process.env.TACK_HOME ?? join(homedir(), ".tack"), "routes");
+const TACK_HOME = process.env.TACK_HOME ?? join(homedir(), ".tack");
+const TACK_DIR = join(TACK_HOME, "routes");
+const PINS_FILE = join(TACK_HOME, "pins.yaml");
 
 export function isOpen(t: Tack): boolean {
   return t.status !== "done" && t.status !== "dropped";
@@ -634,15 +636,23 @@ export interface Pin {
   session_id?: string;
 }
 
-function pinPath(cwd: string): string {
-  return join(cwd, ".tack");
+// Pins live in ~/.tack/pins.yaml (keyed by absolute cwd), never in the
+// project tree — a state file at the cwd is one `git add .` away from being
+// committed to someone else's repo.
+function readPins(): Record<string, Pin> {
+  if (!existsSync(PINS_FILE)) return {};
+  return (parse(readFileSync(PINS_FILE, "utf-8")) ?? {}) as Record<string, Pin>;
+}
+
+function writePins(pins: Record<string, Pin>): void {
+  if (!existsSync(TACK_HOME)) {
+    mkdirSync(TACK_HOME, { recursive: true });
+  }
+  writeFileSync(PINS_FILE, stringify(pins), "utf-8");
 }
 
 export function readPin(cwd: string = process.cwd()): Pin | null {
-  const path = pinPath(cwd);
-  if (!existsSync(path)) return null;
-  const data = parse(readFileSync(path, "utf-8")) as Pin;
-  return data;
+  return readPins()[cwd] ?? null;
 }
 
 export function writePin(slug: string, cwd: string = process.cwd()): Pin {
@@ -655,14 +665,17 @@ export function writePin(slug: string, cwd: string = process.cwd()): Pin {
   };
   const sessionId = process.env.CLAUDE_SESSION_ID;
   if (sessionId) pin.session_id = sessionId;
-  writeFileSync(pinPath(cwd), stringify(pin), "utf-8");
+  const pins = readPins();
+  pins[cwd] = pin;
+  writePins(pins);
   return pin;
 }
 
 export function deletePin(cwd: string = process.cwd()): boolean {
-  const path = pinPath(cwd);
-  if (!existsSync(path)) return false;
-  unlinkSync(path);
+  const pins = readPins();
+  if (!(cwd in pins)) return false;
+  delete pins[cwd];
+  writePins(pins);
   return true;
 }
 

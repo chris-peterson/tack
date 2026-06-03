@@ -8,8 +8,9 @@ import * as route from "./route.js";
 import { TACK_STATUSES } from "./types.js";
 import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind, treeData } from "./display.js";
 import { ZSH_COMPLETION } from "./completions.js";
-function usage() {
-    console.log(`tack — route tracker for AI-assisted development
+function usage(exitCode = 1) {
+    const print = exitCode === 0 ? console.log : console.error;
+    print(`tack — route tracker for AI-assisted development
 
 Usage:
   tack init <slug> [--group <slug>]
@@ -43,8 +44,9 @@ Usage:
   tack rm <slug> [--force]
   tack install-cli [--dir <path>]    (also installs zsh completions)
   tack completions zsh
-  tack --version`);
-    process.exit(1);
+  tack --version
+  tack --help`);
+    process.exit(exitCode);
 }
 function resolveSource() {
     // Plugin install: prefer the bash shim that lazy-builds dist on first run.
@@ -147,6 +149,8 @@ function run() {
         console.log(`tack ${manifest.version}`);
         return;
     }
+    if (args[0] === "--help" || args[0] === "-h" || args[0] === "help")
+        usage(0);
     if (args.length === 0)
         usage();
     const command = args[0];
@@ -474,7 +478,7 @@ function run() {
         case "pin": {
             if (rest[0]) {
                 const pin = route.writePin(rest[0]);
-                console.log(`pinned ${pin.slug} → ${process.cwd()}/.tack`);
+                console.log(`pinned ${pin.slug} → ${process.cwd()}`);
             }
             else {
                 const pin = route.readPin();
@@ -490,7 +494,7 @@ function run() {
         }
         case "unpin": {
             const removed = route.deletePin();
-            console.log(removed ? `unpinned ${process.cwd()}/.tack` : "no pin to remove");
+            console.log(removed ? `unpinned ${process.cwd()}` : "no pin to remove");
             break;
         }
         case "rm": {

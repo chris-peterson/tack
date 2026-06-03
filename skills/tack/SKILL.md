@@ -22,7 +22,7 @@ confident match.
 
 ### Resolution procedure
 
-1. **Pin.** Read `<cwd>/.tack` (e.g., `cat .tack` or `tack pin`). If a pin
+1. **Pin.** Run `tack pin` (no slug) to read the cwd's pin. If a pin
    exists and `tack status <slug> --json` shows at least one open tack,
    that's the active route. Done.
 2. **URL match.** If there's a PR/MR/issue URL in scope (recently emitted
@@ -39,8 +39,8 @@ confident match.
    user's pick, run `tack pin <slug>`.
 
 Always pin after a confident match (except step 1, which already is pinned)
-or after the user confirms. Pins make the next resolution a single file
-read.
+or after the user confirms. Pins make the next resolution a single lookup.
+Pins live in `~/.tack/pins.yaml`, never in the project tree.
 
 ### When to unpin
 

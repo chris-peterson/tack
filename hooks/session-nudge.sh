@@ -36,8 +36,9 @@ if [ ! -f "$nudge_file" ] && command -v tack >/dev/null 2>&1; then
 
   has_route=false
 
-  # Step 1: pin file at cwd
-  if [ -n "$cwd" ] && [ -f "$cwd/.tack" ]; then
+  # Step 1: pin recorded for cwd (stored in ~/.tack/pins.yaml; `tack pin`
+  # with no slug exits 0 when a pin exists, 1 otherwise)
+  if [ -n "$cwd" ] && (cd "$cwd" && tack pin >/dev/null 2>&1); then
     has_route=true
   fi
 

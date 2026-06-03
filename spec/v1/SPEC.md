@@ -231,17 +231,18 @@ canonical validation source for route files.
 JSON Schema. If validation fails, the CLI shall report the errors and exit
 without modifying the file.
 
-**[ST-06]** A pointer file at `<cwd>/.tack` shall record the active route
-for a working directory. The file is YAML with the following fields:
+**[ST-06]** Pins shall be stored in a single YAML file at `~/.tack/pins.yaml`,
+a map keyed by absolute working-directory path. Each entry has the following
+fields:
 - `slug` (string, required) — the pinned route's slug
 - `pinned_at` (string, required) — ISO 8601 timestamp of when the pin was
   written
 - `session_id` (string, optional) — informational; the Claude Code session
   that wrote the pin
 
-The pointer file is per-cwd state, not part of the route schema. Users may
-commit it to share assignment across a team or `.gitignore` it for per-dev
-state. The CLI does not opine on either choice.
+tack shall never write state into the working directory itself — a state
+file in the project tree is one `git add .` away from being committed to a
+repo where it has no business. All tack state lives under `~/.tack/`.
 
 ---
 
@@ -432,16 +433,17 @@ source tack is then set to status `dropped` (preserving its ID per [TK-05]).
 the `version` field of `.claude-plugin/plugin.json` (resolved from the
 plugin root) and exit zero.
 
-**[CL-30]** `tack pin <slug>` — When invoked, the CLI shall write a pointer
-file at `<cwd>/.tack` recording the given slug as the active route for the
-current working directory per [ST-06]. The CLI shall fail if no route file
-exists for the given slug. When invoked without arguments (`tack pin`), the
-CLI shall display the current cwd's pin if one exists, or report that no pin
-is set.
+**[CL-30]** `tack pin <slug>` — When invoked, the CLI shall record the given
+slug as the active route for the current working directory in
+`~/.tack/pins.yaml` per [ST-06]. The CLI shall fail if no route file exists
+for the given slug. When invoked without arguments (`tack pin`), the CLI
+shall display the current cwd's pin and exit zero if one exists, or report
+that no pin is set and exit non-zero.
 
-**[CL-31]** `tack unpin` — When invoked, the CLI shall delete the pointer
-file at `<cwd>/.tack` if it exists. The command shall succeed silently if no
-pin is set; absence of a pin is not an error.
+**[CL-31]** `tack unpin` — When invoked, the CLI shall remove the current
+working directory's entry from `~/.tack/pins.yaml` if one exists. The
+command shall succeed silently if no pin is set; absence of a pin is not an
+error.
 
 **[CL-32]** `tack depends add <slug> <tack-id> <dep-id>` — When invoked, the
 CLI shall append `<dep-id>` to the specified tack's `depends_on` array. If
@@ -505,6 +507,12 @@ and `/-/issues/<n>`). URLs from other forges are recorded verbatim as links
 or labels but are not classified as PR/MR/issue. The hook scanners ([HK-02],
 [HK-03]) recognize the same two forges.
 
+**[CL-38]** `tack --help` / `tack -h` / `tack help` — When invoked, the CLI
+shall print the usage text to stdout and exit zero. When invoked with no
+arguments or with an unrecognized command, the CLI shall print the same
+usage text to stderr and exit non-zero; the unrecognized-command case shall
+name the offending command.
+
 ---
 
 ### AG — Agent Integration
@@ -525,8 +533,9 @@ to build context about current work.
 for the current working directory by running the following resolution
 procedure in order, stopping at the first confident match:
 
-1. **Pin** — Read `<cwd>/.tack` per [ST-06]. If present and the referenced
-   route exists with at least one open tack, the pinned route is active.
+1. **Pin** — Run `tack pin` (no slug) to read the cwd's pin per [ST-06]. If
+   present and the referenced route exists with at least one open tack, the
+   pinned route is active.
 2. **URL match** — When a PR/MR/issue URL is in scope (recently emitted by
    a tool, pasted by the user, or passed as a hint), run `tack find <url>
    --json` and use the matched route if exactly one is returned.
@@ -602,8 +611,9 @@ hook is responsible for noticing URLs the user pastes inline rather than
 through a Bash tool call.
 
 **[HK-04]** The `UserPromptSubmit` hook shall also, once per session, check
-whether a route exists for the current cwd by running [AG-03] step 1 (pin at
-cwd) and step 3 (branch-slug route) — existence-only, without verifying the
+whether a route exists for the current cwd by running [AG-03] step 1 (pin
+for cwd, via `tack pin`) and step 3 (branch-slug route) — existence-only,
+without verifying the
 route's open-tack state and without prompting the user. If neither resolves,
 the hook shall emit a one-line nudge suggesting the user invoke the tack skill
 to identify or create a route. The hook shall debounce so this nudge fires at

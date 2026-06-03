@@ -4,7 +4,9 @@ import { homedir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { parse, stringify } from "yaml";
 import { validate } from "./schema.js";
-const TACK_DIR = join(process.env.TACK_HOME ?? join(homedir(), ".tack"), "routes");
+const TACK_HOME = process.env.TACK_HOME ?? join(homedir(), ".tack");
+const TACK_DIR = join(TACK_HOME, "routes");
+const PINS_FILE = join(TACK_HOME, "pins.yaml");
 export function isOpen(t) {
     return t.status !== "done" && t.status !== "dropped";
 }
@@ -492,15 +494,22 @@ export function remove(slug) {
     }
     unlinkSync(path);
 }
-function pinPath(cwd) {
-    return join(cwd, ".tack");
+// Pins live in ~/.tack/pins.yaml (keyed by absolute cwd), never in the
+// project tree — a state file at the cwd is one `git add .` away from being
+// committed to someone else's repo.
+function readPins() {
+    if (!existsSync(PINS_FILE))
+        return {};
+    return (parse(readFileSync(PINS_FILE, "utf-8")) ?? {});
+}
+function writePins(pins) {
+    if (!existsSync(TACK_HOME)) {
+        mkdirSync(TACK_HOME, { recursive: true });
+    }
+    writeFileSync(PINS_FILE, stringify(pins), "utf-8");
 }
 export function readPin(cwd = process.cwd()) {
-    const path = pinPath(cwd);
-    if (!existsSync(path))
-        return null;
-    const data = parse(readFileSync(path, "utf-8"));
-    return data;
+    return readPins()[cwd] ?? null;
 }
 export function writePin(slug, cwd = process.cwd()) {
     if (!existsSync(routePath(slug))) {
@@ -513,14 +522,17 @@ export function writePin(slug, cwd = process.cwd()) {
     const sessionId = process.env.CLAUDE_SESSION_ID;
     if (sessionId)
         pin.session_id = sessionId;
-    writeFileSync(pinPath(cwd), stringify(pin), "utf-8");
+    const pins = readPins();
+    pins[cwd] = pin;
+    writePins(pins);
     return pin;
 }
 export function deletePin(cwd = process.cwd()) {
-    const path = pinPath(cwd);
-    if (!existsSync(path))
+    const pins = readPins();
+    if (!(cwd in pins))
         return false;
-    unlinkSync(path);
+    delete pins[cwd];
+    writePins(pins);
     return true;
 }
 export function moveTack(srcSlug, srcTackId, dstSlug, opts = {}) {

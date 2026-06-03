@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.15.0
+
+### Breaking Changes
+
+- **Pins moved out of the project tree.** `tack pin` now records pins in `~/.tack/pins.yaml` (a map keyed by absolute cwd) instead of writing a `.tack` file at the cwd root. A state file in the project tree is one `git add .` away from being committed to a repo where it has no business — tack state now lives entirely under `~/.tack/`. Existing `<cwd>/.tack` files are no longer read; delete them and re-pin (`tack pin <slug>`) from the affected directories.
+
+### Features
+
+- **`tack --help` / `tack -h` / `tack help`** — Print the usage text to stdout and exit zero. Previously `--help` was rejected as an unknown command. Usage shown for errors (no arguments, unrecognized command) now goes to stderr and keeps the non-zero exit.
+
 ## 0.14.0
 
 ### Features

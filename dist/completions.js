@@ -193,6 +193,7 @@ _tack() {
     'rename:Rename a route'
     'install-cli:Drop a tack wrapper on PATH'
     'completions:Output shell completion script'
+    'help:Show usage'
   )
 
   if (( CURRENT == 2 )); then

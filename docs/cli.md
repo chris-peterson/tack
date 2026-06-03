@@ -134,11 +134,11 @@ references `<old-slug>` (clear the reference first, then rename).
 tack rename oss-quality opensource-contributions
 ```
 
-Note on stale pins: any `<cwd>/.tack` pin files referencing the old slug
-fail to resolve on the next session — `tack pin <old-slug>` and any
-write targeting the old slug error with `Route not found`. The old name
-is **not** resurrected, so there's no risk of a split route. Re-pin from
-the affected working directory when you next visit it.
+Note on stale pins: any pins referencing the old slug fail to resolve on
+the next session — `tack pin <old-slug>` and any write targeting the old
+slug error with `Route not found`. The old name is **not** resurrected, so
+there's no risk of a split route. Re-pin from the affected working
+directory when you next visit it.
 
 ### `tack rm <slug> [--force]`
 
@@ -363,16 +363,17 @@ over branch-slug or single-open-route heuristics.
 
 ### `tack pin [<slug>]`
 
-Pin a route to the current directory. Writes a `.tack` YAML file at the cwd
-root. Invoking with no slug prints the current pin (exit 1 if no pin is set).
+Pin a route to the current directory. The pin is recorded in
+`~/.tack/pins.yaml` (keyed by absolute cwd) — tack never writes state into
+the project tree. Invoking with no slug prints the current pin (exit 1 if no
+pin is set).
 
 ```bash
 tack pin auth-rewrite    # pin
 tack pin                 # show current pin
 ```
 
-The pin file holds `slug`, `pinned_at`, and an optional `session_id`. Commit
-it for shared assignment across a team, or `.gitignore` it for per-dev state.
+Each pin holds `slug`, `pinned_at`, and an optional `session_id`.
 
 ### `tack unpin`
 
