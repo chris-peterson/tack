@@ -513,6 +513,20 @@ arguments or with an unrecognized command, the CLI shall print the same
 usage text to stderr and exit non-zero; the unrecognized-command case shall
 name the offending command.
 
+**[CL-39]** `tack pins [--json]` — When invoked, the CLI shall list every pin
+in `~/.tack/pins.yaml` ([ST-06]) with its directory, slug, and `pinned_at`
+timestamp, flagging entries whose route no longer exists (dangling) and
+entries whose route has no open tacks (idle). With `--json`, the CLI shall
+emit the structured pin list including the computed flags. The command shall
+exit zero even when the list is empty.
+
+**[CL-40]** `tack pins prune` — When invoked, the CLI shall remove every pin
+whose route no longer exists and every pin whose directory no longer exists
+on disk, displaying each removed entry and the reason (dangling route /
+missing directory). Pins to existing routes with no open tacks shall be
+kept — idle is informational ([CL-39]); they are removed only by explicit
+`tack unpin` ([CL-31]).
+
 ---
 
 ### AG — Agent Integration

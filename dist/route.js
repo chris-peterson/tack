@@ -535,6 +535,34 @@ export function deletePin(cwd = process.cwd()) {
     writePins(pins);
     return true;
 }
+export function listPins() {
+    const pins = readPins();
+    return Object.entries(pins)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([path, pin]) => {
+        const dangling = !existsSync(routePath(pin.slug));
+        const idle = !dangling && !load(pin.slug).tacks.some(isOpen);
+        return { path, ...pin, dangling, idle };
+    });
+}
+export function prunePins() {
+    const pins = readPins();
+    const removed = [];
+    for (const [path, pin] of Object.entries(pins)) {
+        let reason = null;
+        if (!existsSync(routePath(pin.slug)))
+            reason = "dangling route";
+        else if (!existsSync(path))
+            reason = "missing directory";
+        if (reason) {
+            removed.push({ path, slug: pin.slug, reason });
+            delete pins[path];
+        }
+    }
+    if (removed.length > 0)
+        writePins(pins);
+    return removed;
+}
 export function moveTack(srcSlug, srcTackId, dstSlug, opts = {}) {
     if (srcSlug === dstSlug) {
         throw new Error(`Source and destination routes are the same: ${srcSlug}`);

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import * as route from "./route.js";
 import { TACK_STATUSES } from "./types.js";
-import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind, treeData } from "./display.js";
+import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind, formatPins, treeData } from "./display.js";
 import { ZSH_COMPLETION } from "./completions.js";
 function usage(exitCode = 1) {
     const print = exitCode === 0 ? console.log : console.error;
@@ -41,6 +41,8 @@ Usage:
   tack find <url> [--json]
   tack pin [<slug>]                  Pin a route to the current cwd (no slug: show current pin)
   tack unpin                         Clear the cwd pin
+  tack pins [--json]                 List all pins (flags dangling and idle entries)
+  tack pins prune                    Remove pins with a deleted route or missing directory
   tack rm <slug> [--force]
   tack install-cli [--dir <path>]    (also installs zsh completions)
   tack completions zsh
@@ -495,6 +497,24 @@ function run() {
         case "unpin": {
             const removed = route.deletePin();
             console.log(removed ? `unpinned ${process.cwd()}` : "no pin to remove");
+            break;
+        }
+        case "pins": {
+            if (rest[0] === "prune") {
+                const removed = route.prunePins();
+                if (removed.length === 0) {
+                    console.log("nothing to prune");
+                }
+                else {
+                    for (const r of removed) {
+                        console.log(`pruned ${r.path} → ${r.slug} (${r.reason})`);
+                    }
+                }
+            }
+            else {
+                const entries = route.listPins();
+                console.log(rest.includes("--json") ? JSON.stringify(entries, null, 2) : formatPins(entries));
+            }
             break;
         }
         case "rm": {

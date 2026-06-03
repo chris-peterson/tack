@@ -1,5 +1,5 @@
 import type { Route, Tack, TodoItem } from "./types.js";
-import { isOpen, type FindMatch } from "./route.js";
+import { isOpen, type FindMatch, type PinEntry } from "./route.js";
 
 const STATUS_ICONS: Record<string, string> = {
   pending: " ",
@@ -401,6 +401,19 @@ export function formatList(routes: { slug: string; group?: string; total: number
   const lines: string[] = [];
   for (const r of routes) {
     lines.push(`${r.slug}  (${r.open} open / ${r.total} total)`);
+  }
+  return lines.join("\n");
+}
+
+export function formatPins(pins: PinEntry[]): string {
+  if (pins.length === 0) {
+    return "No pins.";
+  }
+
+  const lines: string[] = [];
+  for (const p of pins) {
+    const flag = p.dangling ? "  [dangling]" : p.idle ? "  [idle]" : "";
+    lines.push(`${p.path} → ${p.slug} (pinned ${p.pinned_at})${flag}`);
   }
   return lines.join("\n");
 }

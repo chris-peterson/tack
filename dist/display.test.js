@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { formatTack, formatRoute, formatList, treeData } from "./display.js";
+import { formatTack, formatRoute, formatList, formatPins, treeData } from "./display.js";
 describe("formatTack", () => {
     it("formats a pending tack", () => {
         const tack = { id: "t1", summary: "Do the thing", status: "pending" };
@@ -154,5 +154,21 @@ describe("formatList", () => {
         ]);
         assert.ok(out.includes("feat-a  (1 open / 3 total)"));
         assert.ok(out.includes("feat-b  (0 open / 5 total)"));
+    });
+});
+describe("formatPins", () => {
+    it("returns message when empty", () => {
+        assert.equal(formatPins([]), "No pins.");
+    });
+    it("formats entries with dangling and idle flags", () => {
+        const out = formatPins([
+            { path: "/a", slug: "live", pinned_at: "2026-06-01T00:00:00Z", dangling: false, idle: false },
+            { path: "/b", slug: "ghost", pinned_at: "2026-06-01T00:00:00Z", dangling: true, idle: false },
+            { path: "/c", slug: "parked", pinned_at: "2026-06-01T00:00:00Z", dangling: false, idle: true },
+        ]);
+        assert.ok(out.includes("/a → live (pinned 2026-06-01T00:00:00Z)"));
+        assert.ok(!out.split("\n")[0].includes("[")); // live entry carries no flag
+        assert.ok(out.includes("/b → ghost (pinned 2026-06-01T00:00:00Z)  [dangling]"));
+        assert.ok(out.includes("/c → parked (pinned 2026-06-01T00:00:00Z)  [idle]"));
     });
 });

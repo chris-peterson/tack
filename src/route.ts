@@ -679,6 +679,45 @@ export function deletePin(cwd: string = process.cwd()): boolean {
   return true;
 }
 
+export interface PinEntry extends Pin {
+  path: string;
+  dangling: boolean;
+  idle: boolean;
+}
+
+export function listPins(): PinEntry[] {
+  const pins = readPins();
+  return Object.entries(pins)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([path, pin]) => {
+      const dangling = !existsSync(routePath(pin.slug));
+      const idle = !dangling && !load(pin.slug).tacks.some(isOpen);
+      return { path, ...pin, dangling, idle };
+    });
+}
+
+export interface PruneResult {
+  path: string;
+  slug: string;
+  reason: "dangling route" | "missing directory";
+}
+
+export function prunePins(): PruneResult[] {
+  const pins = readPins();
+  const removed: PruneResult[] = [];
+  for (const [path, pin] of Object.entries(pins)) {
+    let reason: PruneResult["reason"] | null = null;
+    if (!existsSync(routePath(pin.slug))) reason = "dangling route";
+    else if (!existsSync(path)) reason = "missing directory";
+    if (reason) {
+      removed.push({ path, slug: pin.slug, reason });
+      delete pins[path];
+    }
+  }
+  if (removed.length > 0) writePins(pins);
+  return removed;
+}
+
 export interface MoveResult {
   srcRoute: Route;
   dstRoute: Route;

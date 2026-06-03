@@ -1,5 +1,5 @@
 import type { Route, Tack } from "./types.js";
-import { type FindMatch } from "./route.js";
+import { type FindMatch, type PinEntry } from "./route.js";
 export declare function formatTack(tack: Tack): string;
 export declare function formatRoute(route: Route): string;
 /**
@@ -24,3 +24,4 @@ export declare function formatList(routes: {
     total: number;
     open: number;
 }[]): string;
+export declare function formatPins(pins: PinEntry[]): string;

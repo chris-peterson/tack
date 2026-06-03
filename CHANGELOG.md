@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.16.0
+
+### Features
+
+- **`tack pins [--json]`** — List every pin with its directory, slug, and pin timestamp. Entries whose route no longer exists are flagged `[dangling]`; entries whose route has no open tacks are flagged `[idle]` (CL-39). The central `~/.tack/pins.yaml` introduced in 0.15.0 is what makes a whole-fleet listing possible — the old per-directory `.tack` files couldn't be enumerated.
+- **`tack pins prune`** — Remove pins whose route was deleted or whose directory is gone from disk, printing each removal with the reason. Idle pins are kept; explicit `tack unpin` remains the way to drop a pin for a finished-but-resumable route (CL-40).
+
 ## 0.15.0
 
 ### Breaking Changes

@@ -957,6 +957,80 @@ describe("pin/unpin", () => {
   });
 });
 
+describe("pins maintenance", () => {
+  beforeEach(() => {
+    rmSync(join(tmp, "pins.yaml"), { force: true });
+  });
+
+  it("listPins returns empty when no pins exist", () => {
+    assert.deepEqual(route.listPins(), []);
+  });
+
+  it("listPins flags dangling and idle entries", () => {
+    const activeCwd = mkdtempSync(join(tmpdir(), "tack-pins-"));
+    const idleCwd = mkdtempSync(join(tmpdir(), "tack-pins-"));
+    const danglingCwd = mkdtempSync(join(tmpdir(), "tack-pins-"));
+
+    route.init("pins-active");
+    route.addTack("pins-active", "open work");
+    route.init("pins-idle");
+    route.init("pins-doomed");
+
+    route.writePin("pins-active", activeCwd);
+    route.writePin("pins-idle", idleCwd);
+    route.writePin("pins-doomed", danglingCwd);
+    route.remove("pins-doomed");
+
+    const bySlug = Object.fromEntries(route.listPins().map((e) => [e.slug, e]));
+    assert.equal(bySlug["pins-active"].dangling, false);
+    assert.equal(bySlug["pins-active"].idle, false);
+    assert.equal(bySlug["pins-idle"].dangling, false);
+    assert.equal(bySlug["pins-idle"].idle, true);
+    assert.equal(bySlug["pins-doomed"].dangling, true);
+  });
+
+  it("listPins sorts entries by path", () => {
+    route.init("pins-sort");
+    route.writePin("pins-sort", "/zzz");
+    route.writePin("pins-sort", "/aaa");
+    assert.deepEqual(route.listPins().map((e) => e.path), ["/aaa", "/zzz"]);
+  });
+
+  it("prunePins removes dangling-route and missing-directory pins, keeps the rest", () => {
+    const keepCwd = mkdtempSync(join(tmpdir(), "tack-pins-"));
+    const goneDirCwd = mkdtempSync(join(tmpdir(), "tack-pins-"));
+    const goneRouteCwd = mkdtempSync(join(tmpdir(), "tack-pins-"));
+
+    route.init("pins-keep");
+    route.writePin("pins-keep", keepCwd);
+    route.init("pins-gone-dir");
+    route.writePin("pins-gone-dir", goneDirCwd);
+    rmSync(goneDirCwd, { recursive: true });
+    route.init("pins-gone-route");
+    route.writePin("pins-gone-route", goneRouteCwd);
+    route.remove("pins-gone-route");
+
+    const removed = route.prunePins();
+    const reasons = Object.fromEntries(removed.map((r) => [r.slug, r.reason]));
+    assert.equal(removed.length, 2);
+    assert.equal(reasons["pins-gone-dir"], "missing directory");
+    assert.equal(reasons["pins-gone-route"], "dangling route");
+    assert.deepEqual(route.listPins().map((e) => e.slug), ["pins-keep"]);
+  });
+
+  it("prunePins keeps idle pins (route exists, no open tacks)", () => {
+    const idleCwd = mkdtempSync(join(tmpdir(), "tack-pins-"));
+    route.init("pins-idle-keep");
+    route.writePin("pins-idle-keep", idleCwd);
+    assert.deepEqual(route.prunePins(), []);
+    assert.equal(route.listPins()[0].slug, "pins-idle-keep");
+  });
+
+  it("prunePins returns empty when there are no pins", () => {
+    assert.deepEqual(route.prunePins(), []);
+  });
+});
+
 describe("moveTack", () => {
   it("moves a tack and preserves all metadata", () => {
     route.init("move-src");

@@ -189,6 +189,7 @@ _tack() {
     'session:Record a session'
     'pin:Pin a route to the current cwd'
     'unpin:Clear the cwd pin'
+    'pins:List all pins (or prune stale ones)'
     'rm:Delete a route'
     'rename:Rename a route'
     'install-cli:Drop a tack wrapper on PATH'
@@ -380,6 +381,12 @@ _tack() {
       ;;
     unpin)
       # tack unpin (no args)
+      ;;
+    pins)
+      # tack pins [prune | --json]
+      case "$CURRENT" in
+        3) _alternative 'subcommands:subcommand:((prune\:"remove stale pins"))' 'options:option:((--json\:"emit JSON"))' ;;
+      esac
       ;;
     rm)
       # tack rm <slug> [--force]

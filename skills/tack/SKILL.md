@@ -51,6 +51,10 @@ Pins live in `~/.tack/pins.yaml`, never in the project tree.
 Do not unpin speculatively. A finished session that may resume later should
 leave the pin alone.
 
+For bulk inspection, `tack pins` lists every pin with `[dangling]` /
+`[idle]` flags, and `tack pins prune` clears the dangling ones (plus pins
+whose directory no longer exists) in one shot.
+
 ## Session start
 
 When invoked at session start (no arguments or "status"):
@@ -232,6 +236,8 @@ tack link rm <slug> <id> <url>     Remove a link
 tack session <slug> <session-id>   Record a session
 tack pin [<slug>]                  Pin / show the active route for this cwd
 tack unpin                         Clear the cwd pin
+tack pins [--json]                 List all pins (flags dangling/idle)
+tack pins prune                    Drop pins with a deleted route or missing directory
 tack rm <slug> [--force]           Delete an entire route
 tack completions zsh               Install shell completions
 ```

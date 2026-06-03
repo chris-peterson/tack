@@ -383,3 +383,26 @@ existed.
 ```bash
 tack unpin
 ```
+
+### `tack pins [--json]`
+
+List every pin with its directory, slug, and pin timestamp. Entries whose
+route no longer exists are flagged `[dangling]`; entries whose route has no
+open tacks are flagged `[idle]`. `--json` emits the structured list with the
+computed flags.
+
+```bash
+tack pins
+tack pins --json
+```
+
+### `tack pins prune`
+
+Remove pins whose route no longer exists or whose directory is gone from
+disk, printing each removed entry with the reason. Idle pins are kept — a
+finished route that may resume later holds its pin until you `tack unpin`
+or re-pin the directory.
+
+```bash
+tack pins prune
+```
