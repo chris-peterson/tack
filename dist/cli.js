@@ -50,6 +50,18 @@ Usage:
   tack --help`);
     process.exit(exitCode);
 }
+// A subcommand-group verb (link, depends, todo, status) invoked without a valid
+// subcommand reports the group-scoped problem on stderr instead of dumping the
+// global usage to stdout — see issue #17.
+function groupError(group, detail) {
+    console.error(`tack ${group}: ${detail}`);
+    console.error("Run `tack --help` for usage.");
+    process.exit(1);
+}
+function expectedOneOf(expected, got) {
+    const list = expected.map((s) => `'${s}'`).join(" or ");
+    return got ? `expected ${list} (got '${got}')` : `expected ${list}`;
+}
 function resolveSource() {
     // Plugin install: prefer the bash shim that lazy-builds dist on first run.
     const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT;
@@ -178,7 +190,7 @@ function run() {
         case "status": {
             if (rest[0] === "set") {
                 if (rest.length < 4)
-                    usage();
+                    groupError("status set", "expected <slug> <tack-id> <status>");
                 if (!TACK_STATUSES.includes(rest[3])) {
                     console.error(`Invalid status: ${rest[3]} (expected one of: ${TACK_STATUSES.join(", ")})`);
                     process.exit(1);
@@ -368,7 +380,7 @@ function run() {
                 console.log(formatTack(tack));
             }
             else {
-                usage();
+                groupError("todo", expectedOneOf(["done", "rm"], subcommand));
             }
             break;
         }
@@ -429,7 +441,7 @@ function run() {
                 console.log(formatTack(tack));
             }
             else {
-                usage();
+                groupError("link", expectedOneOf(["add", "rm"], sub));
             }
             break;
         }
@@ -449,7 +461,7 @@ function run() {
                 console.log(formatTack(tack));
             }
             else {
-                usage();
+                groupError("depends", expectedOneOf(["add", "rm"], sub));
             }
             break;
         }

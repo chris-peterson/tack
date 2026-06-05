@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.16.1
+
+### Bug Fixes
+
+- **`tack merge` now leaves a single tack** (#12). Merging soft-dropped the source to status `dropped` but kept it in the route with its original deliverable, so any audit scanning for duplicate deliverable URLs kept flagging the merged pair. The source is now removed outright — its ID is not reused, consistent with `tack remove` — so a merge collapses two tacks into one (CL-28).
+- **Malformed subcommand-group invocations report the specific problem on stderr** (#17). `tack link <slug> …` (missing the `add`/`rm` subcommand), and the equivalent `status set` / `todo` / `depends` mistakes, printed the full global usage — a caller capturing output got a ~1.5 KB usage blob with no pointer to the actual mistake. They now print a group-scoped message naming the accepted subcommands and the offending input — e.g. `tack link: expected 'add' or 'rm' (got 'my-slug')` — keeping the non-zero exit (CL-41).
+
 ## 0.16.0
 
 ### Features

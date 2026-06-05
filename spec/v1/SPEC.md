@@ -423,8 +423,10 @@ CLI shall merge the source tack into the target: todos (`before`/`after`)
 and `links` are appended to the target (with new sequential todo IDs); if
 the source has a `deliverable` and the target does not, the deliverable is
 moved to the target; if both tacks have a deliverable, the target's
-deliverable is kept and the source's is dropped along with the source; the
-source tack is then set to status `dropped` (preserving its ID per [TK-05]).
+deliverable is kept and the source's is discarded. The source tack is then
+removed from the route's `tacks` array, leaving a single surviving tack. The
+source ID shall not be reused; subsequent tacks continue the sequence per
+[TK-05] (consistent with `tack remove`, [CL-25]).
 
 > Note: callers wanting to preserve a source deliverable when both tacks
 > have one should record it as a link on the target before merging.
@@ -526,6 +528,14 @@ on disk, displaying each removed entry and the reason (dangling route /
 missing directory). Pins to existing routes with no open tacks shall be
 kept — idle is informational ([CL-39]); they are removed only by explicit
 `tack unpin` ([CL-31]).
+
+**[CL-41]** Subcommand-group verbs (`tack status set`, `tack todo`, `tack
+link`, `tack depends`) invoked without a valid subcommand shall print a
+group-scoped error to stderr that names the offending input and the accepted
+subcommands (e.g. `tack link: expected 'add' or 'rm' (got 'my-slug')`), then
+exit non-zero — rather than dumping the global usage text. This keeps the
+failure visible to scripted callers that quiet or capture one stream;
+contrast the global-usage fallback of [CL-38] for top-level errors.
 
 ---
 

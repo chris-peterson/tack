@@ -3,9 +3,9 @@
 Tracking status of the requirements declared in [`spec/v1/SPEC.md`](spec/v1/SPEC.md).
 Updated after each `/spec-audit`.
 
-**Last audit:** 2026-06-02
+**Last audit:** 2026-06-05
 **Spec version:** v1
-**Coverage:** 99 / 99 source-verified normative behaviors (100%) — 0 Partial, 0 Missing, 0 Contradicts — plus 5 deferred (FUT-01..05)
+**Coverage:** 100 / 100 source-verified normative behaviors (100%) — 0 Partial, 0 Missing, 0 Contradicts — plus 5 deferred (FUT-01..05)
 
 The HK category (HK-01..05) formalizes the hook layer. AG-02 and HK-04 are now
 **Covered**: the spec was reworded to match what the implementation actually
@@ -26,12 +26,21 @@ at 87; CL-37 makes the already-verified GitHub/GitLab URL detection explicit.
 | DP-01..04 | 4 | All Covered | `src/route.ts` |
 | LK-01 | 1 | Covered | `src/types.ts` |
 | ST-01..06 | 6 | All Covered | `src/route.ts`; ST-06 pins file (`~/.tack/pins.yaml`) |
-| CL-01..40 (+CL-19a, CL-21a..d, CL-36a..d) | 49 | All Covered | includes CL-17/CL-18 (session/`--json`), CL-19a (`install-cli`), CL-30..36 (pin/unpin, depends add/rm, status set, rename, move), CL-37 (forge note), CL-38 (`--help`/`-h`/`help` + usage exit semantics, `src/cli.ts`), CL-39/CL-40 (`tack pins` list + prune, `src/route.ts` `listPins`/`prunePins`) |
+| CL-01..41 (+CL-19a, CL-21a..d, CL-36a..d) | 50 | All Covered | includes CL-17/CL-18 (session/`--json`), CL-19a (`install-cli`), CL-30..36 (pin/unpin, depends add/rm, status set, rename, move), CL-37 (forge note), CL-38 (`--help`/`-h`/`help` + usage exit semantics, `src/cli.ts`), CL-39/CL-40 (`tack pins` list + prune, `src/route.ts` `listPins`/`prunePins`), CL-41 (group-scoped subcommand errors on stderr, `src/cli.ts` `groupError`, `src/cli.test.ts`) |
 | AG-01..10 | 10 | All Covered | AG-02 reworded to drop "without blocking"; AG-10 (auto-pin on confident resolution) covered |
 | HK-01..05 | 5 | All Covered | HK-04 reworded to match the existence-only steps 1/3 the hook runs |
 | FUT-01..05 | 5 | Deferred | Backup feature — out of scope for v1 |
 
 ## Audit history
+
+### 2026-06-05 — 0.16.1 patch (issues #12, #17)
+
++1 ID (CL-41, group-scoped subcommand errors). CL-28 (`tack merge`) reworded:
+the source tack is now **removed**, not soft-dropped to status `dropped` —
+fixing the duplicate-deliverable shadow (issue #12). CL-41 documents the
+group-scoped stderr errors for malformed `status set` / `todo` / `link` /
+`depends` invocations (issue #17); both covered by new tests in
+`src/route.test.ts` and `src/cli.test.ts`.
 
 ### 2026-06-02 — Coverage refresh (spec-status)
 

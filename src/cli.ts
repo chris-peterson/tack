@@ -53,6 +53,20 @@ Usage:
   process.exit(exitCode);
 }
 
+// A subcommand-group verb (link, depends, todo, status) invoked without a valid
+// subcommand reports the group-scoped problem on stderr instead of dumping the
+// global usage to stdout — see issue #17.
+function groupError(group: string, detail: string): never {
+  console.error(`tack ${group}: ${detail}`);
+  console.error("Run `tack --help` for usage.");
+  process.exit(1);
+}
+
+function expectedOneOf(expected: string[], got: string | undefined): string {
+  const list = expected.map((s) => `'${s}'`).join(" or ");
+  return got ? `expected ${list} (got '${got}')` : `expected ${list}`;
+}
+
 type Source = { path: string; kind: "shim" | "node" };
 
 function resolveSource(): Source {
@@ -188,7 +202,7 @@ function run(): void {
 
     case "status": {
       if (rest[0] === "set") {
-        if (rest.length < 4) usage();
+        if (rest.length < 4) groupError("status set", "expected <slug> <tack-id> <status>");
         if (!(TACK_STATUSES as readonly string[]).includes(rest[3])) {
           console.error(
             `Invalid status: ${rest[3]} (expected one of: ${TACK_STATUSES.join(", ")})`,
@@ -394,7 +408,7 @@ function run(): void {
         const tack = route.dropTodo(rest[1], rest[2], rest[3]);
         console.log(formatTack(tack));
       } else {
-        usage();
+        groupError("todo", expectedOneOf(["done", "rm"], subcommand));
       }
       break;
     }
@@ -454,7 +468,7 @@ function run(): void {
         const tack = route.removeLink(subArgs[0], subArgs[1], subArgs[2]);
         console.log(formatTack(tack));
       } else {
-        usage();
+        groupError("link", expectedOneOf(["add", "rm"], sub));
       }
       break;
     }
@@ -471,7 +485,7 @@ function run(): void {
         const tack = route.removeDependency(subArgs[0], subArgs[1], subArgs[2]);
         console.log(formatTack(tack));
       } else {
-        usage();
+        groupError("depends", expectedOneOf(["add", "rm"], sub));
       }
       break;
     }

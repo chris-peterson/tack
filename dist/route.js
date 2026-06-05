@@ -437,7 +437,7 @@ export function mergeTacks(slug, sourceId, targetId) {
             target.links.push({ ...link });
         }
     }
-    source.status = "dropped";
+    route.tacks = route.tacks.filter((t) => t.id !== source.id);
     save(route);
     return target;
 }

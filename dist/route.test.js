@@ -486,8 +486,21 @@ describe("mergeTacks", () => {
         assert.equal(t.links.length, 1);
         assert.equal(t.links[0].label, "Doc");
         const r = route.load("merge-test");
-        const source = r.tacks.find((t) => t.id === "t2");
-        assert.equal(source.status, "dropped");
+        assert.equal(r.tacks.find((tk) => tk.id === "t2"), undefined);
+        assert.equal(r.tacks.length, 1);
+    });
+    it("removes the source so a shared deliverable isn't duplicated", () => {
+        route.init("merge-shadow");
+        route.addTack("merge-shadow", "Target");
+        route.addTack("merge-shadow", "Source");
+        const url = "https://github.com/acme/repo/commit/abc1234";
+        route.setDeliverable("merge-shadow", "t1", "acme@abc1234", url);
+        route.setDeliverable("merge-shadow", "t2", "acme@abc1234", url);
+        route.mergeTacks("merge-shadow", "t2", "t1");
+        const r = route.load("merge-shadow");
+        assert.equal(r.tacks.length, 1);
+        const withUrl = r.tacks.filter((tk) => tk.deliverable?.url === url);
+        assert.equal(withUrl.length, 1);
     });
     it("moves deliverable from source when target has none", () => {
         route.init("merge-dlv");
