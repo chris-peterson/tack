@@ -6,6 +6,12 @@ Route tracker for AI-assisted development.
 
 tack captures the non-linear reality of how development actually happens — pivots, context switches, multi-repo changes — so that work-in-progress survives context exhaustion, crashes, and session boundaries.
 
+## In action
+
+You stepped away mid-refactor and burned through the context window. Next morning, `/tack:tack` replays exactly where you stopped — no re-explaining:
+
+<div class="cw-session" data-cw-session="session"></div>
+
 ## Installation
 
 ### Claude Code Plugin
@@ -37,6 +43,10 @@ tack done auth-rewrite t1
 
 tack status auth-rewrite
 ```
+
+The two moves you reach for most — resuming a route and capturing a deliverable as it ships:
+
+<div class="cw-session" data-cw-session="examples"></div>
 
 ## Data Model
 

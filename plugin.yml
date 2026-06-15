@@ -1,0 +1,51 @@
+# Canonical descriptor for the tack plugin — edit here, never plugin.json.
+# Projects into .claude-plugin/plugin.json (via scripts/gen-plugin-json.py) and
+# the marketplace SPA (the suite: block).
+
+name: tack
+version: 0.17.0
+description: Route-aware agent that tracks AI-assisted development work — pivots, deliverables, and dependencies — across session boundaries
+author: chris-peterson
+repository: https://github.com/chris-peterson/tack
+icon: assets/icon.svg
+license: MIT
+keywords: [tack, routes, wip, session, ai, development, tracking, deliverables, dependencies]
+
+# → marketplace.json entry
+marketplace:
+  category: productivity
+  homepage: https://chris-peterson.github.io/tack/#/
+
+# → marketplace SPA; keys mirror the SPA's PLUGINS object.
+suite:
+  ac: "--orient"
+  cli: true
+  group: keep your bearings
+  # The plugin's docs site renders the live session preview, so the hub hands
+  # its drill-in off to the spoke rather than showing the in-hub detail view.
+  spoke: true
+  gloss: To tack is to change course; tack remembers every course you've held.
+  pitch: "Keep losing your place between sessions? It remembers what you were doing so you don't re-explain it every time."
+  what: "Tracks what you're working on — across crashes, context overflow, or jumping between projects. Start a fresh session and pick up exactly where you left off, instead of re-explaining everything."
+  cmds:
+    - ["/tack:tack", "Resume — what you were doing, and where you stopped"]
+    - ["tack", "Track routes, tasks, and deliverables from any terminal"]
+  # Skill-anchored previews of the flagship flows, shown live on the docs site;
+  # the session: below is the at-a-glance flow the hub also reads.
+  examples:
+    - label: "/tack:tack"
+      ac: "--orient"
+      frames:
+        - { t: you, text: "/tack:tack" }
+        - { t: claude, text: "Picking up the pinned route: auth-rewrite. 3 of 5 tacks done — next is the client SDK, and t4 is blocked on the middleware PR." }
+        - { t: status, text: "resolves the active route and replays where you left off" }
+    - label: "record a deliverable"
+      ac: "--green"
+      frames:
+        - { t: you, text: "opened the PR: github.com/org/api-server/pull/42" }
+        - { t: claude, text: "That's the session-middleware tack on auth-rewrite. I'll attach it as the deliverable so the route remembers what shipped." }
+        - { t: status, text: "records api-server#42 against the in-progress tack" }
+  session:
+    - { t: note, text: "Mid-refactor across two repos; the context window is filling up." }
+    - { t: event, text: "a fresh session, next morning" }
+    - { t: cmd, cmd: "/tack:tack", out: "Replays the route — 3 of 5 tasks done, next is the client SDK." }

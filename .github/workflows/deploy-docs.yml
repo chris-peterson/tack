@@ -19,6 +19,15 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - run: pip install pyyaml
+
+      - name: Generate docs/suite.json from plugin.yml
+        run: python3 scripts/gen-suite-json.py
+
       - name: Copy assets into docs
         run: cp assets/* docs/
 
