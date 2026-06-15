@@ -150,6 +150,13 @@ exist in the route, the operation shall fail with an error.
 **[TK-07]** When a tack's `depends_on` references would create a circular
 dependency, the operation shall fail with an error.
 
+**[TK-08]** Wherever a command argument identifies a tack — a `<tack-id>`, a
+`<dep-id>`, or an entry in `--depends-on` — both the canonical `t<N>` form and
+the bare `<N>` form shall resolve to the same tack. Bare ids are normalized to
+`t<N>` at the lookup boundary, so the form a caller types does not change the
+result or the stored value. An argument that is neither form is left unchanged
+and still produces the usual "tack not found" error.
+
 ---
 
 ### DV — Deliverable
@@ -270,7 +277,7 @@ explicit value of `--date <ts>` (a `YYYY-MM-DD` date or full ISO 8601
 date-time) when supplied — this is the supported path for backfilling
 already-merged work. When `--deliverable <url>` is passed, the tack shall be
 created with its `deliverable` field set; the label is auto-derived from the
-URL using the same PR/MR/issue pattern as [CL-13]. When the URL does not match
+URL using the recognition rules in [CL-37]. When the URL does not match
 a recognized pattern, the URL itself is used as the label. The CLI shall
 reject unknown flags with a usage error rather than silently ignoring them.
 
@@ -300,12 +307,15 @@ error message shall guide the user to either drop the edge with
 to bypass the guard with [CL-34] (`tack status set`) when the inconsistent
 state is intentional.
 
-**[CL-08]** `tack deliverable <slug> <tack-id> <label> <url> [--force]` —
-When invoked, the CLI shall set the deliverable on the specified tack. If the
-tack already has a deliverable, the CLI shall fail with an error showing the
-existing deliverable's label and URL unless `--force` is passed. The
-overwrite guard prevents typo'd tack IDs from silently clobbering an
-unrelated tack's deliverable.
+**[CL-08]** `tack deliverable <slug> <tack-id> <url> [--label <text>] [--force]` —
+When invoked, the CLI shall set the deliverable on the specified tack. The
+label is auto-derived from the URL using the recognition rules in [CL-37];
+`--label <text>` overrides the derived label and is used verbatim. The CLI
+shall require exactly the three positionals `<slug> <tack-id> <url>` and fail
+with a usage error otherwise. If the tack already has a deliverable, the CLI
+shall fail with an error showing the existing deliverable's label and URL
+unless `--force` is passed. The overwrite guard prevents typo'd tack IDs from
+silently clobbering an unrelated tack's deliverable.
 
 **[CL-09]** `tack before <slug> <tack-id> <text>` — When invoked, the CLI
 shall add a pre-work todo item to the specified tack with `done: false`.
@@ -502,12 +512,20 @@ route, if either route does not exist, or if `<tack-id>` does not exist in the
 source route.
 
 **[CL-37]** The PR/MR/issue URL recognition used for deliverable
-auto-derivation and label extraction ([CL-04], [CL-13]) shall support two
-forges: GitHub (`https://github.com/<owner>/<repo>/pull/<n>` and
+auto-derivation and label extraction ([CL-04], [CL-08], [CL-13]) shall support
+two forges: GitHub (`https://github.com/<owner>/<repo>/pull/<n>` and
 `/issues/<n>`) and GitLab (`https://gitlab.<host>/<group>/<repo>/-/merge_requests/<n>`
-and `/-/issues/<n>`). URLs from other forges are recorded verbatim as links
+and `/-/issues/<n>`). The derived label is `<repo>#<n>` for a PR or issue and
+`<repo>!<n>` for an MR. URLs from other forges are recorded verbatim as links
 or labels but are not classified as PR/MR/issue. The hook scanners ([HK-02],
 [HK-03]) recognize the same two forges.
+
+**[CL-37a]** Commit URLs — `https://github.com/<owner>/<repo>/commit/<sha>` and
+`https://gitlab.<host>/<group>/<repo>/-/commit/<sha>` — are additionally
+recognized for label derivation ([CL-04], [CL-08]), producing a
+`<repo>@<sha7>` label from the first seven characters of the sha. A commit is
+not a PR/MR/issue: it is not promoted to a deliverable on `tack done` ([CL-05])
+and is not surfaced by the hook scanners ([HK-02], [HK-03]).
 
 **[CL-38]** `tack --help` / `tack -h` / `tack help` — When invoked, the CLI
 shall print the usage text to stdout and exit zero. When invoked with no

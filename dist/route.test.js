@@ -286,10 +286,10 @@ describe("addTack backfill", () => {
         const t = route.addTack("add-deliverable", "Merged work", {
             done: true,
             doneAt: "2026-04-30",
-            deliverable: { label: "repo #42", url: "https://github.com/owner/repo/pull/42" },
+            deliverable: { label: "repo#42", url: "https://github.com/owner/repo/pull/42" },
         });
         assert.equal(t.deliverable.url, "https://github.com/owner/repo/pull/42");
-        assert.equal(t.deliverable.label, "repo #42");
+        assert.equal(t.deliverable.label, "repo#42");
     });
     it("rejects an invalid doneAt", () => {
         route.init("add-done-bad");
@@ -298,20 +298,78 @@ describe("addTack backfill", () => {
 });
 describe("deriveDeliverableLabel", () => {
     it("parses GitHub PR URLs", () => {
-        assert.equal(route.deriveDeliverableLabel("https://github.com/owner/repo/pull/42"), "repo #42");
+        assert.equal(route.deriveDeliverableLabel("https://github.com/owner/repo/pull/42"), "repo#42");
     });
     it("parses GitHub issue URLs", () => {
-        assert.equal(route.deriveDeliverableLabel("https://github.com/owner/repo/issues/7"), "repo #7");
+        assert.equal(route.deriveDeliverableLabel("https://github.com/owner/repo/issues/7"), "repo#7");
     });
     it("parses GitLab MR URLs", () => {
-        assert.equal(route.deriveDeliverableLabel("https://gitlab.example.com/group/sub/repo/-/merge_requests/99"), "repo !99");
+        assert.equal(route.deriveDeliverableLabel("https://gitlab.example.com/group/sub/repo/-/merge_requests/99"), "repo!99");
     });
     it("parses GitLab issue URLs", () => {
-        assert.equal(route.deriveDeliverableLabel("https://gitlab.example.com/group/repo/-/issues/12"), "repo #12");
+        assert.equal(route.deriveDeliverableLabel("https://gitlab.example.com/group/repo/-/issues/12"), "repo#12");
+    });
+    it("parses GitHub commit URLs to repo@sha7", () => {
+        assert.equal(route.deriveDeliverableLabel("https://github.com/owner/repo/commit/44cf536abc1234567890"), "repo@44cf536");
+    });
+    it("parses GitLab commit URLs to repo@sha7", () => {
+        assert.equal(route.deriveDeliverableLabel("https://gitlab.example.com/group/sub/repo/-/commit/deadbeefcafe"), "repo@deadbee");
     });
     it("falls back to the URL for unknown patterns", () => {
         const url = "https://example.com/foo/bar";
         assert.equal(route.deriveDeliverableLabel(url), url);
+    });
+});
+describe("normalizeTackId", () => {
+    it("prefixes a bare number with t", () => {
+        assert.equal(route.normalizeTackId("7"), "t7");
+    });
+    it("leaves an already-prefixed id unchanged", () => {
+        assert.equal(route.normalizeTackId("t7"), "t7");
+    });
+    it("returns non-id input unchanged so lookups still error", () => {
+        assert.equal(route.normalizeTackId("oops"), "oops");
+        assert.equal(route.normalizeTackId(""), "");
+    });
+});
+describe("bare tack ids (issue #11)", () => {
+    it("resolves a bare id the same as the prefixed form", () => {
+        route.init("bare-done");
+        route.addTack("bare-done", "Work");
+        const t = route.markDone("bare-done", "1").tack;
+        assert.equal(t.id, "t1");
+        assert.equal(t.status, "done");
+    });
+    it("sets a deliverable addressed by a bare id", () => {
+        route.init("bare-dlv");
+        route.addTack("bare-dlv", "Work");
+        const t = route.setDeliverable("bare-dlv", "1", "PR", "https://github.com/acme/repo/pull/1");
+        assert.equal(t.id, "t1");
+        assert.equal(t.deliverable.url, "https://github.com/acme/repo/pull/1");
+    });
+    it("accepts bare ids in --depends-on and stores them prefixed", () => {
+        route.init("bare-dep");
+        route.addTack("bare-dep", "First");
+        const second = route.addTack("bare-dep", "Second", { dependsOn: ["1"] });
+        assert.deepEqual(second.depends_on, ["t1"]);
+    });
+    it("accepts bare ids on depends add / rm", () => {
+        route.init("bare-dep2");
+        route.addTack("bare-dep2", "First");
+        route.addTack("bare-dep2", "Second");
+        const added = route.addDependency("bare-dep2", "2", "1");
+        assert.deepEqual(added.depends_on, ["t1"]);
+        const removed = route.removeDependency("bare-dep2", "2", "1");
+        assert.equal(removed.depends_on, undefined);
+    });
+    it("still rejects a self-dependency given as a bare id", () => {
+        route.init("bare-self");
+        route.addTack("bare-self", "Only");
+        assert.throws(() => route.addDependency("bare-self", "1", "1"), /Cannot depend on self/);
+    });
+    it("errors on a missing bare id using the normalized form", () => {
+        route.init("bare-missing");
+        assert.throws(() => route.markDone("bare-missing", "9"), /Tack not found: t9/);
     });
 });
 describe("backward-compat date-only done_at", () => {

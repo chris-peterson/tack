@@ -12,6 +12,7 @@ export declare function list(): {
     total: number;
     open: number;
 }[];
+export declare function normalizeTackId(id: string): string;
 export declare function addTack(slug: string, summary: string, opts?: {
     dependsOn?: string[];
     done?: boolean;

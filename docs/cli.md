@@ -1,5 +1,9 @@
 # CLI Reference
 
+Tack ids display as `t<N>`. Anywhere a command takes a `<tack-id>`, `<dep-id>`,
+or a `--depends-on` entry, the bare number works too — `t7` and `7` both
+resolve to the same tack.
+
 ## Routes
 
 ### `tack init <slug>`
@@ -159,7 +163,7 @@ Add a tack to a route.
 | `--depends-on <id,...>` | Comma-separated tack IDs this depends on |
 | `--done` | Create the tack already marked done (for backfilling merged work) |
 | `--date <ts>` | When used with `--done`, set `done_at` to this `YYYY-MM-DD` or ISO 8601 date-time instead of "now" |
-| `--deliverable <url>` | Set the deliverable URL on creation. The label is auto-derived from the URL (`repo #N` for GitHub PRs/issues, `repo !N` for GitLab MRs). For a custom label, use `tack deliverable` after creation. |
+| `--deliverable <url>` | Set the deliverable URL on creation. The label is auto-derived from the URL (`repo#N` for GitHub PRs/issues, `repo!N` for GitLab MRs, `repo@<sha7>` for commits). For a custom label, use `tack deliverable` after creation. |
 
 Unknown flags fail with a usage error rather than being silently ignored.
 
@@ -288,16 +292,23 @@ tack depends rm auth-rewrite t3 t1
 
 ## Deliverable
 
-### `tack deliverable <slug> <tack-id> <label> <url> [--force]`
+### `tack deliverable <slug> <tack-id> <url> [--label <text>] [--force]`
 
-Set the change request for a tack. If a deliverable is already recorded, the
-command refuses with an error showing the existing label and URL — this
-prevents a typo'd tack ID from silently clobbering an unrelated tack's
-deliverable. Pass `--force` to overwrite intentionally.
+Set the change request for a tack. The label is derived from the URL —
+`<repo>#<n>` for a GitHub PR/issue, `<repo>!<n>` for a GitLab MR,
+`<repo>@<sha7>` for a commit; unrecognized URLs keep the URL as the label.
+Pass `--label` to override the derived label (e.g. an unrecognized forge URL,
+or to use prose).
+
+If a deliverable is already recorded, the command refuses with an error showing
+the existing label and URL — this prevents a typo'd tack ID from silently
+clobbering an unrelated tack's deliverable. Pass `--force` to overwrite
+intentionally.
 
 ```bash
-tack deliverable auth-rewrite t1 "Session PR" https://github.com/org/repo/pull/42
-tack deliverable auth-rewrite t1 "New session PR" https://github.com/org/repo/pull/43 --force
+tack deliverable auth-rewrite t1 https://github.com/org/repo/pull/42            # label → "repo#42"
+tack deliverable auth-rewrite t1 https://github.com/org/repo/pull/42 --label "Session PR"
+tack deliverable auth-rewrite t1 https://github.com/org/repo/pull/43 --label "New session PR" --force
 ```
 
 ## Todos

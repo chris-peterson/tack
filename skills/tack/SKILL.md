@@ -83,7 +83,10 @@ tool output or user prompts. When you see one:
    in-progress tack, or `tack add` a new one if the URL represents a
    distinct deliverable.
 3. **Record the URL.**
-   - PR/MR URLs → `tack deliverable <slug> <tack-id> "<label>" "<url>"`
+   - PR/MR URLs → `tack deliverable <slug> <tack-id> "<url>"` — the label is
+     auto-derived (`<repo>#<n>` / `!<n>`, or `<repo>@<sha7>` for a commit
+     URL). Add `--label "<text>"` only when you want to override the derived
+     one (e.g. an unrecognized forge URL, or you want prose).
    - Other URLs (issues, docs, threads) → `tack link add <slug> <tack-id>
      "<label>" "<url>"`
 
@@ -117,8 +120,9 @@ it, `tack done` stamps `done_at` to *now*, which is wrong for backfills and
 breaks the YTD pulse heatmap and per-month metrics.
 
 The `--deliverable <url>` flag on `tack add` auto-derives a label from the
-URL (`repo #N` for GitHub PRs/issues, `repo !N` for GitLab MRs). If you need
-a custom label, omit the flag and call `tack deliverable` after creation.
+URL (`repo#N` for GitHub PRs/issues, `repo!N` for GitLab MRs, `repo@<sha7>`
+for commits). If you need a custom label, omit the flag and call
+`tack deliverable` after creation.
 
 ## Tack creation discipline
 
@@ -226,7 +230,7 @@ tack done <slug> <tack-id>         Complete a tack
   [--date <ts>]                    Backfill done_at (YYYY-MM-DD or ISO date-time)
 tack drop <slug> <tack-id>         Mark dropped (preserved for history)
 tack remove <slug> <tack-id> [--force]  Delete a tack (use for accidents)
-tack deliverable <slug> <id> <label> <url> [--force]  Set deliverable (refuses overwrite without --force)
+tack deliverable <slug> <id> <url> [--label <text>] [--force]  Set deliverable (label auto-derived from url; --label overrides; refuses overwrite without --force)
 tack before <slug> <id> <text>     Add pre-work todo
 tack after <slug> <id> <text>      Add post-work todo
 tack todo done <slug> <id> <todo>  Complete a todo

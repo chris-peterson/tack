@@ -43,3 +43,43 @@ describe("subcommand-group errors (issue #17)", () => {
         assert.match(r.stderr, /tack status set:/);
     });
 });
+describe("tack deliverable url-only form (issue #11)", () => {
+    it("auto-derives the label when no label is given", () => {
+        runFail(["init", "dlv-derive"]);
+        runFail(["add", "dlv-derive", "Work"]);
+        const r = runFail([
+            "deliverable", "dlv-derive", "t1",
+            "https://github.com/owner/repo/pull/5",
+        ]);
+        assert.equal(r.status, 0);
+        assert.match(r.stdout, /repo#5/);
+    });
+    it("uses --label to override the derived label", () => {
+        runFail(["init", "dlv-explicit"]);
+        runFail(["add", "dlv-explicit", "Work"]);
+        const r = runFail([
+            "deliverable", "dlv-explicit", "t1",
+            "https://github.com/owner/repo/pull/5", "--label", "Custom label",
+        ]);
+        assert.equal(r.status, 0);
+        assert.match(r.stdout, /Custom label/);
+    });
+    it("rejects the legacy positional-label form", () => {
+        runFail(["init", "dlv-legacy"]);
+        runFail(["add", "dlv-legacy", "Work"]);
+        const r = runFail([
+            "deliverable", "dlv-legacy", "t1",
+            "Custom label", "https://github.com/owner/repo/pull/5",
+        ]);
+        assert.equal(r.status, 1);
+    });
+});
+describe("tack accepts bare tack ids (issue #11)", () => {
+    it("resolves a bare id through the CLI", () => {
+        runFail(["init", "bare-cli"]);
+        runFail(["add", "bare-cli", "Work"]);
+        const r = runFail(["done", "bare-cli", "1"]);
+        assert.equal(r.status, 0);
+        assert.match(r.stdout, /\[x\] t1/);
+    });
+});

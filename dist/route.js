@@ -99,10 +99,20 @@ function nextTodoId(items, prefix) {
     const max = Math.max(...items.map((item) => parseInt(item.id.slice(1), 10)));
     return `${prefix}${max + 1}`;
 }
+// Tack ids display as `t<N>`, but a bare `<N>` is the natural thing to type.
+// Normalize both forms to the canonical `t<N>` at the lookup boundary so every
+// subcommand that takes a tack id accepts `7` and `t7` interchangeably. Inputs
+// that aren't a tack id are returned unchanged, so a bad value still surfaces
+// the same "not found" error.
+export function normalizeTackId(id) {
+    const m = id.match(/^t?(\d+)$/);
+    return m ? `t${m[1]}` : id;
+}
 function findTack(route, tackId) {
-    const tack = route.tacks.find((t) => t.id === tackId);
+    const id = normalizeTackId(tackId);
+    const tack = route.tacks.find((t) => t.id === id);
     if (!tack) {
-        throw new Error(`Tack not found: ${tackId} in route ${route.slug}`);
+        throw new Error(`Tack not found: ${id} in route ${route.slug}`);
     }
     return tack;
 }
@@ -146,17 +156,18 @@ function detectCycle(route, tackId, dependsOn) {
 export function addTack(slug, summary, opts = {}) {
     const route = load(slug);
     const id = nextTackId(route);
-    if (opts.dependsOn?.length) {
-        checkDependencies(route, opts.dependsOn);
-        detectCycle(route, id, opts.dependsOn);
+    const dependsOn = opts.dependsOn?.map(normalizeTackId);
+    if (dependsOn?.length) {
+        checkDependencies(route, dependsOn);
+        detectCycle(route, id, dependsOn);
     }
     const tack = {
         id,
         summary,
         status: opts.done ? "done" : "pending",
     };
-    if (opts.dependsOn?.length)
-        tack.depends_on = opts.dependsOn;
+    if (dependsOn?.length)
+        tack.depends_on = dependsOn;
     if (opts.deliverable)
         tack.deliverable = opts.deliverable;
     if (opts.done)
@@ -234,8 +245,9 @@ export function setStatus(slug, tackId, status) {
 export function addDependency(slug, tackId, depId) {
     const route = load(slug);
     const tack = findTack(route, tackId);
-    if (tackId === depId) {
-        throw new Error(`Cannot depend on self: ${tackId}`);
+    depId = normalizeTackId(depId);
+    if (tack.id === depId) {
+        throw new Error(`Cannot depend on self: ${tack.id}`);
     }
     findTack(route, depId);
     if (tack.depends_on?.includes(depId)) {
@@ -250,8 +262,9 @@ export function addDependency(slug, tackId, depId) {
 export function removeDependency(slug, tackId, depId) {
     const route = load(slug);
     const tack = findTack(route, tackId);
+    depId = normalizeTackId(depId);
     if (!tack.depends_on?.includes(depId)) {
-        throw new Error(`${tackId} does not depend on ${depId} in route ${slug}`);
+        throw new Error(`${tack.id} does not depend on ${depId} in route ${slug}`);
     }
     tack.depends_on = tack.depends_on.filter((id) => id !== depId);
     if (tack.depends_on.length === 0)
@@ -352,11 +365,19 @@ export function dropTodo(slug, tackId, todoId) {
 function parseChangeRefUrl(url) {
     const gh = url.match(/^https:\/\/github\.com\/[^/]+\/([^/]+)\/(pull|issues)\/(\d+)/);
     if (gh) {
-        return { repo: gh[1], number: gh[3], kind: gh[2] === "pull" ? "pr" : "issue" };
+        return { repo: gh[1], ref: gh[3], kind: gh[2] === "pull" ? "pr" : "issue" };
+    }
+    const ghCommit = url.match(/^https:\/\/github\.com\/[^/]+\/([^/]+)\/commit\/([0-9a-f]+)/i);
+    if (ghCommit) {
+        return { repo: ghCommit[1], ref: ghCommit[2].slice(0, 7), kind: "commit" };
     }
     const gl = url.match(/^https:\/\/gitlab\.[^/]*\/.*?\/([^/]+)\/-\/(merge_requests|issues)\/(\d+)/);
     if (gl) {
-        return { repo: gl[1], number: gl[3], kind: gl[2] === "merge_requests" ? "mr" : "issue" };
+        return { repo: gl[1], ref: gl[3], kind: gl[2] === "merge_requests" ? "mr" : "issue" };
+    }
+    const glCommit = url.match(/^https:\/\/gitlab\.[^/]*\/.*?\/([^/]+)\/-\/commit\/([0-9a-f]+)/i);
+    if (glCommit) {
+        return { repo: glCommit[1], ref: glCommit[2].slice(0, 7), kind: "commit" };
     }
     return null;
 }
@@ -364,12 +385,19 @@ function isPrOrMrUrl(url) {
     const ref = parseChangeRefUrl(url);
     return ref !== null && (ref.kind === "pr" || ref.kind === "mr");
 }
+// Canonical forge notation attaches a kind-specific sigil to the repo:
+// `repo#42` for a PR/issue, `repo!99` for an MR, `repo@<sha7>` for a commit.
+const CHANGE_REF_SIGIL = {
+    pr: "#",
+    issue: "#",
+    mr: "!",
+    commit: "@",
+};
 export function deriveDeliverableLabel(url) {
     const ref = parseChangeRefUrl(url);
     if (!ref)
         return url;
-    const sigil = ref.kind === "mr" ? "!" : "#";
-    return `${ref.repo} ${sigil}${ref.number}`;
+    return `${ref.repo}${CHANGE_REF_SIGIL[ref.kind]}${ref.ref}`;
 }
 export function addLink(slug, tackId, label, url) {
     const route = load(slug);

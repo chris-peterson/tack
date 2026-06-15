@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.17.0
+
+### Features
+
+- **Tack-id arguments accept the bare number** (#11). Every command that takes a `<tack-id>`, `<dep-id>`, or `--depends-on` entry now accepts `7` as well as `t7` — both resolve to the same tack, and bare ids are stored in the canonical `t<N>` form. Previously some subcommands rejected the bare number (`tack deliverable <slug> 7 …` → `Tack not found: 7`) while others accepted it, so callers had to guess which form each one wanted (TK-08).
+- **`tack deliverable` derives the label from the URL** (#11). `tack deliverable <slug> <tack-id> <url>` now auto-derives the label, matching what `tack add --deliverable <url>` already did. `--label <text>` overrides it for the occasional case the default doesn't fit (CL-08).
+- **Commit URLs derive a `<repo>@<sha7>` label** (#11). GitHub `…/commit/<sha>` and GitLab `…/-/commit/<sha>` URLs now produce a readable deliverable label from the seven-character short sha instead of falling back to the full URL. Commits are not treated as PR/MR/issue references — they are not promoted on `tack done` and do not trigger the hook scanners (CL-37a).
+
+### Changed
+
+- **`tack deliverable` takes the label as `--label`, not a positional** (#11). The signature is now `tack deliverable <slug> <tack-id> <url> [--label <text>]`; the old `tack deliverable <slug> <tack-id> <label> <url>` positional form is no longer accepted. An explicit label is the exception now that the derived default covers PR/MR/issue/commit URLs, so it moves to a flag rather than a positional slot wedged before the URL (CL-08).
+- **Derived deliverable labels drop the space before the sigil** (#11). Auto-derived labels now use the canonical forge notation — `repo#42`, `repo!99`, `repo@<sha7>` — instead of the previous `repo #42` / `repo !99`. Only newly-derived labels are affected; labels already stored in route files are left as-is (CL-37).
+
 ## 0.16.1
 
 ### Bug Fixes

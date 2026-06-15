@@ -30,7 +30,7 @@ Usage:
   tack done <slug> <tack-id> [--date <ts>]
   tack drop <slug> <tack-id>
   tack remove <slug> <tack-id> [--force]
-  tack deliverable <slug> <tack-id> <label> <url> [--force]
+  tack deliverable <slug> <tack-id> <url> [--label <text>] [--force]   (label auto-derived from url by default)
   tack before <slug> <tack-id> <text>
   tack after <slug> <tack-id> <text>
   tack todo done <slug> <tack-id> <todo-id>
@@ -368,15 +368,21 @@ function run(): void {
         args: rest,
         options: {
           force: { type: "boolean" },
+          label: { type: "string" },
         },
         allowPositionals: true,
       });
-      if (dlvPositionals.length < 4) usage();
+      if (dlvPositionals.length !== 3) usage();
+      // <slug> <tack-id> <url>; the label is auto-derived from the url, and
+      // --label overrides it for the occasional case the default doesn't fit.
+      const dlvUrl = dlvPositionals[2];
+      const dlvLabel =
+        (dlvValues.label as string | undefined) ?? route.deriveDeliverableLabel(dlvUrl);
       const tack = route.setDeliverable(
         dlvPositionals[0],
         dlvPositionals[1],
-        dlvPositionals[2],
-        dlvPositionals[3],
+        dlvLabel,
+        dlvUrl,
         { force: dlvValues.force as boolean | undefined },
       );
       console.log(formatTack(tack));

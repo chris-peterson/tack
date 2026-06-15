@@ -300,12 +300,12 @@ _tack() {
       esac
       ;;
     deliverable)
-      # tack deliverable <slug> <tack-id> <label> <url>
+      # tack deliverable <slug> <tack-id> <url> [--label <text>] [--force]
       case "$CURRENT" in
         3) _tack_routes ;;
         4) _tack_tack_ids "\${words[3]}" ;;
-        5) _message 'label' ;;
-        6) _message 'url' ;;
+        5) _message 'url' ;;
+        *) _arguments '--label[Override the derived label]:label:' '--force[Overwrite existing deliverable]' ;;
       esac
       ;;
     before|after)

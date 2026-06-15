@@ -96,7 +96,7 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 | `tack drop <slug> <tack-id>` | Mark tack as dropped (preserved for history) |
 | `tack remove <slug> <tack-id> [--force]` | Delete a tack (use `--force` to strip dependent refs) |
 | `tack move <src-slug>/<tack-id> <dst-slug> [--include-dependents]` | Move a tack to another route, preserving metadata |
-| `tack deliverable <slug> <tack-id> <label> <url>` | Set the change request |
+| `tack deliverable <slug> <tack-id> <url> [--label <text>]` | Set the change request (label auto-derived from the url; `--label` overrides) |
 | `tack before <slug> <tack-id> <text>` | Add a pre-work todo |
 | `tack after <slug> <tack-id> <text>` | Add a post-work todo |
 | `tack todo done <slug> <tack-id> <todo-id>` | Complete a todo |
