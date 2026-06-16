@@ -367,10 +367,17 @@ _tack() {
       esac
       ;;
     session)
-      # tack session <slug> <session-id>
+      # tack session <slug> <session-id> [--tack <tack-id>]
       case "$CURRENT" in
         3) _tack_routes ;;
         4) _message 'session-id' ;;
+        *)
+          if [[ "\${words[CURRENT-1]}" == "--tack" ]]; then
+            _tack_tack_ids "\${words[3]}"
+          else
+            _arguments '--tack[Bind the session to a tack]:tack-id:'
+          fi
+          ;;
       esac
       ;;
     pin)

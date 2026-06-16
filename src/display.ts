@@ -40,6 +40,16 @@ export function formatRoute(route: Route): string {
 
   if (route.sessions?.length) {
     lines.push(`  sessions: ${route.sessions.length}`);
+    for (const s of route.sessions) {
+      if (s.tacks?.length) {
+        // The last entry is the session's current focus; earlier entries are
+        // tacks it also touched.
+        const current = s.tacks[s.tacks.length - 1];
+        const also = s.tacks.slice(0, -1);
+        const trail = also.length ? ` (also ${also.join(", ")})` : "";
+        lines.push(`    ${s.id.slice(0, 8)} → ${current}${trail}`);
+      }
+    }
   }
 
   if (route.tacks.length === 0) {

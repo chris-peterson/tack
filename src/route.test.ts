@@ -922,6 +922,62 @@ describe("recordSession", () => {
     const r = route.recordSession("session-multi", "session_bbb");
     assert.equal(r.sessions!.length, 2);
   });
+
+  it("binds a session to a tack with --tack", () => {
+    route.init("session-bind");
+    route.addTack("session-bind", "Work");
+    const r = route.recordSession("session-bind", "sess_x", "t1");
+    assert.deepEqual(r.sessions![0].tacks, ["t1"]);
+  });
+
+  it("accepts a bare tack number for the binding", () => {
+    route.init("session-bare");
+    route.addTack("session-bare", "Work");
+    const r = route.recordSession("session-bare", "sess_x", "1");
+    assert.deepEqual(r.sessions![0].tacks, ["t1"]);
+  });
+
+  it("appends additional tacks the session touches, preserving order", () => {
+    route.init("session-touch");
+    route.addTack("session-touch", "First");
+    route.addTack("session-touch", "Second");
+    route.recordSession("session-touch", "sess_x", "t1");
+    const r = route.recordSession("session-touch", "sess_x", "t2");
+    assert.deepEqual(r.sessions![0].tacks, ["t1", "t2"]);
+  });
+
+  it("moves a re-bound tack to the end so the last entry is current focus", () => {
+    route.init("session-pivot");
+    route.addTack("session-pivot", "First");
+    route.addTack("session-pivot", "Second");
+    route.recordSession("session-pivot", "sess_x", "t1");
+    route.recordSession("session-pivot", "sess_x", "t2");
+    const r = route.recordSession("session-pivot", "sess_x", "t1");
+    assert.deepEqual(r.sessions![0].tacks, ["t2", "t1"]);
+  });
+
+  it("does not duplicate a tack bound twice in a row", () => {
+    route.init("session-nodupe");
+    route.addTack("session-nodupe", "Work");
+    route.recordSession("session-nodupe", "sess_x", "t1");
+    const r = route.recordSession("session-nodupe", "sess_x", "t1");
+    assert.deepEqual(r.sessions![0].tacks, ["t1"]);
+  });
+
+  it("throws when binding a session to a tack that does not exist", () => {
+    route.init("session-badtack");
+    assert.throws(
+      () => route.recordSession("session-badtack", "sess_x", "t9"),
+      /Tack not found/,
+    );
+  });
+
+  it("records the session without a binding when --tack is omitted", () => {
+    route.init("session-nobind");
+    route.addTack("session-nobind", "Work");
+    const r = route.recordSession("session-nobind", "sess_x");
+    assert.equal(r.sessions![0].tacks, undefined);
+  });
 });
 
 describe("remove", () => {

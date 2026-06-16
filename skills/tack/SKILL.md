@@ -27,7 +27,9 @@ confident match.
    that's the active route. Done.
 2. **URL match.** If there's a PR/MR/issue URL in scope (recently emitted
    by a tool, pasted by the user, given to you as a hint), run `tack find
-   <url> --json`. If exactly one route matches, that's active. Pin it.
+   <url> --json`. If exactly one route matches, that's active. Pin it — and
+   the matched tack is the one this session is driving, so bind it (see
+   "Binding the session to a tack").
 3. **Branch slug.** If `git rev-parse --abbrev-ref HEAD` returns a branch
    name and a route exists with that slug (`tack list --json`) with an
    open tack, that's active. Pin it.
@@ -66,11 +68,43 @@ When invoked at session start (no arguments or "status"):
    isn't on PATH.
 2. **Overview.** Run `tack tree -d 2` to see all routes and their tacks.
 3. **Resolve active route** using the procedure above.
-4. **Register session.** On the active route, run `tack session <slug>
-   $CLAUDE_SESSION_ID` (skip if already recorded).
+4. **Register session and bind the tack.** On the active route, run `tack
+   session <slug> $CLAUDE_SESSION_ID --tack <tack-id>`, where `<tack-id>` is
+   the tack this session is working (see "Binding the session to a tack"
+   below). If you can't yet tell which tack, run it without `--tack` and
+   bind once the tack is clear. Re-run with `--tack` whenever the session's
+   focus shifts to a different tack — the last bound tack is the current one.
 5. **Brief summary.** A few lines: active route, open tacks, blocked
    items. The user can drill in with `tack tree <slug>` or globs like
    `tack tree '**/deliverable'`.
+
+## Binding the session to a tack
+
+A session attaches to a *route*, but a route holds many tacks. Binding the
+session to the specific tack it's driving — via `tack session <slug>
+$CLAUDE_SESSION_ID --tack <tack-id>` — is what lets a fleet view (e.g. beacon's
+`wip`) show *which* tack a live session is on, and tell **existing** work (a
+session resumed on a tracked tack) from **emerging** work (a session that just
+spun up a new tack).
+
+Establish the link as early as you confidently can. The strongest early signal
+is a work-tracker URL the user pastes (or a tool emits) at the start:
+
+1. Run `tack find <url> --json`.
+2. **One tack matches** → the session is resuming existing work. Bind to that
+   tack: `tack session <slug> $CLAUDE_SESSION_ID --tack <tack-id>`.
+3. **No match** → the work is emerging. Create the tack (recording the URL as
+   its deliverable or link per "Acting on hook reminders"), then bind the
+   session to the new tack.
+
+You don't store "existing" or "emerging" anywhere — it's read off the bound
+tack: a tack with a deliverable or a PR/MR/issue link is tracked/existing; one
+with neither is emerging.
+
+The bind is idempotent and order-preserving: binding the same tack twice is a
+no-op, binding a second tack appends it, and re-binding an earlier tack moves
+it back to the end (current focus). The tack must already exist in the route —
+`--tack` validates it.
 
 ## Acting on hook reminders
 
@@ -237,7 +271,7 @@ tack todo done <slug> <id> <todo>  Complete a todo
 tack todo rm <slug> <id> <todo>    Delete a todo
 tack link add <slug> <id> <label> <url>  Add a link
 tack link rm <slug> <id> <url>     Remove a link
-tack session <slug> <session-id>   Record a session
+tack session <slug> <session-id> [--tack <tack-id>]  Record a session; --tack binds it to the tack it's driving
 tack pin [<slug>]                  Pin / show the active route for this cwd
 tack unpin                         Clear the cwd pin
 tack pins [--json]                 List all pins (flags dangling/idle)

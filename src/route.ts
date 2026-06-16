@@ -590,11 +590,24 @@ export function mergeTacks(slug: string, sourceId: string, targetId: string): Ta
   return target;
 }
 
-export function recordSession(slug: string, sessionId: string): Route {
+export function recordSession(slug: string, sessionId: string, tackId?: string): Route {
   const route = load(slug);
   if (!route.sessions) route.sessions = [];
-  if (!route.sessions.some((s) => s.id === sessionId)) {
-    route.sessions.push({ id: sessionId, started_at: now() });
+  let session = route.sessions.find((s) => s.id === sessionId);
+  if (!session) {
+    session = { id: sessionId, started_at: now() };
+    route.sessions.push(session);
+  }
+  if (tackId !== undefined) {
+    // findTack validates existence and normalizes a bare `<N>` to `t<N>`.
+    const id = findTack(route, tackId).id;
+    if (!session.tacks) session.tacks = [];
+    // Re-binding an already-listed tack moves it to the end: the last entry
+    // is the session's current focus, so a pivot back to an earlier tack
+    // makes it current again rather than leaving a stale tail.
+    const idx = session.tacks.indexOf(id);
+    if (idx !== -1) session.tacks.splice(idx, 1);
+    session.tacks.push(id);
   }
   save(route);
   return route;

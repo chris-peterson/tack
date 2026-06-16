@@ -189,6 +189,14 @@
           "type": "string",
           "format": "date-time",
           "description": "ISO 8601 timestamp when the session first touched this route"
+        },
+        "tacks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^t[0-9]+$"
+          },
+          "description": "Route-scoped tack IDs this session is driving, in touch order; the last entry is the session's current focus"
         }
       }
     }

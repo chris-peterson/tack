@@ -40,7 +40,7 @@ Route (1 YAML file per route)
 ├── group (optional grouping slug)
 ├── depends_on: [route slugs]
 ├── sessions[]
-│   └── id, started_at
+│   └── id, started_at, tacks[] — route-scoped tack IDs the session is driving
 └── tacks[]
     ├── id (t1, t2, ...), summary, status
     ├── done_at

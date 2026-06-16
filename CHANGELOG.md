@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.18.0
+
+### Features
+
+- **Sessions link to the specific tack they're driving.** `tack session <slug> <session-id> --tack <tack-id>` binds a session to a tack within the route, stored as a `tacks` array on the session entry (touch order, last = current focus). A session was previously associated only with a route, so a fleet view could group live sessions by route but not show which tack each one was working. Re-binding a tack moves it to the end, so a pivot back to an earlier tack makes it current again (RT-11, CL-17).
+- **The skill establishes the session→tack link early from a tracker URL.** When a PR/MR/issue URL is in scope at session start, the tack skill runs `tack find` on it — a match binds the session to the existing tack, no match means emerging work (create the tack, then bind) — so a dashboard can tell resumed/tracked work from work spun up fresh in the session. Whether work is existing or emerging is read off the bound tack's own state (does it carry a deliverable or tracker link?), not stored as a flag (AG-11).
+
 ## 0.17.0
 
 ### Features

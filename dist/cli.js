@@ -37,7 +37,7 @@ Usage:
   tack depends rm <slug> <tack-id> <dep-id>
   tack link add <slug> <tack-id> <label> <url>
   tack link rm <slug> <tack-id> <url>
-  tack session <slug> <session-id>
+  tack session <slug> <session-id> [--tack <tack-id>]
   tack find <url> [--json]
   tack pin [<slug>]                  Pin a route to the current cwd (no slug: show current pin)
   tack unpin                         Clear the cwd pin
@@ -479,9 +479,14 @@ function run() {
             break;
         }
         case "session": {
-            if (!rest[0] || !rest[1])
+            const { values: sessionValues, positionals: sessionPositionals } = parseArgs({
+                args: rest,
+                options: { tack: { type: "string" } },
+                allowPositionals: true,
+            });
+            if (!sessionPositionals[0] || !sessionPositionals[1])
                 usage();
-            const r = route.recordSession(rest[0], rest[1]);
+            const r = route.recordSession(sessionPositionals[0], sessionPositionals[1], sessionValues.tack);
             console.log(formatRoute(r));
             break;
         }

@@ -46,7 +46,7 @@ Route (1 YAML file)
 ├── group (optional grouping slug)
 ├── depends_on: [route slugs]
 ├── sessions[]
-│   └── id, started_at
+│   └── id, started_at, tacks[] — route-scoped tack IDs the session is driving
 └── tacks[]
     ├── id (t1, t2, ...), summary, status
     ├── done_at
@@ -106,6 +106,17 @@ change when the route is updated.
 - `id` (string) — the Claude Code session identifier
 - `started_at` (string) — ISO 8601 timestamp when the session first touched
   this route
+
+**[RT-11]** Each session entry shall contain the following optional field:
+- `tacks` (array of strings) — IDs of tacks *within this route* that the
+  session is driving, in touch order. The last entry is the session's current
+  focus. Because the array lives inside the route file, the IDs are bare
+  route-scoped `t<N>` values; a cross-route consumer (e.g. a fleet view that
+  reads every route) addresses them as `<slug>/<tack-id>` per [CL-21a]. This
+  is the session→tack link: `sessions[]` already records session→route per
+  [RT-09], and this field narrows it to the specific tack(s) a session is
+  working, so a reader keyed on the Claude session id can resolve which tack a
+  live session is driving — not just which route.
 
 ---
 
@@ -349,9 +360,15 @@ confirmation message and exit without deleting.
 **[CL-16]** When any write command succeeds, the CLI shall display the updated
 state of the affected tack or route.
 
-**[CL-17]** `tack session <slug> <session-id>` — When invoked, the CLI shall
-record the session ID in the route's `sessions` array per [RT-09]. If the
-session ID already exists, it shall not duplicate.
+**[CL-17]** `tack session <slug> <session-id> [--tack <tack-id>]` — When
+invoked, the CLI shall record the session ID in the route's `sessions` array
+per [RT-09]. If the session ID already exists, it shall not duplicate. When
+`--tack <tack-id>` is passed, the CLI shall bind the session to that tack per
+[RT-11]: the tack ID is appended to the session entry's `tacks` array (bare
+`<N>` is normalized to `t<N>` per [TK-08]). A tack already present in the
+array is moved to the end rather than duplicated, so the last entry is always
+the session's current focus and a pivot back to an earlier tack makes it
+current again. The CLI shall fail if `<tack-id>` does not exist in the route.
 
 **[CL-18]** `tack list [--json]` and `tack status [slug] [--json]` — When
 `--json` is passed, the CLI shall output the result as JSON instead of the
@@ -580,7 +597,8 @@ procedure in order, stopping at the first confident match:
    pinned route is active.
 2. **URL match** — When a PR/MR/issue URL is in scope (recently emitted by
    a tool, pasted by the user, or passed as a hint), run `tack find <url>
-   --json` and use the matched route if exactly one is returned.
+   --json` and use the matched route if exactly one is returned. The matched
+   tack is also the session's tack per [AG-11] — bind it via [AG-09].
 3. **Branch slug** — When the cwd is a git repository, run `tack list
    --json` and use the route whose slug equals the current branch name if
    it has at least one open tack.
@@ -614,7 +632,28 @@ pending `after` todo items per [TK-04] before moving on.
 
 **[AG-09]** When the agent begins operating on a route, it shall record the
 current Claude Code session ID in the route's `sessions` array per [RT-09].
-If the session ID already exists, it shall not duplicate.
+If the session ID already exists, it shall not duplicate. When the agent has
+resolved which tack the session is working — a tack matched per [AG-11], the
+single open tack, or one the agent created for this session — it shall pass
+`--tack <tack-id>` to bind the session to that tack per [RT-11], and re-bind
+when the session's focus shifts to a different tack.
+
+**[AG-11]** The agent shall establish the session→tack link as early as it
+confidently can, so a fleet view can distinguish *existing* work (a session
+resumed on tracked work) from *emerging* work (a session that spun up a new
+tack). When a PR/MR/issue/tracker URL is in scope at session start (pasted by
+the user, passed as a hint, or emitted by a tool per [HK-02]/[HK-03]), the
+agent shall run `tack find <url> --json` per [CL-23]:
+- **Match** — exactly one tack references the URL: the session is resuming
+  existing work. The agent shall bind the session to that tack per [AG-09].
+- **No match** — the work is emerging. The agent shall create a tack per
+  [AG-04]/[AG-05] (recording the URL as its deliverable or link) and bind the
+  session to the new tack.
+
+The existing-vs-emerging distinction is not stored as a flag; a consumer
+derives it from the bound tack's own state — a tack carrying a deliverable or
+a PR/MR/issue link ([CL-37]) is tracked/existing, one with neither is
+emerging.
 
 **[AG-10]** When the agent resolves an active route via [AG-03] in a way
 that is not already pinned (URL match, branch slug, single-open-route, or

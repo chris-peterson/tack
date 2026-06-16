@@ -83,3 +83,23 @@ describe("tack accepts bare tack ids (issue #11)", () => {
         assert.match(r.stdout, /\[x\] t1/);
     });
 });
+describe("tack session --tack binds the session to a tack", () => {
+    it("records the binding and surfaces it in the route output", () => {
+        runFail(["init", "sess-cli"]);
+        runFail(["add", "sess-cli", "Work"]);
+        const r = runFail(["session", "sess-cli", "claude-abcdef12", "--tack", "t1"]);
+        assert.equal(r.status, 0);
+        assert.match(r.stdout, /claude-a → t1/);
+    });
+    it("records the session with no binding when --tack is omitted", () => {
+        runFail(["init", "sess-cli-plain"]);
+        const r = runFail(["session", "sess-cli-plain", "claude-xyz"]);
+        assert.equal(r.status, 0);
+        assert.match(r.stdout, /sessions: 1/);
+    });
+    it("fails when --tack names a tack that does not exist", () => {
+        runFail(["init", "sess-cli-bad"]);
+        const r = runFail(["session", "sess-cli-bad", "claude-xyz", "--tack", "t9"]);
+        assert.equal(r.status, 1);
+    });
+});

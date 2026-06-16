@@ -40,6 +40,7 @@ export interface Tack {
 export interface Session {
   id: string;
   started_at: string;
+  tacks?: string[];
 }
 
 export interface Route {
