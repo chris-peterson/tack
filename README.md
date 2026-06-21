@@ -2,6 +2,8 @@
   <img src="assets/hero.svg" alt="tack — route tracker for AI-assisted development" width="800">
 </p>
 
+Route tracker for AI-assisted development work — pivots, deliverables, and dependencies — across session boundaries.
+
 tack captures the non-linear reality of how development actually happens — pivots, context switches, multi-repo changes — so that work-in-progress survives context exhaustion, crashes, and session boundaries.
 
 ## Installation
@@ -66,6 +68,8 @@ Route (1 YAML file per route)
 ├── id (UUID), slug, created_at, updated_at
 ├── group (optional grouping slug)
 ├── depends_on: [route slugs]
+├── sessions[]
+│   └── id, started_at, tacks[] — route-scoped tack IDs the session is driving
 └── tacks[]
     ├── id (t1, t2, ...), summary, status
     ├── project, done_at
@@ -90,6 +94,7 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 | `tack status [slug] [--all] [--json]` | Show route details (dropped tacks hidden unless `--all`) |
 | `tack list [--json]` | List all routes with open/total counts |
 | `tack recent [--count <n>] [--since <date>] [--json]` | List routes by most recently updated |
+| `tack find <url> [--json]` | Find every tack referencing a URL, in any deliverable or link |
 | `tack add <slug> <summary> [opts]` | Add a tack (`--project`, `--depends-on`) |
 | `tack start <slug> <tack-id>` | Start a tack (checks dependencies) |
 | `tack done <slug> <tack-id>` | Complete a tack |
@@ -104,6 +109,10 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 | `tack link add <slug> <tack-id> <label> <url>` | Add a reference link |
 | `tack link rm <slug> <tack-id> <url>` | Remove a reference link |
 | `tack rm <slug> [--force]` | Delete an entire route |
+| `tack pin [<slug>]` | Pin a route as active for the current directory (no slug prints the current pin) |
+| `tack unpin` | Clear the pin for the current directory |
+| `tack pins [--json]` | List every pin with its directory, slug, and timestamp (flags `[dangling]`/`[idle]`) |
+| `tack pins prune` | Remove pins whose route or directory no longer exists |
 | `tack install-cli [--dir <path>]` | Install `tack` wrapper on PATH + zsh completions (plugin install) |
 | `tack completions zsh` | Install zsh completion script |
 

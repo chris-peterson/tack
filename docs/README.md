@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="hero.svg" alt="tack — route tracker for ai-assisted development" width="800">
+  <img src="hero.svg" alt="tack — route tracker for AI-assisted development" width="800">
 </p>
 
 Route tracker for AI-assisted development.
@@ -53,7 +53,10 @@ The two moves you reach for most — resuming a route and capturing a deliverabl
 ```text
 Route (1 YAML file per route)
 ├── id (UUID), slug, created_at, updated_at
+├── group (optional grouping slug)
 ├── depends_on: [route slugs]
+├── sessions[]
+│   └── id, started_at, tacks[] — route-scoped tack IDs the session is driving
 └── tacks[]
     ├── id (t1, t2, ...), summary, status
     ├── done_at
