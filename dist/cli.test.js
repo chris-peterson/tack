@@ -103,3 +103,28 @@ describe("tack session --tack binds the session to a tack", () => {
         assert.equal(r.status, 1);
     });
 });
+describe("--help after a subcommand shows usage", () => {
+    it("session --help prints usage and exits 0 instead of crashing", () => {
+        const r = runFail(["session", "--help"]);
+        assert.equal(r.status, 0);
+        assert.match(r.stdout, /Usage:/);
+    });
+    it("pins --help prints usage instead of silently listing pins", () => {
+        const r = runFail(["pins", "--help"]);
+        assert.equal(r.status, 0);
+        assert.match(r.stdout, /Usage:/);
+        // The arrow only appears in actual pin listings (formatPins), so its
+        // absence confirms usage was shown rather than the command running.
+        assert.doesNotMatch(r.stdout, /→/);
+    });
+    it("init --help prints usage and exits 0", () => {
+        const r = runFail(["init", "--help"]);
+        assert.equal(r.status, 0);
+        assert.match(r.stdout, /Usage:/);
+    });
+    it("-h is honored as a short alias", () => {
+        const r = runFail(["session", "-h"]);
+        assert.equal(r.status, 0);
+        assert.match(r.stdout, /Usage:/);
+    });
+});

@@ -169,6 +169,12 @@ function run() {
         usage();
     const command = args[0];
     const rest = args.slice(1);
+    // `--help`/`-h` after any subcommand shows usage, mirroring bare `tack
+    // --help`. Without this, subcommands parsed with strict parseArgs throw on
+    // the unknown flag and manual-parse ones (pins, list, status) silently
+    // ignore it and run anyway.
+    if (rest.includes("--help") || rest.includes("-h"))
+        usage(0);
     switch (command) {
         case "init": {
             if (!rest[0])

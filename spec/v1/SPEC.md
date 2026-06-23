@@ -545,10 +545,15 @@ not a PR/MR/issue: it is not promoted to a deliverable on `tack done` ([CL-05])
 and is not surfaced by the hook scanners ([HK-02], [HK-03]).
 
 **[CL-38]** `tack --help` / `tack -h` / `tack help` — When invoked, the CLI
-shall print the usage text to stdout and exit zero. When invoked with no
-arguments or with an unrecognized command, the CLI shall print the same
-usage text to stderr and exit non-zero; the unrecognized-command case shall
-name the offending command.
+shall print the usage text to stdout and exit zero. The `--help` / `-h` flag
+shall be honored after any subcommand as well (e.g. `tack session --help`,
+`tack pins --help`): the CLI shall print the usage text to stdout and exit
+zero rather than treating the flag as a subcommand argument — which would
+otherwise throw on subcommands parsed strictly, or be silently ignored by
+subcommands that parse flags manually. When invoked with no arguments or with
+an unrecognized command, the CLI shall print the same usage text to stderr
+and exit non-zero; the unrecognized-command case shall name the offending
+command.
 
 **[CL-39]** `tack pins [--json]` — When invoked, the CLI shall list every pin
 in `~/.tack/pins.yaml` ([ST-06]) with its directory, slug, and `pinned_at`
