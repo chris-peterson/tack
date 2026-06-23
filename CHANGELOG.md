@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.18.1
+
+### Bug Fixes
+
+- **`--help` / `-h` works after any subcommand.** `tack <subcommand> --help` previously fell through the top-level help check: subcommands parsed with strict `parseArgs` (`session`, `init`, `recent`, `tree`, `deliverable`, `move`) threw an uncaught `ERR_PARSE_ARGS_UNKNOWN_OPTION`, while subcommands parsing flags manually (`pins`, `list`, `status`) silently ignored the flag and ran anyway. A single guard before the command switch now prints the usage text and exits zero for `--help`/`-h` after any subcommand, matching bare `tack --help` (CL-38).
+
 ## 0.18.0
 
 ### Features
