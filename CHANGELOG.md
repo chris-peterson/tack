@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.19.0
+
+### Features
+
+- **`tack repo <name>` resolves a project name to its git remote.** tack now keeps a repo database built from the forge URLs and pinned directories it already sees, so you can look up a remote by partial name — `tack repo anchor` → `https://github.com/chris-peterson/anchor`. Multiple matches are listed; `--json` for scripting.
+- **List, alias, and maintenance commands.** Bare `tack repo` lists the database; `tack repo alias <match> <alias>` adds a custom name; `tack repo prune` drops local paths that no longer exist; `tack repo rm <match>` removes an entry.
+- **`tack repo rebuild` backfills the database** from every deliverable/link URL across your routes plus pinned directories' remotes — populating it for work recorded before the feature existed.
+- **Automatic capture.** Recording a deliverable or link URL, and running `tack init` / `tack pin` inside a git repo, now also records the repo's remote (and local checkout). Best-effort — it never blocks the command that triggered it.
+
+### Other
+
+- Spec: new RP category (RP-01..07) for the repo database, plus CL-42..47 for the `tack repo` commands. STATUS.md coverage at 117/117.
+
 ## 0.18.1
 
 ### Bug Fixes
