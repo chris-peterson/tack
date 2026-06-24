@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { parse, stringify } from "yaml";
 import { validate } from "./schema.js";
+import * as repos from "./repos.js";
 const TACK_HOME = process.env.TACK_HOME ?? join(homedir(), ".tack");
 const TACK_DIR = join(TACK_HOME, "routes");
 const PINS_FILE = join(TACK_HOME, "pins.yaml");
@@ -25,6 +26,17 @@ function routePath(slug) {
 }
 function now() {
     return new Date().toISOString();
+}
+// Repo-database capture (RP-06, RP-07) is best-effort: it enriches the repo
+// index as a side effect of recording URLs and pinning, and must never fail
+// the command that triggered it.
+function captureBestEffort(fn) {
+    try {
+        fn();
+    }
+    catch (e) {
+        process.stderr.write(`warning: repo capture failed: ${e.message}\n`);
+    }
 }
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const ISO_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
@@ -74,6 +86,7 @@ export function init(slug, opts = {}) {
     if (opts.group)
         route.group = opts.group;
     save(route);
+    captureBestEffort(() => repos.recordCwd(process.cwd()));
     return route;
 }
 export function list() {
@@ -174,6 +187,8 @@ export function addTack(slug, summary, opts = {}) {
         tack.done_at = opts.doneAt ? normalizeTimestamp(opts.doneAt) : now();
     route.tacks.push(tack);
     save(route);
+    if (opts.deliverable)
+        captureBestEffort(() => repos.recordUrl(opts.deliverable.url));
     return tack;
 }
 export function markDone(slug, tackId, opts = {}) {
@@ -187,11 +202,13 @@ export function markDone(slug, tackId, opts = {}) {
         tack.done_at = now();
     }
     let ambiguousDeliverable = [];
+    let promotedUrl;
     if (!tack.deliverable && tack.links?.length) {
         const prLinks = tack.links.filter((l) => isPrOrMrUrl(l.url));
         if (prLinks.length === 1) {
             const prLink = prLinks[0];
             tack.deliverable = { label: prLink.label, url: prLink.url };
+            promotedUrl = prLink.url;
             tack.links = tack.links.filter((l) => l !== prLink);
             if (tack.links.length === 0)
                 delete tack.links;
@@ -204,6 +221,8 @@ export function markDone(slug, tackId, opts = {}) {
         .filter((a) => !a.done)
         .map((a) => a.text);
     save(route);
+    if (promotedUrl)
+        captureBestEffort(() => repos.recordUrl(promotedUrl));
     return { tack, pendingTodo, ambiguousDeliverable };
 }
 export function markDropped(slug, tackId) {
@@ -317,6 +336,7 @@ export function setDeliverable(slug, tackId, label, url, opts = {}) {
             delete tack.links;
     }
     save(route);
+    captureBestEffort(() => repos.recordUrl(url));
     return tack;
 }
 export function addBefore(slug, tackId, text) {
@@ -410,6 +430,7 @@ export function addLink(slug, tackId, label, url) {
         tack.links = [];
     tack.links.push({ label, url });
     save(route);
+    captureBestEffort(() => repos.recordUrl(url));
     return tack;
 }
 export function removeLink(slug, tackId, url) {
@@ -530,6 +551,21 @@ export function find(url) {
     }
     return matches;
 }
+// CL-47: backfill the repo database from existing tack data — every forge URL
+// recorded on a route plus every pinned directory's origin remote.
+export function rebuildRepos() {
+    const urls = [];
+    for (const r of loadAll()) {
+        for (const tack of r.tacks) {
+            if (tack.deliverable?.url)
+                urls.push(tack.deliverable.url);
+            for (const link of tack.links ?? [])
+                urls.push(link.url);
+        }
+    }
+    const cwds = Object.keys(readPins());
+    return repos.rebuildFrom({ urls, cwds });
+}
 export function remove(slug) {
     const path = routePath(slug);
     if (!existsSync(path)) {
@@ -568,6 +604,7 @@ export function writePin(slug, cwd = process.cwd()) {
     const pins = readPins();
     pins[cwd] = pin;
     writePins(pins);
+    captureBestEffort(() => repos.recordCwd(cwd));
     return pin;
 }
 export function deletePin(cwd = process.cwd()) {

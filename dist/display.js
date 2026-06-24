@@ -390,3 +390,16 @@ export function formatPins(pins) {
     }
     return lines.join("\n");
 }
+export function formatRepos(repos) {
+    if (repos.length === 0) {
+        return "No repos.";
+    }
+    const lines = [];
+    for (const r of repos) {
+        lines.push(`${r.names.join(", ")}\t${r.url}`);
+        for (const local of r.locals) {
+            lines.push(`\t${local}`);
+        }
+    }
+    return lines.join("\n");
+}

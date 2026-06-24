@@ -61,6 +61,13 @@ Route (1 YAML file)
         └── label, url
 ```
 
+```
+Repo database (1 YAML file, ~/.tack/repos.yaml)
+└── <normalized-remote> (map key, e.g. github.com/chris-peterson/anchor)
+    ├── names[]  — names the repo is known by (derived name + custom aliases)
+    └── locals[] — absolute paths of known checkouts/worktrees
+```
+
 ---
 
 ## Requirements
@@ -577,6 +584,38 @@ exit non-zero — rather than dumping the global usage text. This keeps the
 failure visible to scripted callers that quiet or capture one stream;
 contrast the global-usage fallback of [CL-38] for top-level errors.
 
+**[CL-42]** `tack repo <partial> [--json]` — When invoked, the CLI shall match
+`<partial>` case-insensitively against every repo's `names` in
+`~/.tack/repos.yaml` ([RP-01]) and report each matched repo's remote as an
+HTTPS URL (`https://<key>`). With exactly one match, the CLI shall print the
+URL; with several, it shall list them; with none, it shall exit non-zero with a
+not-found message. With `--json`, the CLI shall emit the structured match list.
+
+**[CL-43]** `tack repo [--json]` (no positional argument) — When invoked, the
+CLI shall list every repo in the database with its `names` and existing
+`locals`. With `--json`, the CLI shall emit the structured repo list. The
+command shall exit zero even when the database is empty.
+
+**[CL-44]** `tack repo alias <match> <alias>` — When invoked, the CLI shall add
+`<alias>` to the matched repo's `names`. If `<match>` resolves to more than one
+repo, the CLI shall fail and list the candidates.
+
+**[CL-45]** `tack repo prune` — When invoked, the CLI shall remove from every
+repo's `locals` any path that no longer exists on disk, displaying each removed
+path. It shall not remove repo entries themselves; a repo with no locals (e.g.
+one captured from a URL but never cloned) is retained.
+
+**[CL-46]** `tack repo rm <match>` — When invoked, the CLI shall remove the
+matched repo entry. If `<match>` resolves to more than one repo, the CLI shall
+fail and list the candidates.
+
+**[CL-47]** `tack repo rebuild` — When invoked, the CLI shall reconstruct the
+repo database from existing tack data: every deliverable and link URL across all
+routes that parses as a forge change reference ([RP-06]), and every existing
+pinned directory's `origin` remote ([RP-07]). The rebuild is additive — it adds
+names and locals but removes nothing, so custom aliases ([CL-44]) survive a
+re-run. It backfills the database for routes recorded before capture existed.
+
 ---
 
 ### AG — Agent Integration
@@ -709,6 +748,54 @@ most once per session.
 the tack skill rather than the hook running CLI commands directly. This
 routes all schema writes through one path and lets the agent apply context
 (which slug, which tack) the hook cannot see.
+
+---
+
+### RP — Repo Database
+
+The repo database is a standalone index that maps the names a git repository is
+known by to its remote, accumulated as tack observes work. It answers "what is
+the remote for the repo I call `<name>`?" independently of any route. "Repo"
+here means a git repository identified by its remote — a forge-neutral term
+(GitHub's "repository"/"Projects" and GitLab's "project"/"repository" each carry
+platform-specific meaning) and distinct from the project-management sense ruled
+out in the Anti-Requirements.
+
+**[RP-01]** The repo database shall be stored as a single YAML file at
+`~/.tack/repos.yaml`, a map keyed by each repo's normalized remote.
+
+**[RP-02]** A repo key shall be its git remote normalized to scheme-less
+`host/path` form: the URL scheme and any `git@host:` or `ssh://` prefix removed,
+the host and path joined with `/`, and a trailing `.git` stripped — so the HTTPS
+and SSH forms of one remote resolve to a single entry (e.g.
+`github.com/chris-peterson/anchor`).
+
+**[RP-03]** Each repo entry shall contain the following fields:
+- `names` (array of strings, required) — the names the repo is known by: the
+  auto-derived repo name (the last path segment of the key) plus any custom
+  aliases. Lookup matches `<partial>` against this list.
+- `locals` (array of strings, optional) — absolute paths of known local
+  checkouts or worktrees of the repo.
+
+**[RP-04]** The `~/.tack/repos.yaml` file and the `~/.tack/` directory shall be
+created automatically on first write if they do not exist.
+
+**[RP-05]** The repo database is internal derived state, like pins ([ST-06]):
+tack is its sole writer, so — unlike the route schema, which is the product —
+it is not governed by a published JSON Schema. A missing file shall be treated
+as an empty database.
+
+**[RP-06]** When the CLI records a deliverable or link URL that parses as a
+forge change reference ([CL-37]), it shall upsert a repo keyed by the URL's
+normalized remote ([RP-02]) and add the derived repo name to `names` if absent.
+Capture is best-effort: a failure to update the repo database shall not fail
+the command that triggered it.
+
+**[RP-07]** When `tack init` or `tack pin` runs inside a git working directory,
+the CLI shall read that directory's `origin` remote (a read-only git query)
+and, when one is present, upsert the corresponding repo ([RP-02]) and add the
+absolute working-directory path to `locals` if absent. When no `origin` remote
+is present, the CLI shall record nothing and shall not error.
 
 ---
 

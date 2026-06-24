@@ -5,8 +5,9 @@ import { delimiter, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import * as route from "./route.js";
+import * as repos from "./repos.js";
 import { TACK_STATUSES } from "./types.js";
-import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind, formatPins, treeData } from "./display.js";
+import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind, formatPins, formatRepos, treeData } from "./display.js";
 import { ZSH_COMPLETION } from "./completions.js";
 function usage(exitCode = 1) {
     const print = exitCode === 0 ? console.log : console.error;
@@ -39,6 +40,11 @@ Usage:
   tack link rm <slug> <tack-id> <url>
   tack session <slug> <session-id> [--tack <tack-id>]
   tack find <url> [--json]
+  tack repo [<partial>] [--json]     Look up repo remote(s) by name; no arg lists all
+  tack repo alias <match> <alias>    Add a custom name to a repo
+  tack repo prune                    Drop locals that no longer exist on disk
+  tack repo rebuild                  Backfill the repo db from existing routes + pins
+  tack repo rm <match>               Remove a repo entry
   tack pin [<slug>]                  Pin a route to the current cwd (no slug: show current pin)
   tack unpin                         Clear the cwd pin
   tack pins [--json]                 List all pins (flags dangling and idle entries)
@@ -503,6 +509,58 @@ function run() {
                 usage();
             const matches = route.find(url);
             console.log(jsonFlag ? JSON.stringify(matches, null, 2) : formatFind(matches));
+            break;
+        }
+        case "repo": {
+            const sub = rest[0];
+            const subArgs = rest.slice(1);
+            if (sub === "alias") {
+                if (subArgs.length < 2)
+                    usage();
+                const m = repos.addAlias(subArgs[0], subArgs[1]);
+                console.log(formatRepos([m]));
+            }
+            else if (sub === "prune") {
+                const removed = repos.pruneLocals();
+                if (removed.length === 0) {
+                    console.log("nothing to prune");
+                }
+                else {
+                    for (const r of removed)
+                        console.log(`pruned ${r.path} (${r.key})`);
+                }
+            }
+            else if (sub === "rebuild") {
+                const r = route.rebuildRepos();
+                console.log(`rebuilt repos.yaml: ${r.repoCount} repos (${r.urlsMatched} forge URLs across routes, ${r.localsAdded} locals from pins)`);
+            }
+            else if (sub === "rm") {
+                if (!subArgs[0])
+                    usage();
+                const m = repos.removeRepo(subArgs[0]);
+                console.log(`Removed: ${m.key}`);
+            }
+            else {
+                const jsonFlag = rest.includes("--json");
+                const partial = rest.filter((a) => !a.startsWith("--"))[0];
+                if (partial) {
+                    const matches = repos.matchByName(partial);
+                    if (matches.length === 0) {
+                        console.error(`No repo matches "${partial}"`);
+                        process.exit(1);
+                    }
+                    if (jsonFlag)
+                        console.log(JSON.stringify(matches, null, 2));
+                    else if (matches.length === 1)
+                        console.log(matches[0].url);
+                    else
+                        console.log(formatRepos(matches));
+                }
+                else {
+                    const all = repos.listRepos();
+                    console.log(jsonFlag ? JSON.stringify(all, null, 2) : formatRepos(all));
+                }
+            }
             break;
         }
         case "pin": {

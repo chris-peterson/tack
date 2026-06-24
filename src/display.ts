@@ -1,5 +1,6 @@
 import type { Route, Tack, TodoItem } from "./types.js";
 import { isOpen, type FindMatch, type PinEntry } from "./route.js";
+import type { RepoMatch } from "./repos.js";
 
 const STATUS_ICONS: Record<string, string> = {
   pending: " ",
@@ -424,6 +425,21 @@ export function formatPins(pins: PinEntry[]): string {
   for (const p of pins) {
     const flag = p.dangling ? "  [dangling]" : p.idle ? "  [idle]" : "";
     lines.push(`${p.path} → ${p.slug} (pinned ${p.pinned_at})${flag}`);
+  }
+  return lines.join("\n");
+}
+
+export function formatRepos(repos: RepoMatch[]): string {
+  if (repos.length === 0) {
+    return "No repos.";
+  }
+
+  const lines: string[] = [];
+  for (const r of repos) {
+    lines.push(`${r.names.join(", ")}\t${r.url}`);
+    for (const local of r.locals) {
+      lines.push(`\t${local}`);
+    }
   }
   return lines.join("\n");
 }

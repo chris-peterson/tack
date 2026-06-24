@@ -116,6 +116,54 @@ describe("tack session --tack binds the session to a tack", () => {
   });
 });
 
+describe("tack repo (CL-42..46)", () => {
+  it("captures a repo from a deliverable and looks it up by partial name", () => {
+    runFail(["init", "repo-cap"]);
+    runFail(["add", "repo-cap", "Work"]);
+    runFail(["deliverable", "repo-cap", "t1", "https://github.com/chris-peterson/zonker/pull/3"]);
+    const r = runFail(["repo", "zonk"]);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout.trim(), "https://github.com/chris-peterson/zonker");
+  });
+
+  it("exits non-zero when no repo matches", () => {
+    const r = runFail(["repo", "no-such-repo-xyz"]);
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /No repo matches/);
+  });
+
+  it("adds an alias that lookup then resolves", () => {
+    runFail(["init", "repo-alias"]);
+    runFail(["add", "repo-alias", "Work"]);
+    runFail(["deliverable", "repo-alias", "t1", "https://github.com/chris-peterson/quux/pull/1"]);
+    runFail(["repo", "alias", "quux", "qx"]);
+    const r = runFail(["repo", "qx"]);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout.trim(), "https://github.com/chris-peterson/quux");
+  });
+
+  it("emits structured output with --json", () => {
+    runFail(["init", "repo-json"]);
+    runFail(["add", "repo-json", "Work"]);
+    runFail(["deliverable", "repo-json", "t1", "https://github.com/chris-peterson/jsonrepo/pull/1"]);
+    const r = runFail(["repo", "jsonrepo", "--json"]);
+    assert.equal(r.status, 0);
+    const parsed = JSON.parse(r.stdout);
+    assert.equal(parsed[0].url, "https://github.com/chris-peterson/jsonrepo");
+  });
+
+  it("captures the repo from add --deliverable (RP-06)", () => {
+    runFail(["init", "repo-add"]);
+    runFail([
+      "add", "repo-add", "Work",
+      "--deliverable", "https://github.com/chris-peterson/addcap/pull/1",
+    ]);
+    const r = runFail(["repo", "addcap"]);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout.trim(), "https://github.com/chris-peterson/addcap");
+  });
+});
+
 describe("--help after a subcommand shows usage", () => {
   it("session --help prints usage and exits 0 instead of crashing", () => {
     const r = runFail(["session", "--help"]);

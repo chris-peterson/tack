@@ -8,6 +8,19 @@ _tack_routes() {
   (( \${#routes} )) && compadd -a routes
 }
 
+_tack_repo_names() {
+  local repos_file="\${TACK_HOME:-$HOME/.tack}/repos.yaml"
+  [[ -f "$repos_file" ]] || return
+  local -a names
+  names=( \${(f)"$(awk '
+    /^[^[:space:]]/ { in_names=0 }
+    /^  names:/ { in_names=1; next }
+    /^  [^[:space:]]/ { in_names=0 }
+    in_names && /^    - / { v=substr($0, 7); gsub(/"/, "", v); print v }
+  ' "$repos_file")"} )
+  (( \${#names} )) && compadd -a names
+}
+
 _tack_tack_ids() {
   local slug="$1"
   local tack_dir="\${TACK_HOME:-$HOME/.tack}/routes"
@@ -190,6 +203,7 @@ _tack() {
     'pin:Pin a route to the current cwd'
     'unpin:Clear the cwd pin'
     'pins:List all pins (or prune stale ones)'
+    'repo:Look up a repo remote by name'
     'rm:Delete a route'
     'rename:Rename a route'
     'install-cli:Drop a tack wrapper on PATH'
@@ -393,6 +407,17 @@ _tack() {
       # tack pins [prune | --json]
       case "$CURRENT" in
         3) _alternative 'subcommands:subcommand:((prune\:"remove stale pins"))' 'options:option:((--json\:"emit JSON"))' ;;
+      esac
+      ;;
+    repo)
+      # tack repo [<partial>] [--json] | alias <match> <alias> | prune | rm <match>
+      case "$CURRENT" in
+        3) _alternative 'subcommands:subcommand:((alias\:"add an alias" prune\:"drop stale locals" rebuild\:"backfill from routes + pins" rm\:"remove a repo"))' 'repos:repo:_tack_repo_names' 'options:option:((--json\:"emit JSON"))' ;;
+        4)
+          case "\${words[3]}" in
+            alias|rm) _tack_repo_names ;;
+          esac
+          ;;
       esac
       ;;
     rm)

@@ -1,3 +1,4 @@
+import * as repos from "./repos.js";
 import type { Link, Route, Tack, TackStatus } from "./types.js";
 export declare function isOpen(t: Tack): boolean;
 export declare function loadAll(): Route[];
@@ -72,6 +73,7 @@ export interface FindMatch {
     url: string;
 }
 export declare function find(url: string): FindMatch[];
+export declare function rebuildRepos(): repos.RebuildResult;
 export declare function remove(slug: string): void;
 export interface Pin {
     slug: string;

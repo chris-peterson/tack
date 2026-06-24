@@ -3,9 +3,9 @@
 Tracking status of the requirements declared in [`spec/v1/SPEC.md`](spec/v1/SPEC.md).
 Updated after each `/spec-audit`.
 
-**Last audit:** 2026-06-23
+**Last audit:** 2026-06-24
 **Spec version:** v1
-**Coverage:** 104 / 104 source-verified normative behaviors (100%) — 0 Partial, 0 Missing, 0 Contradicts — plus 5 deferred (FUT-01..05)
+**Coverage:** 117 / 117 source-verified normative behaviors (100%) — 0 Partial, 0 Missing, 0 Contradicts — plus 5 deferred (FUT-01..05)
 
 The HK category (HK-01..05) formalizes the hook layer. AG-02 and HK-04 are now
 **Covered**: the spec was reworded to match what the implementation actually
@@ -26,12 +26,31 @@ at 87; CL-37 makes the already-verified GitHub/GitLab URL detection explicit.
 | DP-01..04 | 4 | All Covered | `src/route.ts` |
 | LK-01 | 1 | Covered | `src/types.ts` |
 | ST-01..06 | 6 | All Covered | `src/route.ts`; ST-06 pins file (`~/.tack/pins.yaml`) |
-| CL-01..41 (+CL-19a, CL-21a..d, CL-36a..d, CL-37a) | 51 | All Covered | includes CL-17/CL-18 (session + `--tack` binding / `--json`), CL-19a (`install-cli`), CL-30..36 (pin/unpin, depends add/rm, status set, rename, move), CL-37 (forge note) + CL-37a (commit-URL label derivation), CL-38 (`--help`/`-h`/`help` + usage exit semantics, incl. subcommand-level `--help`/`-h`, `src/cli.ts`), CL-39/CL-40 (`tack pins` list + prune, `src/route.ts` `listPins`/`prunePins`), CL-41 (group-scoped subcommand errors on stderr, `src/cli.ts` `groupError`, `src/cli.test.ts`) |
+| CL-01..47 (+CL-19a, CL-21a..d, CL-36a..d, CL-37a) | 57 | All Covered | includes CL-17/CL-18 (session + `--tack` binding / `--json`), CL-19a (`install-cli`), CL-30..36 (pin/unpin, depends add/rm, status set, rename, move), CL-37 (forge note) + CL-37a (commit-URL label derivation), CL-38 (`--help`/`-h`/`help` + usage exit semantics, incl. subcommand-level `--help`/`-h`, `src/cli.ts`), CL-39/CL-40 (`tack pins` list + prune, `src/route.ts` `listPins`/`prunePins`), CL-41 (group-scoped subcommand errors on stderr, `src/cli.ts` `groupError`, `src/cli.test.ts`), CL-42..47 (`tack repo` lookup/list/alias/prune/rebuild/rm, `src/repos.ts` + `src/cli.ts`) |
 | AG-01..11 | 11 | All Covered | AG-02 reworded to drop "without blocking"; AG-10 (auto-pin on confident resolution); AG-11 (early session→tack binding via `tack find`, existing-vs-emerging derivation) covered in `skills/tack/SKILL.md` |
 | HK-01..05 | 5 | All Covered | HK-04 reworded to match the existence-only steps 1/3 the hook runs |
+| RP-01..07 | 7 | All Covered | `~/.tack/repos.yaml` repo database (`src/repos.ts`): RP-02 remote normalization, RP-06 capture from deliverable/link URLs, RP-07 capture from `init`/`pin` cwd origin; tests in `src/repos.test.ts`, `src/cli.test.ts` |
 | FUT-01..05 | 5 | Deferred | Backup feature — out of scope for v1 |
 
 ## Audit history
+
+### 2026-06-24 — Repo database (RP category)
+
++13 IDs (RP-01..07, CL-42..47). A standalone index at `~/.tack/repos.yaml` maps
+the names a repo is known by to its remote, keyed by the remote normalized to
+scheme-less `host/path` form (RP-02) so the HTTPS and SSH forms of one remote
+collapse to a single entry. Captured best-effort as tack observes work:
+recording a deliverable/link URL that parses as a forge change reference upserts
+the repo (RP-06), and `tack init` / `tack pin` read the cwd's `origin` remote to
+record a local checkout (RP-07). `tack repo <partial>` (CL-42) matches a partial
+against every repo's `names` and returns the HTTPS remote; `tack repo` lists
+(CL-43); `alias` adds a custom name (CL-44); `prune` drops stale locals while
+retaining URL-only entries (CL-45); `rebuild` backfills the database from every
+forge URL across routes plus pinned directories' origin remotes (CL-47); `rm`
+removes an entry (CL-46). The database
+is internal derived state like pins — no published JSON Schema (RP-05). Covered
+by `src/repos.ts`, `src/cli.ts`, `src/display.ts`, `src/completions.ts`; tested
+in `src/repos.test.ts` and `src/cli.test.ts`.
 
 ### 2026-06-23 — Coverage refresh (spec-status)
 
