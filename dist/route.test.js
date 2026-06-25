@@ -232,6 +232,32 @@ describe("rename", () => {
         assert.throws(() => route.rename("rename-target", "rename-target-new"), /referenced by rename-referer/);
     });
 });
+describe("setGroup / clearGroup", () => {
+    it("sets a group on an ungrouped route", () => {
+        route.init("group-set");
+        const r = route.setGroup("group-set", "platform");
+        assert.equal(r.group, "platform");
+        assert.equal(route.load("group-set").group, "platform");
+    });
+    it("changes an already-grouped route", () => {
+        route.init("group-change", { group: "old" });
+        route.setGroup("group-change", "new");
+        assert.equal(route.load("group-change").group, "new");
+    });
+    it("clears the group, returning the route to ungrouped", () => {
+        route.init("group-clear", { group: "temp" });
+        const r = route.clearGroup("group-clear");
+        assert.equal(r.group, undefined);
+        assert.equal(route.load("group-clear").group, undefined);
+    });
+    it("rejects a group slug that violates the schema pattern", () => {
+        route.init("group-bad");
+        assert.throws(() => route.setGroup("group-bad", "Not A Slug"), /validation failed/i);
+    });
+    it("throws for a missing route", () => {
+        assert.throws(() => route.setGroup("group-ghost", "x"), /not found/i);
+    });
+});
 describe("markDone", () => {
     it("marks tack as done with an ISO date-time", () => {
         route.init("done-test");

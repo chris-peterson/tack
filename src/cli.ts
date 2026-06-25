@@ -18,6 +18,7 @@ function usage(exitCode = 1): never {
 Usage:
   tack init <slug> [--group <slug>]
   tack rename <old-slug> <new-slug>
+  tack group <slug> [<group>] [--clear]   (no group: show current; --clear: ungroup)
   tack status [slug] [--all]
   tack status set <slug> <tack-id> <pending|in_progress|done|blocked|dropped>
   tack list [--json]
@@ -513,6 +514,36 @@ function run(): void {
       const r = route.rename(rest[0], rest[1]);
       console.log(`Renamed: ${rest[0]} → ${rest[1]}`);
       console.log(formatRoute(r));
+      break;
+    }
+
+    case "group": {
+      const { values: groupValues, positionals: groupPositionals } = parseArgs({
+        args: rest,
+        options: {
+          clear: { type: "boolean" },
+        },
+        allowPositionals: true,
+      });
+      const groupSlug = groupPositionals[0];
+      if (!groupSlug) usage();
+      if (groupValues.clear) {
+        const r = route.clearGroup(groupSlug);
+        console.log(`Cleared group on ${groupSlug}`);
+        console.log(formatRoute(r));
+      } else if (groupPositionals[1]) {
+        const r = route.setGroup(groupSlug, groupPositionals[1]);
+        console.log(formatRoute(r));
+      } else {
+        // No group argument: report the current group, mirroring `tack pin`.
+        const r = route.load(groupSlug);
+        if (r.group) {
+          console.log(r.group);
+        } else {
+          console.log(`no group set on ${groupSlug}`);
+          process.exit(1);
+        }
+      }
       break;
     }
 

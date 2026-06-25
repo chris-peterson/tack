@@ -144,6 +144,25 @@ slug error with `Route not found`. The old name is **not** resurrected, so
 there's no risk of a split route. Re-pin from the affected working
 directory when you next visit it.
 
+### `tack group <slug> [<group>] [--clear]`
+
+Set, change, or clear a route's group. The group buckets related routes in
+downstream views (e.g. the `/wip` dashboard groups routes by it), so
+re-grouping a route is a normal housekeeping operation. Without this verb the
+only way to re-group an existing route was to hand-edit its YAML; `tack group`
+goes through the same load → modify → validate → save path as the other
+route-level operations.
+
+```bash
+tack group auth-rewrite platform   # set or change the group
+tack group auth-rewrite --clear     # return the route to ungrouped
+tack group auth-rewrite             # print the current group (exits non-zero if none)
+```
+
+The group must be a valid slug (`^[a-z0-9][a-z0-9-]*[a-z0-9]$`) — the same
+constraint `tack init --group` enforces. An invalid group surfaces a
+validation error and the route is left unchanged.
+
 ### `tack rm <slug> [--force]`
 
 Delete a route. Requires `--force` to confirm.

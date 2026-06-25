@@ -206,6 +206,7 @@ _tack() {
     'repo:Look up a repo remote by name'
     'rm:Delete a route'
     'rename:Rename a route'
+    'group:Set, change, or clear a route group'
     'install-cli:Drop a tack wrapper on PATH'
     'completions:Output shell completion script'
     'help:Show usage'
@@ -378,6 +379,13 @@ _tack() {
       case "$CURRENT" in
         3) _tack_routes ;;
         4) _message 'new-slug' ;;
+      esac
+      ;;
+    group)
+      # tack group <slug> [<group>] [--clear]
+      case "$CURRENT" in
+        3) _tack_routes ;;
+        *) _arguments '--clear[Remove the route group]' ;;
       esac
       ;;
     session)

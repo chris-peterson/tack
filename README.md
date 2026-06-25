@@ -91,6 +91,7 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 | Command | Description |
 |---|---|
 | `tack init <slug> [--group <slug>]` | Create a new route |
+| `tack group <slug> [<group>] [--clear]` | Set, change, clear, or print a route's group |
 | `tack status [slug] [--all] [--json]` | Show route details (dropped tacks hidden unless `--all`) |
 | `tack list [--json]` | List all routes with open/total counts |
 | `tack recent [--count <n>] [--since <date>] [--json]` | List routes by most recently updated |

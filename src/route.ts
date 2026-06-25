@@ -407,6 +407,22 @@ export function rename(oldSlug: string, newSlug: string): Route {
   return route;
 }
 
+export function setGroup(slug: string, group: string): Route {
+  const route = load(slug);
+  route.group = group;
+  // save() validates against the schema, so an invalid group slug surfaces
+  // the pattern error rather than writing a malformed route file.
+  save(route);
+  return route;
+}
+
+export function clearGroup(slug: string): Route {
+  const route = load(slug);
+  delete route.group;
+  save(route);
+  return route;
+}
+
 export function setDeliverable(
   slug: string,
   tackId: string,
