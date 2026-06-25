@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.19.1
+
+Fixes session→tack binding, which silently did nothing because the code and the `/tack:tack` skill read `CLAUDE_SESSION_ID` — a variable the Claude Code harness never sets. The harness exposes the active session id as `CLAUDE_CODE_SESSION_ID`.
+
+- `writePin` now reads `CLAUDE_CODE_SESSION_ID`, so a pin records the session that created it instead of dropping the field.
+- The `/tack:tack` skill's `tack session <slug> $CLAUDE_CODE_SESSION_ID --tack <id>` now expands to a real id, so the bind command records the link instead of losing its positional argument.
+
 ## 0.19.0
 
 ### Features
