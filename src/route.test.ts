@@ -1073,14 +1073,14 @@ describe("pin/unpin", () => {
 
   it("writePin includes session_id from env when set", () => {
     route.init("pin-with-session");
-    const prev = process.env.CLAUDE_SESSION_ID;
-    process.env.CLAUDE_SESSION_ID = "sess-123";
+    const prev = process.env.CLAUDE_CODE_SESSION_ID;
+    process.env.CLAUDE_CODE_SESSION_ID = "sess-123";
     try {
       const pin = route.writePin("pin-with-session", cwd);
       assert.equal(pin.session_id, "sess-123");
     } finally {
-      if (prev === undefined) delete process.env.CLAUDE_SESSION_ID;
-      else process.env.CLAUDE_SESSION_ID = prev;
+      if (prev === undefined) delete process.env.CLAUDE_CODE_SESSION_ID;
+      else process.env.CLAUDE_CODE_SESSION_ID = prev;
     }
   });
 

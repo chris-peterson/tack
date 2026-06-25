@@ -744,7 +744,7 @@ export function writePin(slug: string, cwd: string = process.cwd()): Pin {
     slug,
     pinned_at: now(),
   };
-  const sessionId = process.env.CLAUDE_SESSION_ID;
+  const sessionId = process.env.CLAUDE_CODE_SESSION_ID;
   if (sessionId) pin.session_id = sessionId;
   const pins = readPins();
   pins[cwd] = pin;

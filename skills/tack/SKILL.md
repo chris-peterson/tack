@@ -69,7 +69,7 @@ When invoked at session start (no arguments or "status"):
 2. **Overview.** Run `tack tree -d 2` to see all routes and their tacks.
 3. **Resolve active route** using the procedure above.
 4. **Register session and bind the tack.** On the active route, run `tack
-   session <slug> $CLAUDE_SESSION_ID --tack <tack-id>`, where `<tack-id>` is
+   session <slug> $CLAUDE_CODE_SESSION_ID --tack <tack-id>`, where `<tack-id>` is
    the tack this session is working (see "Binding the session to a tack"
    below). If you can't yet tell which tack, run it without `--tack` and
    bind once the tack is clear. Re-run with `--tack` whenever the session's
@@ -82,7 +82,7 @@ When invoked at session start (no arguments or "status"):
 
 A session attaches to a *route*, but a route holds many tacks. Binding the
 session to the specific tack it's driving — via `tack session <slug>
-$CLAUDE_SESSION_ID --tack <tack-id>` — is what lets a fleet view (e.g. beacon's
+$CLAUDE_CODE_SESSION_ID --tack <tack-id>` — is what lets a fleet view (e.g. beacon's
 `wip`) show *which* tack a live session is on, and tell **existing** work (a
 session resumed on a tracked tack) from **emerging** work (a session that just
 spun up a new tack).
@@ -92,7 +92,7 @@ is a work-tracker URL the user pastes (or a tool emits) at the start:
 
 1. Run `tack find <url> --json`.
 2. **One tack matches** → the session is resuming existing work. Bind to that
-   tack: `tack session <slug> $CLAUDE_SESSION_ID --tack <tack-id>`.
+   tack: `tack session <slug> $CLAUDE_CODE_SESSION_ID --tack <tack-id>`.
 3. **No match** → the work is emerging. Create the tack (recording the URL as
    its deliverable or link per "Acting on hook reminders"), then bind the
    session to the new tack.
