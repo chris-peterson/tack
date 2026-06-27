@@ -75,6 +75,10 @@ export interface FindMatch {
     url: string;
 }
 export declare function find(url: string): FindMatch[];
+export declare function findCollisions(url: string, exclude: {
+    slug: string;
+    tackId: string;
+}): FindMatch[];
 export declare function rebuildRepos(): repos.RebuildResult;
 export declare function remove(slug: string): void;
 export interface Pin {

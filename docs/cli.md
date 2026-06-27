@@ -324,6 +324,12 @@ the existing label and URL — this prevents a typo'd tack ID from silently
 clobbering an unrelated tack's deliverable. Pass `--force` to overwrite
 intentionally.
 
+If the URL is already attached to another tack (as a deliverable or link), the
+command prints a `warning: url already on <route>/<tack> ...` to stderr naming
+where it lives, so you can spot a duplicate before a downstream tool
+double-counts the work. The attach still completes — the warning is
+informational. Re-attaching a URL already on the same tack does not warn.
+
 ```bash
 tack deliverable auth-rewrite t1 https://github.com/org/repo/pull/42            # label → "repo#42"
 tack deliverable auth-rewrite t1 https://github.com/org/repo/pull/42 --label "Session PR"
@@ -371,6 +377,10 @@ tack todo rm auth-rewrite t1 a2
 Add a reference link to a tack. The URL is always recorded as a link —
 even when it points at a PR/MR — so links and deliverables stay
 explicit. Use `tack deliverable` to set the change request directly.
+
+If the URL is already attached to another tack, the command prints a
+`warning: url already on ...` to stderr (see `tack deliverable`). The link is
+still added.
 
 ```bash
 tack link add auth-rewrite t1 "Design doc" https://docs.example.com/auth

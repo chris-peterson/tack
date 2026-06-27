@@ -74,6 +74,16 @@ function expectedOneOf(expected: string[], got: string | undefined): string {
   return got ? `expected ${list} (got '${got}')` : `expected ${list}`;
 }
 
+// Warn (to stderr) when a URL being attached already lives on another tack, so
+// the caller can spot a duplicate before a downstream tool double-counts it.
+// The mutated tack is excluded so an idempotent re-attach stays quiet.
+function warnUrlCollision(url: string, slug: string, tackId: string): void {
+  const collisions = route.findCollisions(url, { slug, tackId });
+  if (collisions.length === 0) return;
+  const locations = collisions.map((m) => `${m.slug}/${m.tackId} (${m.match})`).join(", ");
+  console.error(`warning: url already on ${locations}: ${url}`);
+}
+
 type Source = { path: string; kind: "shim" | "node" };
 
 function resolveSource(): Source {
@@ -328,6 +338,7 @@ function run(): void {
         doneAt: values.date as string | undefined,
         deliverable,
       });
+      if (deliverableUrl) warnUrlCollision(deliverableUrl, slug, tack.id);
       console.log(formatTack(tack));
       break;
     }
@@ -398,6 +409,7 @@ function run(): void {
         dlvUrl,
         { force: dlvValues.force as boolean | undefined },
       );
+      warnUrlCollision(dlvUrl, dlvPositionals[0], tack.id);
       console.log(formatTack(tack));
       break;
     }
@@ -481,6 +493,7 @@ function run(): void {
       if (sub === "add") {
         if (subArgs.length < 4) usage();
         const tack = route.addLink(subArgs[0], subArgs[1], subArgs[2], subArgs[3]);
+        warnUrlCollision(subArgs[3], subArgs[0], tack.id);
         console.log(formatTack(tack));
       } else if (sub === "rm") {
         if (subArgs.length < 3) usage();
