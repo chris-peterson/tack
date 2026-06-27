@@ -36,6 +36,8 @@ export declare function setStatus(slug: string, tackId: string, status: TackStat
 export declare function addDependency(slug: string, tackId: string, depId: string): Tack;
 export declare function removeDependency(slug: string, tackId: string, depId: string): Tack;
 export declare function rename(oldSlug: string, newSlug: string): Route;
+export declare function setGroup(slug: string, group: string): Route;
+export declare function clearGroup(slug: string): Route;
 export declare function setDeliverable(slug: string, tackId: string, label: string, url: string, opts?: {
     force?: boolean;
 }): Tack;

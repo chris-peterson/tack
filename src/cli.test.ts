@@ -116,6 +116,49 @@ describe("tack session --tack binds the session to a tack", () => {
   });
 });
 
+describe("tack group (issue #19)", () => {
+  it("sets a group on an existing route", () => {
+    runFail(["init", "grp-set"]);
+    const r = runFail(["group", "grp-set", "platform"]);
+    assert.equal(r.status, 0);
+    assert.match(r.stdout, /group: platform/);
+  });
+
+  it("changes the group on an already-grouped route", () => {
+    runFail(["init", "grp-change", "--group", "old"]);
+    const r = runFail(["group", "grp-change", "new"]);
+    assert.equal(r.status, 0);
+    assert.match(r.stdout, /group: new/);
+  });
+
+  it("clears the group with --clear", () => {
+    runFail(["init", "grp-clear", "--group", "temp"]);
+    const r = runFail(["group", "grp-clear", "--clear"]);
+    assert.equal(r.status, 0);
+    assert.doesNotMatch(r.stdout, /group: temp/);
+  });
+
+  it("prints the current group when no group argument is given", () => {
+    runFail(["init", "grp-show", "--group", "infra"]);
+    const r = runFail(["group", "grp-show"]);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout.trim(), "infra");
+  });
+
+  it("exits non-zero when reporting an ungrouped route", () => {
+    runFail(["init", "grp-none"]);
+    const r = runFail(["group", "grp-none"]);
+    assert.equal(r.status, 1);
+    assert.match(r.stdout, /no group set on grp-none/);
+  });
+
+  it("fails on a group slug that violates the schema pattern", () => {
+    runFail(["init", "grp-bad"]);
+    const r = runFail(["group", "grp-bad", "Not A Slug"]);
+    assert.equal(r.status, 1);
+  });
+});
+
 describe("tack repo (CL-42..46)", () => {
   it("captures a repo from a deliverable and looks it up by partial name", () => {
     runFail(["init", "repo-cap"]);
