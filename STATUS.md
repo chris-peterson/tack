@@ -3,9 +3,9 @@
 Tracking status of the requirements declared in [`spec/v1/SPEC.md`](spec/v1/SPEC.md).
 Updated after each `/spec-audit`.
 
-**Last audit:** 2026-06-24
+**Last audit:** 2026-06-27
 **Spec version:** v1
-**Coverage:** 117 / 117 source-verified normative behaviors (100%) — 0 Partial, 0 Missing, 0 Contradicts — plus 5 deferred (FUT-01..05)
+**Coverage:** 118 / 118 source-verified normative behaviors (100%) — 0 Partial, 0 Missing, 0 Contradicts — plus 5 deferred (FUT-01..05)
 
 The HK category (HK-01..05) formalizes the hook layer. AG-02 and HK-04 are now
 **Covered**: the spec was reworded to match what the implementation actually
@@ -26,13 +26,23 @@ at 87; CL-37 makes the already-verified GitHub/GitLab URL detection explicit.
 | DP-01..04 | 4 | All Covered | `src/route.ts` |
 | LK-01 | 1 | Covered | `src/types.ts` |
 | ST-01..06 | 6 | All Covered | `src/route.ts`; ST-06 pins file (`~/.tack/pins.yaml`) |
-| CL-01..47 (+CL-19a, CL-21a..d, CL-36a..d, CL-37a) | 57 | All Covered | includes CL-17/CL-18 (session + `--tack` binding / `--json`), CL-19a (`install-cli`), CL-30..36 (pin/unpin, depends add/rm, status set, rename, move), CL-37 (forge note) + CL-37a (commit-URL label derivation), CL-38 (`--help`/`-h`/`help` + usage exit semantics, incl. subcommand-level `--help`/`-h`, `src/cli.ts`), CL-39/CL-40 (`tack pins` list + prune, `src/route.ts` `listPins`/`prunePins`), CL-41 (group-scoped subcommand errors on stderr, `src/cli.ts` `groupError`, `src/cli.test.ts`), CL-42..47 (`tack repo` lookup/list/alias/prune/rebuild/rm, `src/repos.ts` + `src/cli.ts`) |
+| CL-01..48 (+CL-19a, CL-21a..d, CL-36a..d, CL-37a) | 58 | All Covered | includes CL-17/CL-18 (session + `--tack` binding / `--json`), CL-19a (`install-cli`), CL-30..36 (pin/unpin, depends add/rm, status set, rename, move), CL-37 (forge note) + CL-37a (commit-URL label derivation), CL-38 (`--help`/`-h`/`help` + usage exit semantics, incl. subcommand-level `--help`/`-h`, `src/cli.ts`), CL-39/CL-40 (`tack pins` list + prune, `src/route.ts` `listPins`/`prunePins`), CL-41 (group-scoped subcommand errors on stderr, `src/cli.ts` `groupError`, `src/cli.test.ts`), CL-42..47 (`tack repo` lookup/list/alias/prune/rebuild/rm, `src/repos.ts` + `src/cli.ts`), CL-48 (duplicate-URL warning on attach, `src/route.ts` `findCollisions`, `src/cli.ts` `warnUrlCollision`, `src/cli.test.ts`) |
 | AG-01..11 | 11 | All Covered | AG-02 reworded to drop "without blocking"; AG-10 (auto-pin on confident resolution); AG-11 (early session→tack binding via `tack find`, existing-vs-emerging derivation) covered in `skills/tack/SKILL.md` |
 | HK-01..05 | 5 | All Covered | HK-04 reworded to match the existence-only steps 1/3 the hook runs |
 | RP-01..07 | 7 | All Covered | `~/.tack/repos.yaml` repo database (`src/repos.ts`): RP-02 remote normalization, RP-06 capture from deliverable/link URLs, RP-07 capture from `init`/`pin` cwd origin; tests in `src/repos.test.ts`, `src/cli.test.ts` |
 | FUT-01..05 | 5 | Deferred | Backup feature — out of scope for v1 |
 
 ## Audit history
+
+### 2026-06-27 — Duplicate-URL warning (CL-48)
+
++1 ID (CL-48, issue #10). Attaching a URL as a deliverable or link now scans
+the other tacks for the same exact URL — reusing `find()`'s match rule
+([CL-23]) via `findCollisions` — and warns to stderr when it already lives
+elsewhere, naming each route/tack. The mutated tack is excluded so an
+idempotent re-attach stays quiet; the attach still completes and exits zero.
+`src/route.ts` `findCollisions`, `src/cli.ts` `warnUrlCollision`, tests in
+`src/cli.test.ts`.
 
 ### 2026-06-24 — Repo database (RP category)
 
