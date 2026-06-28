@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.20.0
+
+### Features
+- New `tack group <slug> [<group>] [--clear]` verb sets, changes, clears, or shows a route's group on an existing route — so a route can be regrouped in place (and the `/wip` dashboard grouping reorganized) without recreating it. An invalid group slug surfaces the schema error and leaves the route unchanged.
+
 ## 0.19.1
 
 Fixes session→tack binding, which silently did nothing because the code and the `/tack:tack` skill read `CLAUDE_SESSION_ID` — a variable the Claude Code harness never sets. The harness exposes the active session id as `CLAUDE_CODE_SESSION_ID`.
