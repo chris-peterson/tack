@@ -1,10 +1,9 @@
 ---
 description: >
-  Route-aware agent for tracking AI-assisted development work. Use this skill
-  at the start of a session to load context about current work, or whenever the
-  user mentions routes, tacks, deliverables, or work-in-progress. Triggers on
-  'tack', 'route', 'where was I', 'what am I working on', 'wip', 'tangent',
-  or when the user starts work in a new project.
+  Route-aware tracker for AI-assisted development work, spanning session
+  boundaries. Use it at session start to load context on current work, or
+  when the user mentions routes, tacks, or deliverables. Triggers on 'where
+  was I', 'what am I working on', 'wip'.
 argument-hint: "[command]"
 ---
 
