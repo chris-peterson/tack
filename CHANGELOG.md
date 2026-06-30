@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.20.1
+
+### Other
+- Trimmed the `tack` skill's `description` frontmatter to cut the always-resident context cost. Kept the high-signal natural-language cues ("where was I", "what am I working on", "wip"); dropped the name-echo triggers and generic prose.
+
 ## 0.20.0
 
 ### Features
