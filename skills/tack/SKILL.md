@@ -1,9 +1,9 @@
 ---
+disable-model-invocation: true
 description: >
   Route-aware tracker for AI-assisted development work, spanning session
   boundaries. Use it at session start to load context on current work, or
-  when the user mentions routes, tacks, or deliverables. Triggers on 'where
-  was I', 'what am I working on', 'wip'.
+  when the user mentions routes, tacks, or deliverables.
 argument-hint: "[command]"
 ---
 
