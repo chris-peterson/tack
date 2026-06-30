@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.21.0
+
+### Features
+- `/tack:tack` accepts a bare CLI subcommand and runs the bundled binary directly — e.g. `/tack:tack install-cli` to put the `tack` wrapper on your PATH, or `/tack:tack list` / `tree` to drive the CLI through the skill.
+
+### Other
+- `/tack:tack` is now invoked explicitly rather than activating on its own. The skill no longer auto-triggers on natural-language cues like "where was I" or "what am I working on" — run `/tack:tack` when you want it. This stops unsolicited activation and trims the context the plugin keeps resident in every session.
+- `/tack:tack` resolves to a single artifact. The duplicate slash-command definition was removed, so the skill is the one place that owns the behavior.
+
 ## 0.20.1
 
 ### Other
