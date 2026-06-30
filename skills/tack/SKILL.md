@@ -12,6 +12,22 @@ the `tack` CLI. The CLI encapsulates schema operations on YAML routes at
 `~/.tack/routes/<slug>.yaml`. **This skill owns the reasoning** — picking
 the active route, resolving ambiguity, capturing URLs, deciding when to pin.
 
+## Direct CLI passthrough
+
+When invoked with a bare CLI subcommand as the argument — `install-cli`,
+`list`, `tree`, etc. — the user wants that command run, not the resolution
+procedure. Run it directly against the bundled binary and report the output:
+
+```bash
+"${CLAUDE_PLUGIN_ROOT}/bin/tack" <args>
+```
+
+`install-cli` is the first-run bootstrap that puts a `tack` wrapper on PATH;
+running it through the bundled binary works before `tack` is installed. Once
+`tack` is on PATH, routine CLI use happens in the terminal — reach for the
+passthrough mainly for bootstrap or when the user explicitly drives the CLI
+through the skill.
+
 ## The active route
 
 "What am I working on?" is the question this skill exists to answer. Run
