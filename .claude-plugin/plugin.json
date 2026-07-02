@@ -1,6 +1,6 @@
 {
   "name": "tack",
-  "version": "0.21.0",
+  "version": "0.21.1",
   "description": "Route tracker for AI-assisted development work \u2014 pivots, deliverables, and dependencies \u2014 across session boundaries",
   "author": {
     "name": "chris-peterson"

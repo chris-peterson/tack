@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.21.1
+
+### Fixes
+- The `/tack:tack` skill can now be invoked by the model, not only by typing the command. It was marked `disable-model-invocation`, which silently defeated the session hooks that nudge the agent to resolve the active route or record a pasted PR/MR URL — those nudges told the agent to "use the tack skill" but the flag forbade it. The nudges are now actionable.
+
 ## 0.21.0
 
 ### Features
