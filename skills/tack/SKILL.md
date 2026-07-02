@@ -1,5 +1,4 @@
 ---
-disable-model-invocation: true
 description: >
   Route-aware tracker for AI-assisted development work, spanning session
   boundaries. Use it at session start to load context on current work, or
