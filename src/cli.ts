@@ -335,6 +335,12 @@ function run(): void {
     case "start": {
       if (!rest[0] || !rest[1]) usage();
       const tack = route.startTack(rest[0], rest[1]);
+      // Bind the current Claude session to the tack it just started, so the
+      // fleet view (beacon reads sessions[].tacks) attributes the session to
+      // the tack it is driving with no separate `tack session --tack` call.
+      // No-op in an ad-hoc terminal where the session env var is unset.
+      const startSid = process.env.CLAUDE_CODE_SESSION_ID;
+      if (startSid) route.recordSession(rest[0], startSid, rest[1]);
       console.log(formatTack(tack));
       break;
     }

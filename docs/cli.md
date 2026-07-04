@@ -213,6 +213,12 @@ names two ways forward:
 tack start auth-rewrite t1
 ```
 
+When run inside a Claude Code session (the `CLAUDE_CODE_SESSION_ID`
+environment variable is set), `start` also binds that session to the tack —
+the same link `tack session <slug> <session-id> --tack <tack-id>` writes.
+That's what lets the fleet view (beacon) show which tack a session is
+driving, with nothing extra to run. Outside a Claude session it's a no-op.
+
 ### `tack status set <slug> <tack-id> <status>`
 
 Set a tack's status directly, with no guards. Valid statuses: `pending`,
