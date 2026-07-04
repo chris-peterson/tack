@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 const cli = join(dirname(fileURLToPath(import.meta.url)), "cli.js");
 const env = { ...process.env, TACK_HOME: mkdtempSync(join(tmpdir(), "tack-cli-test-")) };
@@ -206,5 +206,28 @@ describe("--help after a subcommand shows usage", () => {
         const r = runFail(["session", "-h"]);
         assert.equal(r.status, 0);
         assert.match(r.stdout, /Usage:/);
+    });
+});
+describe("tack start auto-binds the current Claude session (beacon fleet join)", () => {
+    it("records the session with the started tack under sessions[]", () => {
+        const home = mkdtempSync(join(tmpdir(), "tack-start-bind-"));
+        const e = { ...process.env, TACK_HOME: home, CLAUDE_CODE_SESSION_ID: "sess-abc-123" };
+        execFileSync("node", [cli, "init", "bindroute"], { env: e });
+        execFileSync("node", [cli, "add", "bindroute", "Wire it"], { env: e });
+        execFileSync("node", [cli, "start", "bindroute", "t1"], { env: e });
+        const yaml = readFileSync(join(home, "routes", "bindroute.yaml"), "utf-8");
+        assert.match(yaml, /sessions:/);
+        assert.match(yaml, /- id: sess-abc-123/);
+        assert.match(yaml, /tacks:\s*\n\s*- t1/);
+    });
+    it("is a no-op outside a Claude session (env var unset)", () => {
+        const home = mkdtempSync(join(tmpdir(), "tack-start-nobind-"));
+        const e = { ...process.env, TACK_HOME: home };
+        delete e.CLAUDE_CODE_SESSION_ID;
+        execFileSync("node", [cli, "init", "nobind"], { env: e });
+        execFileSync("node", [cli, "add", "nobind", "Wire it"], { env: e });
+        execFileSync("node", [cli, "start", "nobind", "t1"], { env: e });
+        const yaml = readFileSync(join(home, "routes", "nobind.yaml"), "utf-8");
+        assert.doesNotMatch(yaml, /sessions:/);
     });
 });

@@ -323,7 +323,13 @@ entries with unmet dependencies, the operation shall fail per [DP-03]. The
 error message shall guide the user to either drop the edge with
 [CL-33] (`tack depends rm`) when the declared ordering no longer holds, or
 to bypass the guard with [CL-34] (`tack status set`) when the inconsistent
-state is intentional.
+state is intentional. When the `CLAUDE_CODE_SESSION_ID` environment variable
+is set (the CLI is running inside a Claude Code session), the CLI shall also
+bind that session to the started tack per [RT-11] / [CL-17] — starting a tack
+in a session is the declaration that the session is driving it, so a fleet
+reader keyed on the Claude session id (e.g. beacon) can attribute the session
+to the tack with no separate `tack session --tack` call. Outside a Claude
+session (variable unset) this is a no-op.
 
 **[CL-08]** `tack deliverable <slug> <tack-id> <url> [--label <text>] [--force]` —
 When invoked, the CLI shall set the deliverable on the specified tack. The
