@@ -3,7 +3,7 @@
 # the marketplace SPA (the suite: block).
 
 name: tack
-version: 0.21.1
+version: 0.22.0
 description: Route tracker for AI-assisted development work — pivots, deliverables, and dependencies — across session boundaries
 author: chris-peterson
 repository: https://github.com/chris-peterson/tack

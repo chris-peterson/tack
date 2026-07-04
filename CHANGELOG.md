@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.22.0
+
+### Features
+- `tack start` now binds the current Claude Code session to the tack it starts (when `CLAUDE_CODE_SESSION_ID` is set) — the same link `tack session --tack` writes. Starting a tack in a session is the declaration that the session is driving it, so a fleet view keyed on the session id (beacon) attributes the session to that tack automatically, with no separate command. A no-op in an ad-hoc terminal where the variable is unset.
+
 ## 0.21.1
 
 ### Fixes
