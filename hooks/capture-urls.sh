@@ -10,8 +10,8 @@ set -euo pipefail
 input=$(cat)
 
 # Extract stdout from tool result
-# PostToolUse stdin shape: {"tool_name":"Bash","tool_input":{...},"tool_result":{"stdout":"..."}}
-output=$(echo "$input" | jq -r '.tool_result.stdout // empty' 2>/dev/null)
+# PostToolUse stdin shape: {"tool_name":"Bash","tool_input":{...},"tool_response":{"stdout":"..."}}
+output=$(echo "$input" | jq -r '.tool_response.stdout // empty' 2>/dev/null)
 [ -z "$output" ] && exit 0
 
 # Match GitHub PR or GitLab MR URLs

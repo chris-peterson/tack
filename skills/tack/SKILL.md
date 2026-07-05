@@ -1,8 +1,11 @@
 ---
+name: tack
 description: >
-  Route-aware tracker for AI-assisted development work, spanning session
-  boundaries. Use it at session start to load context on current work, or
-  when the user mentions routes, tacks, or deliverables.
+  Track AI-assisted development work with the `tack` route tracker, spanning
+  session boundaries. This skill should be used at session start to answer
+  "what am I working on?" and load context on current work, and when the user
+  refers to tack routes, tacks, or recording a PR/MR deliverable against
+  tracked work.
 argument-hint: "[command]"
 ---
 
@@ -189,14 +192,14 @@ deliverable, use `tack merge` to consolidate them before ending.
 When a tack is done, run `tack done <slug> <tack-id>`. If pending `after`
 todos exist, surface them before moving on:
 
-> Before moving on, these post-work items are pending:
-> - a1: Update deployment docs
-> - a2: Notify the team
+> Pending todo items:
+>   [ ] Update deployment docs
+>   [ ] Notify the team
 
 If the tack has no deliverable but two or more PR/MR links in `links`,
 `tack done` completes the status change and prints a `Multiple PR/MR
 links present` warning to stderr listing the candidates. Read that
-warning and either run `tack deliverable <slug> <tack-id> <label> <url>`
+warning and either run `tack deliverable <slug> <tack-id> <url> --label "<text>"`
 with the user's chosen URL, or surface the candidates to the user to
 pick. Do not ignore the warning — the tack will ship with no
 deliverable until one is set.
@@ -258,10 +261,17 @@ matches for globs. Parse it with `jq` rather than scraping the text view.
 
 ## CLI reference
 
+`tack --help` is the authoritative command list — run it (or `tack <cmd>
+--help`) when you need the current signature. The summary below mirrors it for
+quick lookup; if the two ever disagree, trust `tack --help`.
+
 ```text
 tack init <slug> [--group <slug>]  Create a new route
+tack rename <old-slug> <new-slug>  Rename a route (updates the slug + pins)
+tack group <slug> [<group>] [--clear]  Show/set/clear a route's group
 tack list [--json]                 List all routes
 tack status [slug] [--json] [--all]  Show route details (dropped hidden unless --all)
+tack status set <slug> <id> <pending|in_progress|done|blocked|dropped>  Set a tack's status directly
 tack tree [path] [-d <depth>] [--json]  Browse routes/tacks (glob: */*/deliverable)
 tack recent [--count <n>] [--since <date>] [--json]  Recently-updated routes
 tack find <url> [--json]           Find routes/tacks by URL
@@ -283,13 +293,21 @@ tack before <slug> <id> <text>     Add pre-work todo
 tack after <slug> <id> <text>      Add post-work todo
 tack todo done <slug> <id> <todo>  Complete a todo
 tack todo rm <slug> <id> <todo>    Delete a todo
+tack depends add <slug> <id> <dep-id>  Add a depends_on edge (route-local)
+tack depends rm <slug> <id> <dep-id>   Remove a depends_on edge
 tack link add <slug> <id> <label> <url>  Add a link
 tack link rm <slug> <id> <url>     Remove a link
 tack session <slug> <session-id> [--tack <tack-id>]  Record a session; --tack binds it to the tack it's driving
+tack repo [<partial>] [--json]     Look up repo remote(s) by name; no arg lists all
+tack repo alias <match> <alias>    Add a custom name to a repo
+tack repo prune                    Drop locals that no longer exist on disk
+tack repo rebuild                  Backfill the repo db from existing routes + pins
+tack repo rm <match>               Remove a repo entry
 tack pin [<slug>]                  Pin / show the active route for this cwd
 tack unpin                         Clear the cwd pin
 tack pins [--json]                 List all pins (flags dangling/idle)
 tack pins prune                    Drop pins with a deleted route or missing directory
 tack rm <slug> [--force]           Delete an entire route
+tack install-cli [--dir <path>]    Install the tack wrapper + zsh completions on PATH
 tack completions zsh               Install shell completions
 ```

@@ -345,7 +345,7 @@ function run() {
             if (ambiguousDeliverable.length) {
                 console.error(`\nMultiple PR/MR links present — no deliverable promoted. Pick one with:`);
                 for (const link of ambiguousDeliverable) {
-                    console.error(`  tack deliverable ${rest[0]} ${rest[1]} "${link.label}" ${link.url}`);
+                    console.error(`  tack deliverable ${rest[0]} ${rest[1]} ${link.url} --label "${link.label}"`);
                 }
             }
             break;
