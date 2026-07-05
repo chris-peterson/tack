@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.22.1
+
+### Fixed
+
+- **PostToolUse URL-capture hook now fires.** It read the wrong stdin field (`tool_result` instead of `tool_response`), so PR/MR/issue URLs appearing in Bash output were silently never captured. It now reads the correct field.
+- **`tack done` ambiguous-deliverable hint is now runnable.** It printed a four-positional `tack deliverable` form the command rejects; it now suggests the correct `<url> --label "<text>"` form.
+
+### Changed
+
+- **tack skill brought in line with the CLI.** Corrected the `tack deliverable` signature and the `tack done` pending-todo output shape, added the commands the reference had drifted past (`rename`, `group`, `status set`, `depends`, `repo`), and tightened the skill description to reduce over-firing.
+
 ## 0.22.0
 
 ### Features
