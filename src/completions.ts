@@ -184,6 +184,7 @@ _tack() {
     'init:Create a new route'
     'status:Show route status'
     'list:List all routes'
+    'recent:List recently updated routes'
     'tree:Browse routes and tacks'
     'add:Add a tack to a route'
     'start:Start working on a tack'
@@ -200,6 +201,7 @@ _tack() {
     'depends:Add or remove a tack dependency'
     'link:Add a link to a tack'
     'session:Record a session'
+    'find:Find the tack that owns a URL'
     'pin:Pin a route to the current cwd'
     'unpin:Clear the cwd pin'
     'pins:List all pins (or prune stale ones)'
@@ -207,6 +209,8 @@ _tack() {
     'rm:Delete a route'
     'rename:Rename a route'
     'group:Set, change, or clear a route group'
+    'export:Write a gzip backup (routes + repos + pins)'
+    'import:Merge or restore a backup'
     'install-cli:Drop a tack wrapper on PATH'
     'completions:Output shell completion script'
     'help:Show usage'
@@ -433,6 +437,26 @@ _tack() {
       case "$CURRENT" in
         3) _tack_routes ;;
         *) _arguments '--force[Skip confirmation]' ;;
+      esac
+      ;;
+    find)
+      # tack find <url> [--json]
+      case "$CURRENT" in
+        3) _message 'url' ;;
+        *) _arguments '--json[Output JSON]' ;;
+      esac
+      ;;
+    export)
+      # tack export [path]
+      case "$CURRENT" in
+        3) _files ;;
+      esac
+      ;;
+    import)
+      # tack import <file> [--merge|--replace] [--dry-run]
+      case "$CURRENT" in
+        3) _files ;;
+        *) _arguments '--merge[Combine with local store (default)]' '--replace[Restore this machine wholesale]' '--dry-run[Preview without writing]' ;;
       esac
       ;;
     install-cli)

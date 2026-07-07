@@ -20,3 +20,5 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+      - name: Completions cover every CLI command
+        run: node scripts/check-completions.mjs

@@ -33,6 +33,10 @@ plugin-json:
 plugin-json-check:
     python3 scripts/gen-plugin-json.py --check
 
+# verify every CLI command is offered by shell completion (used by CI)
+completions-check:
+    node scripts/check-completions.mjs
+
 # install the git pre-commit hook that keeps plugin.json in sync with plugin.yml
 install-hooks:
     cp scripts/hooks/pre-commit .git/hooks/pre-commit
