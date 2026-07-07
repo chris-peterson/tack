@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.24.0
+
+### Features
+- Back up and move your tack data with `tack export` / `tack import`. `tack export [path]` writes your entire store — every route, the repo database, and pins — as a single gzip-compressed JSON file tagged with a schema version (defaulting to `tack-backup-<date>.json.gz`). `tack import <file>` reads it back: `--merge` (the default) combines a backup into another machine — creating missing routes and appending only tacks that aren't already there (matched by deliverable URL, else summary + completion date), assigning fresh ids, remapping dependencies, and reporting every id reassignment, while unioning repo names but skipping machine-specific checkouts and pins. `--replace` restores a machine wholesale, and `--dry-run` previews without writing. An archive from a newer schema version is refused rather than mishandled.
+
 ## 0.23.0
 
 ### Features
