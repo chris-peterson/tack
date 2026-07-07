@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { mkdtempSync, readFileSync } from "node:fs";
@@ -17,6 +17,13 @@ function runFail(args: string[]): { status: number; stdout: string; stderr: stri
     const err = e as { status: number; stdout?: string; stderr?: string };
     return { status: err.status, stdout: err.stdout ?? "", stderr: err.stderr ?? "" };
   }
+}
+
+// Captures stderr regardless of exit code — runFail discards it on success,
+// which hides warnings emitted by commands that still exit 0.
+function runCapture(args: string[]): { status: number; stdout: string; stderr: string } {
+  const r = spawnSync("node", [cli, ...args], { env, encoding: "utf-8" });
+  return { status: r.status ?? 0, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 }
 
 describe("subcommand-group errors (issue #17)", () => {
@@ -258,5 +265,80 @@ describe("tack start auto-binds the current Claude session (beacon fleet join)",
     execFileSync("node", [cli, "start", "nobind", "t1"], { env: e });
     const yaml = readFileSync(join(home, "routes", "nobind.yaml"), "utf-8");
     assert.doesNotMatch(yaml, /sessions:/);
+  });
+});
+
+// Tests share a single TACK_HOME and run concurrently, and find() scans every
+// route — so each test uses a distinct URL to keep its collision set isolated.
+describe("duplicate-url warning (issue #10)", () => {
+  it("warns on stderr when a deliverable url is already on another tack", () => {
+    const url = "https://github.com/owner/repo/pull/4201";
+    runFail(["init", "dup-a"]);
+    runFail(["add", "dup-a", "First"]);
+    runFail(["deliverable", "dup-a", "t1", url]);
+    runFail(["init", "dup-b"]);
+    runFail(["add", "dup-b", "Second"]);
+    const r = runCapture(["deliverable", "dup-b", "t1", url]);
+    assert.equal(r.status, 0);
+    assert.match(r.stderr, /warning: url already on dup-a\/t1 \(deliverable\)/);
+    assert.match(r.stderr, new RegExp(url.replace(/[/.]/g, "\\$&")));
+  });
+
+  it("warns when a link url is already on another tack", () => {
+    const url = "https://github.com/owner/repo/pull/4202";
+    runFail(["init", "dup-link-a"]);
+    runFail(["add", "dup-link-a", "First"]);
+    runFail(["link", "add", "dup-link-a", "t1", "issue", url]);
+    runFail(["init", "dup-link-b"]);
+    runFail(["add", "dup-link-b", "Second"]);
+    const r = runCapture(["link", "add", "dup-link-b", "t1", "issue", url]);
+    assert.equal(r.status, 0);
+    assert.match(r.stderr, /warning: url already on dup-link-a\/t1 \(link\)/);
+  });
+
+  it("warns from add --deliverable when the url is already attached", () => {
+    const url = "https://github.com/owner/repo/pull/4203";
+    runFail(["init", "dup-add-a"]);
+    runFail(["add", "dup-add-a", "First", "--deliverable", url]);
+    const r = runCapture(["add", "dup-add-a", "Second", "--deliverable", url]);
+    assert.equal(r.status, 0);
+    assert.match(r.stderr, /warning: url already on dup-add-a\/t1 \(deliverable\)/);
+  });
+
+  it("does not warn on an idempotent re-attach to the same tack", () => {
+    const url = "https://github.com/owner/repo/pull/4204";
+    runFail(["init", "dup-self"]);
+    runFail(["add", "dup-self", "Work"]);
+    runFail(["deliverable", "dup-self", "t1", url]);
+    // Re-attaching the same url to the same tack overwrites with --force; the
+    // mutated tack is excluded from the collision scan, so no warning fires.
+    const r = runCapture(["deliverable", "dup-self", "t1", url, "--force"]);
+    assert.equal(r.status, 0);
+    assert.doesNotMatch(r.stderr, /warning: url already on/);
+  });
+
+  it("does not warn when the url is new", () => {
+    const url = "https://github.com/owner/repo/pull/4205";
+    runFail(["init", "dup-new"]);
+    runFail(["add", "dup-new", "Work"]);
+    const r = runCapture(["deliverable", "dup-new", "t1", url]);
+    assert.equal(r.status, 0);
+    assert.doesNotMatch(r.stderr, /warning: url already on/);
+  });
+
+  it("names multiple existing tacks when the url is on several", () => {
+    const url = "https://github.com/owner/repo/pull/4206";
+    runFail(["init", "dup-multi-a"]);
+    runFail(["add", "dup-multi-a", "First"]);
+    runFail(["deliverable", "dup-multi-a", "t1", url]);
+    runFail(["init", "dup-multi-b"]);
+    runFail(["add", "dup-multi-b", "Second"]);
+    runFail(["link", "add", "dup-multi-b", "t1", "ref", url]);
+    runFail(["init", "dup-multi-c"]);
+    runFail(["add", "dup-multi-c", "Third"]);
+    const r = runCapture(["deliverable", "dup-multi-c", "t1", url]);
+    assert.equal(r.status, 0);
+    assert.match(r.stderr, /dup-multi-a\/t1 \(deliverable\)/);
+    assert.match(r.stderr, /dup-multi-b\/t1 \(link\)/);
   });
 });

@@ -622,6 +622,16 @@ pinned directory's `origin` remote ([RP-07]). The rebuild is additive — it add
 names and locals but removes nothing, so custom aliases ([CL-44]) survive a
 re-run. It backfills the database for routes recorded before capture existed.
 
+**[CL-48]** Duplicate-URL warning — When a URL is attached as a deliverable
+(`tack add --deliverable`, `tack deliverable`) or a link (`tack link add`),
+the CLI shall check whether the same URL already appears as a deliverable or
+link on any other tack (the same exact-URL match as `tack find`, [CL-23]), and
+if so shall print a warning to stderr that names the existing route(s) and tack
+id(s) with a `warning: url already on ` prefix. The tack being mutated is
+excluded, so re-attaching a URL already present on that same tack does not
+warn. The warning is informational: the attach still completes and the command
+exits zero.
+
 ---
 
 ### AG — Agent Integration

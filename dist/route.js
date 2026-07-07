@@ -565,6 +565,12 @@ export function find(url) {
     }
     return matches;
 }
+// Return every tack that already references this URL, excluding the tack being
+// mutated (so an idempotent re-attach to the same tack does not count as a
+// collision). Reuses find()'s exact-URL matching — same rule as `tack find`.
+export function findCollisions(url, exclude) {
+    return find(url).filter((m) => !(m.slug === exclude.slug && m.tackId === exclude.tackId));
+}
 // CL-47: backfill the repo database from existing tack data — every forge URL
 // recorded on a route plus every pinned directory's origin remote.
 export function rebuildRepos() {
