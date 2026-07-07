@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.24.1
+
+### Fixed
+- Tab-completion now covers four CLI commands that had drifted out of the zsh completion script: `export` and `import` (added in 0.24.0 but never registered for completion) plus the older `recent` and `find`. All four are now offered as first-word completions, with argument completion for `find`, `export`, and `import`.
+
+### Other
+- A CI check (`scripts/check-completions.mjs`, wired into the Build workflow and a `just completions-check` recipe) now fails the build whenever a CLI command exists in the dispatch but is missing from the completion script, so completion-vs-CLI drift can't recur.
+
 ## 0.24.0
 
 ### Features
