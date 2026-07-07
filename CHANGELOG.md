@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.23.0
+
+### Features
+- Attaching a URL that's already tracked elsewhere now warns you. When you record a PR/MR/issue as a deliverable or link — via `tack deliverable`, `tack add --deliverable`, or `tack link add` — tack scans your other tacks for the same URL and prints a `warning: url already on <route>/<tack> ...` to stderr naming where it already lives, so you catch a duplicate before a downstream tool double-counts the work. The attach still completes and exits zero (the warning is informational), and re-attaching a URL to the tack it's already on stays quiet.
+
 ## 0.22.1
 
 ### Fixed
