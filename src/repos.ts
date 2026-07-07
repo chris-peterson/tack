@@ -93,6 +93,12 @@ function saveRepos(db: RepoDb): void {
   writeFileSync(REPOS_FILE, stringify(db), "utf-8");
 }
 
+// Overwrite the repo database wholesale — used by backup restore/merge, which
+// computes the merged db and hands it back to persist in one write.
+export function saveReplace(db: RepoDb): void {
+  saveRepos(db);
+}
+
 function upsert(db: RepoDb, key: string, opts: { name?: string; local?: string }): void {
   const entry = db[key] ?? { names: [] };
   if (opts.name && !entry.names.includes(opts.name)) entry.names.push(opts.name);

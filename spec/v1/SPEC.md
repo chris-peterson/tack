@@ -632,6 +632,24 @@ excluded, so re-attaching a URL already present on that same tack does not
 warn. The warning is informational: the attach still completes and the command
 exits zero.
 
+**[CL-49]** Export — `tack export [path]` shall write the entire local store
+(all routes, the repo database, and pins) as a single gzip-compressed JSON
+document carrying a top-level `schemaVersion` (currently `1`), an `exportedAt`
+ISO timestamp, and a `generator` string. When `path` is omitted it shall
+default to `tack-backup-<YYYY-MM-DD>.json.gz` in the current directory.
+
+**[CL-50]** Import — `tack import <file> [--merge|--replace] [--dry-run]` shall
+read a gzip archive produced by [CL-49] and refuse one whose `schemaVersion`
+exceeds the running tack's. `--replace` (full restore) shall overwrite each
+route in the archive verbatim and replace the repo database and pins wholesale.
+`--merge` (the default, for combining machines) shall: create routes absent
+locally; for a route that exists on both, append only tacks whose identity
+(deliverable URL, else summary + `done_at`) is not already present, assigning
+fresh ids and remapping `depends_on` edges to those ids; union repo *names*
+while ignoring machine-specific repo `locals`; and skip pins. It shall report
+every `old id → new id` reassignment. `--dry-run` shall report the outcome
+without writing.
+
 ---
 
 ### AG — Agent Integration

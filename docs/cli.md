@@ -452,3 +452,41 @@ or re-pin the directory.
 ```bash
 tack pins prune
 ```
+
+## Backup
+
+### `tack export [path]`
+
+Bundle the entire local store — every route, the repo database, and pins —
+into a single gzip-compressed JSON document. The document carries a
+`schemaVersion` (currently `1`), an `exportedAt` timestamp, and a `generator`
+string, so a future format change can be migrated rather than misread. When
+`path` is omitted the file is written to `tack-backup-<YYYY-MM-DD>.json.gz`
+in the current directory.
+
+```bash
+tack export                         # → tack-backup-2026-07-07.json.gz
+tack export ~/backups/tack.json.gz  # explicit path
+```
+
+### `tack import <file> [--merge|--replace] [--dry-run]`
+
+Read an archive produced by `tack export`. An archive whose `schemaVersion`
+is newer than the running tack is refused rather than mishandled.
+
+- **`--merge`** (default) — combine the archive with the local store, for
+  syncing a second machine. Routes absent locally are created. For a route
+  that exists on both, only tacks whose identity — the deliverable URL, or
+  summary + `done_at` when there's no deliverable — isn't already present are
+  appended; they get fresh ids, `depends_on` edges are remapped to the new
+  ids, and every `old id → new id` reassignment is reported. Repo *names* are
+  unioned; machine-specific repo `locals` and pins are ignored.
+- **`--replace`** — full restore onto the same machine: overwrite each route
+  in the archive verbatim and replace the repo database and pins wholesale.
+- **`--dry-run`** — report what would change without writing anything.
+
+```bash
+tack import tack-backup-2026-07-07.json.gz            # merge (default)
+tack import tack-backup-2026-07-07.json.gz --dry-run  # preview only
+tack import tack-backup-2026-07-07.json.gz --replace  # restore this machine
+```

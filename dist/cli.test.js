@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { gzipSync, gunzipSync } from "node:zlib";
 const cli = join(dirname(fileURLToPath(import.meta.url)), "cli.js");
 const env = { ...process.env, TACK_HOME: mkdtempSync(join(tmpdir(), "tack-cli-test-")) };
 function runFail(args) {
@@ -304,5 +305,107 @@ describe("duplicate-url warning (issue #10)", () => {
         assert.equal(r.status, 0);
         assert.match(r.stderr, /dup-multi-a\/t1 \(deliverable\)/);
         assert.match(r.stderr, /dup-multi-b\/t1 \(link\)/);
+    });
+});
+// Each test gets its own TACK_HOME(s) so export/import round-trips stay isolated.
+describe("export / import backup (CL-49/CL-50)", () => {
+    function home() {
+        return mkdtempSync(join(tmpdir(), "tack-bk-"));
+    }
+    function run(h, args) {
+        const r = spawnSync("node", [cli, ...args], {
+            env: { ...process.env, TACK_HOME: h },
+            encoding: "utf-8",
+        });
+        return { status: r.status ?? 0, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+    }
+    it("export writes a gzip document carrying schemaVersion 1 and the routes", () => {
+        const h = home();
+        const arc = join(h, "out.json.gz");
+        run(h, ["init", "alpha"]);
+        run(h, ["add", "alpha", "First", "--deliverable", "https://github.com/o/r/pull/1"]);
+        const r = run(h, ["export", arc]);
+        assert.equal(r.status, 0);
+        const doc = JSON.parse(gunzipSync(readFileSync(arc)).toString("utf-8"));
+        assert.equal(doc.schemaVersion, 1);
+        assert.equal(doc.routes.length, 1);
+        assert.equal(doc.routes[0].slug, "alpha");
+    });
+    it("import --replace restores routes into a fresh machine", () => {
+        const a = home(), b = home();
+        const arc = join(a, "out.json.gz");
+        run(a, ["init", "alpha"]);
+        run(a, ["add", "alpha", "First"]);
+        run(a, ["add", "alpha", "Second"]);
+        run(a, ["export", arc]);
+        const r = run(b, ["import", arc, "--replace"]);
+        assert.equal(r.status, 0);
+        const tree = run(b, ["tree", "alpha", "-d", "2"]).stdout;
+        assert.match(tree, /t1: First/);
+        assert.match(tree, /t2: Second/);
+    });
+    it("merge dedups a tack already present by deliverable url", () => {
+        const a = home(), b = home();
+        const arc = join(a, "out.json.gz");
+        const url = "https://github.com/o/r/pull/7";
+        run(a, ["init", "alpha"]);
+        run(a, ["add", "alpha", "Ship it", "--deliverable", url]);
+        run(a, ["export", arc]);
+        run(b, ["init", "alpha"]);
+        run(b, ["add", "alpha", "Ship it", "--deliverable", url]);
+        const r = run(b, ["import", arc]);
+        assert.equal(r.status, 0);
+        assert.match(r.stdout, /0 tacks added/);
+    });
+    it("merge appends a new tack with a reported id reassignment", () => {
+        const a = home(), b = home();
+        const arc = join(a, "out.json.gz");
+        run(a, ["init", "alpha"]);
+        run(a, ["add", "alpha", "Extra work"]);
+        run(a, ["export", arc]);
+        run(b, ["init", "alpha"]);
+        run(b, ["add", "alpha", "Local one"]);
+        run(b, ["add", "alpha", "Local two"]);
+        const r = run(b, ["import", arc]);
+        assert.equal(r.status, 0);
+        assert.match(r.stdout, /1 tacks added/);
+        assert.match(r.stdout, /t1 → t3\s+Extra work/);
+    });
+    it("merge remaps depends_on edges among appended tacks", () => {
+        const a = home(), b = home();
+        const arc = join(a, "out.json.gz");
+        run(a, ["init", "alpha"]);
+        run(a, ["add", "alpha", "Base"]);
+        run(a, ["add", "alpha", "Dependent", "--depends-on", "t1"]);
+        run(a, ["export", arc]);
+        run(b, ["init", "alpha"]);
+        run(b, ["add", "alpha", "Local"]); // occupies t1 in b
+        run(b, ["import", arc]);
+        // a's t1 → b t2, a's t2 → b t3; the edge must now point at t2, not t1
+        const dep = run(b, ["tree", "alpha/t3/depends_on"]).stdout;
+        assert.match(dep, /t2/);
+        assert.doesNotMatch(dep, /t1/);
+    });
+    it("--dry-run reports changes but writes nothing", () => {
+        const a = home(), b = home();
+        const arc = join(a, "out.json.gz");
+        run(a, ["init", "alpha"]);
+        run(a, ["add", "alpha", "New tack"]);
+        run(a, ["export", arc]);
+        run(b, ["init", "alpha"]);
+        run(b, ["add", "alpha", "Local"]);
+        const r = run(b, ["import", arc, "--dry-run"]);
+        assert.match(r.stdout, /\[dry-run\]/);
+        assert.match(r.stdout, /1 tacks added/);
+        const tree = run(b, ["tree", "alpha", "-d", "2"]).stdout;
+        assert.doesNotMatch(tree, /New tack/);
+    });
+    it("refuses an archive whose schemaVersion is newer than supported", () => {
+        const h = home();
+        const arc = join(h, "future.json.gz");
+        writeFileSync(arc, gzipSync(Buffer.from(JSON.stringify({ schemaVersion: 999, routes: [] }))));
+        const r = run(h, ["import", arc]);
+        assert.equal(r.status, 1);
+        assert.match(r.stderr, /newer than this tack supports/);
     });
 });

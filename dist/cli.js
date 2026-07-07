@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import * as route from "./route.js";
 import * as repos from "./repos.js";
+import * as backup from "./backup.js";
 import { TACK_STATUSES } from "./types.js";
 import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind, formatPins, formatRepos, treeData } from "./display.js";
 import { ZSH_COMPLETION } from "./completions.js";
@@ -51,6 +52,8 @@ Usage:
   tack pins [--json]                 List all pins (flags dangling and idle entries)
   tack pins prune                    Remove pins with a deleted route or missing directory
   tack rm <slug> [--force]
+  tack export [path]                 Write a gzip backup (routes + repos + pins)
+  tack import <file> [--merge|--replace] [--dry-run]  Merge (default) or restore a backup
   tack install-cli [--dir <path>]    (also installs zsh completions)
   tack completions zsh
   tack --version
@@ -170,13 +173,24 @@ function installZshCompletions() {
     }
     console.log("Restart your shell to activate completions.");
 }
+function readVersion() {
+    const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT ??
+        resolve(fileURLToPath(import.meta.url), "..", "..");
+    try {
+        const manifest = JSON.parse(readFileSync(join(pluginRoot, ".claude-plugin", "plugin.json"), "utf8"));
+        return manifest.version;
+    }
+    catch {
+        return "unknown";
+    }
+}
+function defaultBackupName() {
+    return `tack-backup-${new Date().toISOString().slice(0, 10)}.json.gz`;
+}
 function run() {
     const args = process.argv.slice(2);
     if (args[0] === "--version" || args[0] === "-v") {
-        const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT ??
-            resolve(fileURLToPath(import.meta.url), "..", "..");
-        const manifest = JSON.parse(readFileSync(join(pluginRoot, ".claude-plugin", "plugin.json"), "utf8"));
-        console.log(`tack ${manifest.version}`);
+        console.log(`tack ${readVersion()}`);
         return;
     }
     if (args[0] === "--help" || args[0] === "-h" || args[0] === "help")
@@ -676,6 +690,66 @@ function run() {
             const r = route.removeTack(rest[0], rest[1], { force });
             console.log(`Removed: ${rest[0]}/${rest[1]}`);
             console.log(formatRoute(r));
+            break;
+        }
+        case "export": {
+            const { positionals } = parseArgs({ args: rest, allowPositionals: true });
+            const { buffer, counts } = backup.buildArchive(`tack ${readVersion()}`);
+            const path = positionals[0] ?? defaultBackupName();
+            writeFileSync(path, buffer);
+            console.log(`exported ${counts.routes} routes, ${counts.repos} repos, ${counts.pins} pins → ${path} ` +
+                `(${(buffer.length / 1024).toFixed(1)} KB, schema v${backup.SCHEMA_VERSION})`);
+            break;
+        }
+        case "import": {
+            const { values, positionals } = parseArgs({
+                args: rest,
+                options: {
+                    merge: { type: "boolean" },
+                    replace: { type: "boolean" },
+                    "dry-run": { type: "boolean" },
+                },
+                allowPositionals: true,
+            });
+            if (!positionals[0])
+                usage();
+            if (values.merge && values.replace) {
+                console.error("tack import: choose one of --merge or --replace");
+                process.exit(1);
+            }
+            const mode = values.replace ? "replace" : "merge";
+            const dryRun = Boolean(values["dry-run"]);
+            let archive;
+            try {
+                archive = backup.parseArchive(readFileSync(positionals[0]));
+            }
+            catch (e) {
+                console.error(`tack import: ${e.message}`);
+                process.exit(1);
+            }
+            const r = backup.applyImport(archive, { mode, dryRun });
+            const tag = dryRun ? "[dry-run] " : "";
+            console.log(`${tag}import (${mode}) from schema v${archive.schemaVersion}, exported ${archive.exportedAt}`);
+            if (mode === "replace") {
+                console.log(`${tag}restored ${r.created.length + r.replaced.length} routes ` +
+                    `(${r.created.length} new, ${r.replaced.length} overwritten), ` +
+                    `${r.reposKeysAdded} repos, ${r.pinsRestored} pins`);
+            }
+            else {
+                const added = r.merged.reduce((s, m) => s + m.added, 0);
+                console.log(`${tag}created ${r.created.length} routes; merged ${r.merged.length} ` +
+                    `(${added} tacks added); repos +${r.reposKeysAdded} keys / +${r.reposNamesAdded} names; pins skipped`);
+                if (r.created.length)
+                    console.log(`  created: ${r.created.join(", ")}`);
+                for (const m of r.merged) {
+                    if (!m.reassignments.length)
+                        continue;
+                    console.log(`  ${m.slug}: +${m.added} added, ${m.skipped} already present`);
+                    for (const ra of m.reassignments) {
+                        console.log(`    ${ra.from} → ${ra.to}  ${ra.summary}`);
+                    }
+                }
+            }
             break;
         }
         case "install-cli": {

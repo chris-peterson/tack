@@ -4,6 +4,8 @@ export declare function isOpen(t: Tack): boolean;
 export declare function loadAll(): Route[];
 export declare function normalizeTimestamp(input: string): string;
 export declare function load(slug: string): Route;
+export declare function writeRoute(route: Route): void;
+export declare function routeExists(slug: string): boolean;
 export declare function init(slug: string, opts?: {
     group?: string;
 }): Route;
@@ -86,6 +88,8 @@ export interface Pin {
     pinned_at: string;
     session_id?: string;
 }
+export declare function readAllPins(): Record<string, Pin>;
+export declare function writeAllPins(pins: Record<string, Pin>): void;
 export declare function readPin(cwd?: string): Pin | null;
 export declare function writePin(slug: string, cwd?: string): Pin;
 export declare function deletePin(cwd?: string): boolean;

@@ -14,6 +14,7 @@ export declare function repoKeyFromForgeUrl(url: string): string | null;
 export declare function repoNameFromKey(key: string): string;
 export declare function httpsUrl(key: string): string;
 export declare function loadRepos(): RepoDb;
+export declare function saveReplace(db: RepoDb): void;
 export declare function recordUrl(url: string): void;
 export declare function recordCwd(cwd: string): void;
 export declare function matchByName(partial: string): RepoMatch[];

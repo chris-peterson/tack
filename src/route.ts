@@ -89,6 +89,21 @@ function save(route: Route): void {
   writeFileSync(routePath(route.slug), stringify(route), "utf-8");
 }
 
+// Import/restore: write a route object verbatim (validated) without bumping
+// updated_at, so a full restore preserves timestamps and a merge sets its own.
+export function writeRoute(route: Route): void {
+  ensureDir();
+  const result = validate(route);
+  if (!result.valid) {
+    throw new Error(`Route validation failed:\n${result.errors.join("\n")}`);
+  }
+  writeFileSync(routePath(route.slug), stringify(route), "utf-8");
+}
+
+export function routeExists(slug: string): boolean {
+  return existsSync(routePath(slug));
+}
+
 export function init(slug: string, opts: { group?: string } = {}): Route {
   ensureDir();
   const path = routePath(slug);
@@ -758,6 +773,15 @@ function writePins(pins: Record<string, Pin>): void {
     mkdirSync(TACK_HOME, { recursive: true });
   }
   writeFileSync(PINS_FILE, stringify(pins), "utf-8");
+}
+
+// Whole-store pin accessors for backup export/restore.
+export function readAllPins(): Record<string, Pin> {
+  return readPins();
+}
+
+export function writeAllPins(pins: Record<string, Pin>): void {
+  writePins(pins);
 }
 
 export function readPin(cwd: string = process.cwd()): Pin | null {
