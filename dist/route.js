@@ -27,7 +27,7 @@ function routePath(slug) {
 function now() {
     return new Date().toISOString();
 }
-// Repo-database capture (RP-06, RP-07) is best-effort: it enriches the repo
+// Repo-database capture (REPO-06, REPO-07) is best-effort: it enriches the repo
 // index as a side effect of recording URLs and pinning, and must never fail
 // the command that triggered it.
 function captureBestEffort(fn) {
@@ -584,7 +584,7 @@ export function find(url) {
 export function findCollisions(url, exclude) {
     return find(url).filter((m) => !(m.slug === exclude.slug && m.tackId === exclude.tackId));
 }
-// CL-47: backfill the repo database from existing tack data — every forge URL
+// CLI-47: backfill the repo database from existing tack data — every forge URL
 // recorded on a route plus every pinned directory's origin remote.
 export function rebuildRepos() {
     const urls = [];

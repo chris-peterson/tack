@@ -171,7 +171,7 @@ describe("tack group (issue #19)", () => {
   });
 });
 
-describe("tack repo (CL-42..46)", () => {
+describe("tack repo (CLI-42..46)", () => {
   it("captures a repo from a deliverable and looks it up by partial name", () => {
     runFail(["init", "repo-cap"]);
     runFail(["add", "repo-cap", "Work"]);
@@ -207,7 +207,7 @@ describe("tack repo (CL-42..46)", () => {
     assert.equal(parsed[0].url, "https://github.com/chris-peterson/jsonrepo");
   });
 
-  it("captures the repo from add --deliverable (RP-06)", () => {
+  it("captures the repo from add --deliverable (REPO-06)", () => {
     runFail(["init", "repo-add"]);
     runFail([
       "add", "repo-add", "Work",
@@ -380,7 +380,7 @@ describe("duplicate-url warning (issue #10)", () => {
 });
 
 // Each test gets its own TACK_HOME(s) so export/import round-trips stay isolated.
-describe("export / import backup (CL-49/CL-50)", () => {
+describe("export / import backup (CLI-49/CLI-50)", () => {
   function home(): string {
     return mkdtempSync(join(tmpdir(), "tack-bk-"));
   }

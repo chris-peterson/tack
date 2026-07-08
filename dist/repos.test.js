@@ -17,7 +17,7 @@ after(() => {
 beforeEach(() => {
     rmSync(reposFile, { force: true });
 });
-describe("normalizeGitRemote (RP-02)", () => {
+describe("normalizeGitRemote (REPO-02)", () => {
     it("strips scheme and .git from an HTTPS remote", () => {
         assert.equal(repos.normalizeGitRemote("https://github.com/chris-peterson/anchor.git"), "github.com/chris-peterson/anchor");
     });
@@ -37,7 +37,7 @@ describe("normalizeGitRemote (RP-02)", () => {
         assert.equal(repos.normalizeGitRemote("not-a-remote"), null);
     });
 });
-describe("repoKeyFromForgeUrl (RP-06)", () => {
+describe("repoKeyFromForgeUrl (REPO-06)", () => {
     it("extracts host/org/repo from a GitHub PR URL", () => {
         assert.equal(repos.repoKeyFromForgeUrl("https://github.com/chris-peterson/anchor/pull/42"), "github.com/chris-peterson/anchor");
     });
@@ -52,7 +52,7 @@ describe("repoKeyFromForgeUrl (RP-06)", () => {
         assert.equal(repos.repoKeyFromForgeUrl("https://docs.example.com/auth-design"), null);
     });
 });
-describe("recordUrl + matchByName (RP-06, CL-42)", () => {
+describe("recordUrl + matchByName (REPO-06, CLI-42)", () => {
     it("captures a repo from a deliverable URL and matches by partial name", () => {
         repos.recordUrl("https://github.com/chris-peterson/anchor/pull/5");
         const matches = repos.matchByName("ancho");
@@ -76,7 +76,7 @@ describe("recordUrl + matchByName (RP-06, CL-42)", () => {
         assert.equal(repos.matchByName("myrepo").length, 1);
     });
 });
-describe("recordCwd (RP-07)", () => {
+describe("recordCwd (REPO-07)", () => {
     it("captures the origin remote and records the cwd as a local", () => {
         const repoDir = mkdtempSync(join(tmpdir(), "tack-gitrepo-"));
         execFileSync("git", ["-C", repoDir, "init", "-q"]);
@@ -98,7 +98,7 @@ describe("recordCwd (RP-07)", () => {
         rmSync(bare, { recursive: true, force: true });
     });
 });
-describe("addAlias (CL-44)", () => {
+describe("addAlias (CLI-44)", () => {
     it("adds a custom name that lookup then matches", () => {
         repos.recordUrl("https://github.com/chris-peterson/anchor/pull/1");
         repos.addAlias("anchor", "anch");
@@ -112,7 +112,7 @@ describe("addAlias (CL-44)", () => {
         assert.throws(() => repos.addAlias("alpha", "x"), /matches 2 repos/);
     });
 });
-describe("pruneLocals (CL-45)", () => {
+describe("pruneLocals (CLI-45)", () => {
     it("drops a stale local but retains a URL-only repo with no locals", () => {
         // URL-only repo (no locals) — must survive prune.
         repos.recordUrl("https://github.com/org/url-only/pull/1");
@@ -133,7 +133,7 @@ describe("pruneLocals (CL-45)", () => {
         assert.deepEqual(keys, ["github.com/org/url-only", "github.com/org/withlocal"]);
     });
 });
-describe("rebuildFrom (CL-47)", () => {
+describe("rebuildFrom (CLI-47)", () => {
     it("backfills names from forge URLs and preserves existing aliases", () => {
         repos.recordUrl("https://github.com/chris-peterson/anchor/pull/1");
         repos.addAlias("anchor", "anch");
@@ -152,7 +152,7 @@ describe("rebuildFrom (CL-47)", () => {
         assert.equal(repos.matchByName("moor").length, 1);
     });
 });
-describe("removeRepo (CL-46)", () => {
+describe("removeRepo (CLI-46)", () => {
     it("removes the matched entry", () => {
         repos.recordUrl("https://github.com/org/repo/pull/1");
         repos.removeRepo("repo");

@@ -92,47 +92,47 @@ Fixes session→tack binding, which silently did nothing because the code and th
 
 ### Other
 
-- Spec: new RP category (RP-01..07) for the repo database, plus CL-42..47 for the `tack repo` commands. STATUS.md coverage at 117/117.
+- Spec: new REPO category (REPO-01..07) for the repo database, plus CLI-42..47 for the `tack repo` commands. STATUS.md coverage at 117/117.
 
 ## 0.18.1
 
 ### Bug Fixes
 
-- **`--help` / `-h` works after any subcommand.** `tack <subcommand> --help` previously fell through the top-level help check: subcommands parsed with strict `parseArgs` (`session`, `init`, `recent`, `tree`, `deliverable`, `move`) threw an uncaught `ERR_PARSE_ARGS_UNKNOWN_OPTION`, while subcommands parsing flags manually (`pins`, `list`, `status`) silently ignored the flag and ran anyway. A single guard before the command switch now prints the usage text and exits zero for `--help`/`-h` after any subcommand, matching bare `tack --help` (CL-38).
+- **`--help` / `-h` works after any subcommand.** `tack <subcommand> --help` previously fell through the top-level help check: subcommands parsed with strict `parseArgs` (`session`, `init`, `recent`, `tree`, `deliverable`, `move`) threw an uncaught `ERR_PARSE_ARGS_UNKNOWN_OPTION`, while subcommands parsing flags manually (`pins`, `list`, `status`) silently ignored the flag and ran anyway. A single guard before the command switch now prints the usage text and exits zero for `--help`/`-h` after any subcommand, matching bare `tack --help` (CLI-38).
 
 ## 0.18.0
 
 ### Features
 
-- **Sessions link to the specific tack they're driving.** `tack session <slug> <session-id> --tack <tack-id>` binds a session to a tack within the route, stored as a `tacks` array on the session entry (touch order, last = current focus). A session was previously associated only with a route, so a fleet view could group live sessions by route but not show which tack each one was working. Re-binding a tack moves it to the end, so a pivot back to an earlier tack makes it current again (RT-11, CL-17).
-- **The skill establishes the session→tack link early from a tracker URL.** When a PR/MR/issue URL is in scope at session start, the tack skill runs `tack find` on it — a match binds the session to the existing tack, no match means emerging work (create the tack, then bind) — so a dashboard can tell resumed/tracked work from work spun up fresh in the session. Whether work is existing or emerging is read off the bound tack's own state (does it carry a deliverable or tracker link?), not stored as a flag (AG-11).
+- **Sessions link to the specific tack they're driving.** `tack session <slug> <session-id> --tack <tack-id>` binds a session to a tack within the route, stored as a `tacks` array on the session entry (touch order, last = current focus). A session was previously associated only with a route, so a fleet view could group live sessions by route but not show which tack each one was working. Re-binding a tack moves it to the end, so a pivot back to an earlier tack makes it current again (RTE-11, CLI-17).
+- **The skill establishes the session→tack link early from a tracker URL.** When a PR/MR/issue URL is in scope at session start, the tack skill runs `tack find` on it — a match binds the session to the existing tack, no match means emerging work (create the tack, then bind) — so a dashboard can tell resumed/tracked work from work spun up fresh in the session. Whether work is existing or emerging is read off the bound tack's own state (does it carry a deliverable or tracker link?), not stored as a flag (AGT-11).
 
 ## 0.17.0
 
 ### Features
 
-- **Tack-id arguments accept the bare number** (#11). Every command that takes a `<tack-id>`, `<dep-id>`, or `--depends-on` entry now accepts `7` as well as `t7` — both resolve to the same tack, and bare ids are stored in the canonical `t<N>` form. Previously some subcommands rejected the bare number (`tack deliverable <slug> 7 …` → `Tack not found: 7`) while others accepted it, so callers had to guess which form each one wanted (TK-08).
-- **`tack deliverable` derives the label from the URL** (#11). `tack deliverable <slug> <tack-id> <url>` now auto-derives the label, matching what `tack add --deliverable <url>` already did. `--label <text>` overrides it for the occasional case the default doesn't fit (CL-08).
-- **Commit URLs derive a `<repo>@<sha7>` label** (#11). GitHub `…/commit/<sha>` and GitLab `…/-/commit/<sha>` URLs now produce a readable deliverable label from the seven-character short sha instead of falling back to the full URL. Commits are not treated as PR/MR/issue references — they are not promoted on `tack done` and do not trigger the hook scanners (CL-37a).
+- **Tack-id arguments accept the bare number** (#11). Every command that takes a `<tack-id>`, `<dep-id>`, or `--depends-on` entry now accepts `7` as well as `t7` — both resolve to the same tack, and bare ids are stored in the canonical `t<N>` form. Previously some subcommands rejected the bare number (`tack deliverable <slug> 7 …` → `Tack not found: 7`) while others accepted it, so callers had to guess which form each one wanted (TACK-08).
+- **`tack deliverable` derives the label from the URL** (#11). `tack deliverable <slug> <tack-id> <url>` now auto-derives the label, matching what `tack add --deliverable <url>` already did. `--label <text>` overrides it for the occasional case the default doesn't fit (CLI-08).
+- **Commit URLs derive a `<repo>@<sha7>` label** (#11). GitHub `…/commit/<sha>` and GitLab `…/-/commit/<sha>` URLs now produce a readable deliverable label from the seven-character short sha instead of falling back to the full URL. Commits are not treated as PR/MR/issue references — they are not promoted on `tack done` and do not trigger the hook scanners (CLI-37a).
 
 ### Changed
 
-- **`tack deliverable` takes the label as `--label`, not a positional** (#11). The signature is now `tack deliverable <slug> <tack-id> <url> [--label <text>]`; the old `tack deliverable <slug> <tack-id> <label> <url>` positional form is no longer accepted. An explicit label is the exception now that the derived default covers PR/MR/issue/commit URLs, so it moves to a flag rather than a positional slot wedged before the URL (CL-08).
-- **Derived deliverable labels drop the space before the sigil** (#11). Auto-derived labels now use the canonical forge notation — `repo#42`, `repo!99`, `repo@<sha7>` — instead of the previous `repo #42` / `repo !99`. Only newly-derived labels are affected; labels already stored in route files are left as-is (CL-37).
+- **`tack deliverable` takes the label as `--label`, not a positional** (#11). The signature is now `tack deliverable <slug> <tack-id> <url> [--label <text>]`; the old `tack deliverable <slug> <tack-id> <label> <url>` positional form is no longer accepted. An explicit label is the exception now that the derived default covers PR/MR/issue/commit URLs, so it moves to a flag rather than a positional slot wedged before the URL (CLI-08).
+- **Derived deliverable labels drop the space before the sigil** (#11). Auto-derived labels now use the canonical forge notation — `repo#42`, `repo!99`, `repo@<sha7>` — instead of the previous `repo #42` / `repo !99`. Only newly-derived labels are affected; labels already stored in route files are left as-is (CLI-37).
 
 ## 0.16.1
 
 ### Bug Fixes
 
-- **`tack merge` now leaves a single tack** (#12). Merging soft-dropped the source to status `dropped` but kept it in the route with its original deliverable, so any audit scanning for duplicate deliverable URLs kept flagging the merged pair. The source is now removed outright — its ID is not reused, consistent with `tack remove` — so a merge collapses two tacks into one (CL-28).
-- **Malformed subcommand-group invocations report the specific problem on stderr** (#17). `tack link <slug> …` (missing the `add`/`rm` subcommand), and the equivalent `status set` / `todo` / `depends` mistakes, printed the full global usage — a caller capturing output got a ~1.5 KB usage blob with no pointer to the actual mistake. They now print a group-scoped message naming the accepted subcommands and the offending input — e.g. `tack link: expected 'add' or 'rm' (got 'my-slug')` — keeping the non-zero exit (CL-41).
+- **`tack merge` now leaves a single tack** (#12). Merging soft-dropped the source to status `dropped` but kept it in the route with its original deliverable, so any audit scanning for duplicate deliverable URLs kept flagging the merged pair. The source is now removed outright — its ID is not reused, consistent with `tack remove` — so a merge collapses two tacks into one (CLI-28).
+- **Malformed subcommand-group invocations report the specific problem on stderr** (#17). `tack link <slug> …` (missing the `add`/`rm` subcommand), and the equivalent `status set` / `todo` / `depends` mistakes, printed the full global usage — a caller capturing output got a ~1.5 KB usage blob with no pointer to the actual mistake. They now print a group-scoped message naming the accepted subcommands and the offending input — e.g. `tack link: expected 'add' or 'rm' (got 'my-slug')` — keeping the non-zero exit (CLI-41).
 
 ## 0.16.0
 
 ### Features
 
-- **`tack pins [--json]`** — List every pin with its directory, slug, and pin timestamp. Entries whose route no longer exists are flagged `[dangling]`; entries whose route has no open tacks are flagged `[idle]` (CL-39). The central `~/.tack/pins.yaml` introduced in 0.15.0 is what makes a whole-fleet listing possible — the old per-directory `.tack` files couldn't be enumerated.
-- **`tack pins prune`** — Remove pins whose route was deleted or whose directory is gone from disk, printing each removal with the reason. Idle pins are kept; explicit `tack unpin` remains the way to drop a pin for a finished-but-resumable route (CL-40).
+- **`tack pins [--json]`** — List every pin with its directory, slug, and pin timestamp. Entries whose route no longer exists are flagged `[dangling]`; entries whose route has no open tacks are flagged `[idle]` (CLI-39). The central `~/.tack/pins.yaml` introduced in 0.15.0 is what makes a whole-fleet listing possible — the old per-directory `.tack` files couldn't be enumerated.
+- **`tack pins prune`** — Remove pins whose route was deleted or whose directory is gone from disk, printing each removal with the reason. Idle pins are kept; explicit `tack unpin` remains the way to drop a pin for a finished-but-resumable route (CLI-40).
 
 ## 0.15.0
 
@@ -174,7 +174,7 @@ Fixes session→tack binding, which silently did nothing because the code and th
 ### Other
 
 - **Skill updates** — `tack` skill now documents `tack move` and tells agents to read stderr after `tack done` for the multi-PR/MR ambiguity warning.
-- **Spec updates** — CL-13 rewritten (link add no longer promotes), CL-05 extended (done-time disambiguation), CL-36 added (tack move).
+- **Spec updates** — CLI-13 rewritten (link add no longer promotes), CLI-05 extended (done-time disambiguation), CLI-36 added (tack move).
 - **Internal refactor** — `nextTackId` extracted to share with `moveTack`; raises a clear error on non-numeric tack IDs.
 - **zsh completion** — `tack move` uses a dedicated path completer that stops at `<slug>/<tack-id>` (no trailing `/` or aspect drill-down).
 
@@ -196,7 +196,7 @@ Closes #1.
 
 ### Spec / Docs
 
-- New requirements: `[CL-32]` depends add, `[CL-33]` depends rm, `[CL-34]` status set, `[CL-35]` rename. `[CL-07]` tightened to describe the new error-message guidance.
+- New requirements: `[CLI-32]` depends add, `[CLI-33]` depends rm, `[CLI-34]` status set, `[CLI-35]` rename. `[CLI-07]` tightened to describe the new error-message guidance.
 - `docs/cli.md` adds a Dependencies section and a Status entry under Tacks; `tack rename` joins the Routes section.
 
 ## 0.11.1
@@ -219,8 +219,8 @@ Closes #1.
 
 ### Spec / Docs / Skill
 
-- [TK-02], [TK-03], [TD-03], [TD-04] updated for the date-or-date-time form on `done_at`.
-- [CL-04], [CL-05], [CL-08] updated for the new `--date`, `--done`, `--deliverable`, and `--force` flags.
+- [TACK-02], [TACK-03], [TODO-03], [TODO-04] updated for the date-or-date-time form on `done_at`.
+- [CLI-04], [CLI-05], [CLI-08] updated for the new `--date`, `--done`, `--deliverable`, and `--force` flags.
 - `skills/tack/SKILL.md` adds a "Backfilling already-merged work" section and a note that agents should verify tack IDs before calling `tack deliverable`.
 
 ## 0.10.0
@@ -229,7 +229,7 @@ Closes #1.
 - New `tack pin <slug>` / `tack unpin` commands persist the active route for a working directory in a `.tack` YAML file at the cwd root. The tack skill reads the pin first when resolving "what am I working on?", so pinned routes win over branch-slug or single-open-route heuristics. Commit the file for shared assignment or `.gitignore` it for per-dev state.
 
 ### Architecture
-- Spec now states the layering explicitly: the CLI encapsulates schema operations as a deterministic primitive; the skill owns reasoning (route resolution, ambiguity prompts, URL capture); hooks emit advisory reminders. The CLI no longer reaches into inference — that lives entirely in `skills/tack/SKILL.md`. New `[ST-06]` covers the pin file format; new `[CL-30]`/`[CL-31]` cover the pin/unpin commands; AG- expanded with a formal resolution procedure (`[AG-03]`) and pin discipline (`[AG-10]`); new **HK** category formalizes what each hook does.
+- Spec now states the layering explicitly: the CLI encapsulates schema operations as a deterministic primitive; the skill owns reasoning (route resolution, ambiguity prompts, URL capture); hooks emit advisory reminders. The CLI no longer reaches into inference — that lives entirely in `skills/tack/SKILL.md`. New `[STG-06]` covers the pin file format; new `[CLI-30]`/`[CLI-31]` cover the pin/unpin commands; AG- expanded with a formal resolution procedure (`[AGT-03]`) and pin discipline (`[AGT-10]`); new **HK** category formalizes what each hook does.
 - Hook reminder text now points at the tack skill rather than naming specific CLI commands, routing all writes through one path (the skill) so context (which slug, which tack) is applied by the only component that sees it.
 
 ## 0.9.1
@@ -239,8 +239,8 @@ Closes #1.
 - `tack recent --since <value>` now reports an error when the value isn't a parseable date. Previously it silently filtered out every route, which looked like "no recent routes" rather than "your input is wrong."
 
 ### Other
-- Spec catches up to the shipped CLI: `tack edit`, `tack merge`, and `tack --version` are now formal requirements [CL-27], [CL-28], [CL-29].
-- Wording tightened on [TK-04] (gating responsibility lies with the caller, not the CLI), [AG-02] ("background" → "without blocking the user prompt"), and [AG-03] (matches the actual `UserPromptSubmit` + branch-slug heuristic, not the URL inference that never shipped).
+- Spec catches up to the shipped CLI: `tack edit`, `tack merge`, and `tack --version` are now formal requirements [CLI-27], [CLI-28], [CLI-29].
+- Wording tightened on [TACK-04] (gating responsibility lies with the caller, not the CLI), [AGT-02] ("background" → "without blocking the user prompt"), and [AGT-03] (matches the actual `UserPromptSubmit` + branch-slug heuristic, not the URL inference that never shipped).
 - New `STATUS.md` tracks spec coverage (73/73 normative + 5 deferred) and an advisory backlog for the next audit.
 
 ## 0.9.0

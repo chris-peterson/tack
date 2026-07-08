@@ -1,8 +1,8 @@
-// The repo database (RP category): a standalone index mapping the names a git
+// The repo database (REPO category): a standalone index mapping the names a git
 // repository is known by to its remote, accumulated as tack observes work.
 // Internal derived state like pins — tack is its sole writer, so it carries no
-// published JSON Schema (RP-05). Stored as a bare map keyed by normalized
-// remote at ~/.tack/repos.yaml (RP-01).
+// published JSON Schema (REPO-05). Stored as a bare map keyed by normalized
+// remote at ~/.tack/repos.yaml (REPO-01).
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -10,7 +10,7 @@ import { execFileSync } from "node:child_process";
 import { parse, stringify } from "yaml";
 const TACK_HOME = process.env.TACK_HOME ?? join(homedir(), ".tack");
 const REPOS_FILE = join(TACK_HOME, "repos.yaml");
-// --- Normalization (RP-02) ---
+// --- Normalization (REPO-02) ---
 // Normalize a git remote (HTTPS or SSH) to scheme-less host/path form, dropping
 // a trailing .git, so the HTTPS and SSH forms of one remote collapse to a
 // single key. Returns null when the input doesn't look like a remote.
@@ -31,7 +31,7 @@ export function normalizeGitRemote(remote) {
     return s.includes("/") ? s : null;
 }
 // Extract the repo key from a forge change-reference URL (PR/MR/issue/commit).
-// Mirrors the forges recognized in CL-37; returns null for anything that isn't
+// Mirrors the forges recognized in CLI-37; returns null for anything that isn't
 // a recognized change reference, so plain links (docs, etc.) are not captured.
 export function repoKeyFromForgeUrl(url) {
     const gh = url.match(/^https:\/\/(github\.com)\/([^/]+)\/([^/]+)\/(?:pull|issues|commit)\//i);
@@ -49,7 +49,7 @@ export function repoNameFromKey(key) {
 export function httpsUrl(key) {
     return `https://${key}`;
 }
-// --- Storage (RP-01, RP-04, RP-05) ---
+// --- Storage (REPO-01, REPO-04, REPO-05) ---
 function ensureHome() {
     if (!existsSync(TACK_HOME))
         mkdirSync(TACK_HOME, { recursive: true });
@@ -84,9 +84,9 @@ function toMatch(key, entry) {
     const locals = (entry.locals ?? []).filter((p) => existsSync(p));
     return { key, url: httpsUrl(key), names: entry.names, locals };
 }
-// --- Capture (RP-06, RP-07) ---
+// --- Capture (REPO-06, REPO-07) ---
 // Read a directory's origin remote with a read-only git query. Returns null
-// when the directory isn't a git repo or has no origin remote (RP-07: record
+// when the directory isn't a git repo or has no origin remote (REPO-07: record
 // nothing, don't error).
 function readOriginRemote(cwd) {
     try {
@@ -100,7 +100,7 @@ function readOriginRemote(cwd) {
         return null;
     }
 }
-// RP-06: upsert from a recorded deliverable/link URL.
+// REPO-06: upsert from a recorded deliverable/link URL.
 export function recordUrl(url) {
     const key = repoKeyFromForgeUrl(url);
     if (!key)
@@ -109,7 +109,7 @@ export function recordUrl(url) {
     upsert(db, key, { name: repoNameFromKey(key) });
     saveRepos(db);
 }
-// RP-07: upsert from the origin remote of a working directory.
+// REPO-07: upsert from the origin remote of a working directory.
 export function recordCwd(cwd) {
     const remote = readOriginRemote(cwd);
     if (!remote)
@@ -121,8 +121,8 @@ export function recordCwd(cwd) {
     upsert(db, key, { name: repoNameFromKey(key), local: cwd });
     saveRepos(db);
 }
-// --- Queries / commands (CL-42..46) ---
-// Match a partial case-insensitively against every repo's names (CL-42).
+// --- Queries / commands (CLI-42..46) ---
+// Match a partial case-insensitively against every repo's names (CLI-42).
 export function matchByName(partial) {
     const q = partial.toLowerCase();
     const db = loadRepos();
@@ -154,7 +154,7 @@ export function listRepos() {
         .map(([k, e]) => toMatch(k, e))
         .sort((a, b) => a.key.localeCompare(b.key));
 }
-// CL-44
+// CLI-44
 export function addAlias(match, alias) {
     const key = resolveOne(match);
     const db = loadRepos();
@@ -164,7 +164,7 @@ export function addAlias(match, alias) {
     saveRepos(db);
     return toMatch(key, entry);
 }
-// CL-45: drop stale locals; never remove repo entries themselves.
+// CLI-45: drop stale locals; never remove repo entries themselves.
 export function pruneLocals() {
     const db = loadRepos();
     const removed = [];
@@ -186,7 +186,7 @@ export function pruneLocals() {
         saveRepos(db);
     return removed;
 }
-// CL-47: reconstruct the database from forge URLs and pinned directories in a
+// CLI-47: reconstruct the database from forge URLs and pinned directories in a
 // single load/save. Additive — existing aliases and locals are preserved.
 export function rebuildFrom(input) {
     const db = loadRepos();
@@ -214,7 +214,7 @@ export function rebuildFrom(input) {
     saveRepos(db);
     return { repoCount: Object.keys(db).length, urlsMatched, localsAdded };
 }
-// CL-46
+// CLI-46
 export function removeRepo(match) {
     const key = resolveOne(match);
     const db = loadRepos();
