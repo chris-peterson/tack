@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-source "$(dirname "${BASH_SOURCE[0]}")/lib-url.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/lib-url.sh"
 
 input=$(cat)
 prompt=$(echo "$input" | jq -r '.prompt // empty' 2>/dev/null)

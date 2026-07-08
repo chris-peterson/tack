@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Shared helpers for the URL-detection hooks (session-nudge, capture-urls).
+# Shared helpers for the URL-detection hooks (hooks/session-nudge.sh,
+# hooks/capture-urls.sh), which source this by relative path.
 # Source this; don't execute it.
 
 # The pattern both hooks use to spot a GitHub PR/issue or GitLab MR/issue URL.
