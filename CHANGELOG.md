@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.25.0
+
+### Changed
+- `tack export` now writes an **uncompressed** archive to **stdout** by default, so it pipes and diffs cleanly. Two new flags cover the old behavior: `--out-file <path>` redirects the archive to a file (the summary line then goes to stderr) and `--compress` gzips the output. The positional `[path]` argument is gone — use `--out-file`. `tack import` reads either form, detecting gzip vs. plain JSON by content, so existing compressed backups still import.
+
+### Fixed
+- Sessions are now recorded **deterministically**. Previously a session only landed in the store when the agent ran `tack session` (or someone ran `tack start`), so most sessions were never captured — thousands of sessions produced session data on only a handful of routes. The `session-nudge` hook now records the session on the resolved route (by pin, else branch-slug) on the first prompt of every session, leaving the agent to bind the specific tack when it knows which one the session is driving.
+
 ## 0.24.1
 
 ### Fixed
