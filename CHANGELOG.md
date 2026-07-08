@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.26.0
+
+### Added
+- **Sessions are recorded when you create a route or tack, not just when you run `tack start`.** `tack init` and `tack add` now attribute the current Claude session to the route (route-level) when running inside a session, using the same mechanism `tack start` already used to bind the started tack. Session capture no longer depends on the agent remembering to run `tack session`.
+
+### Changed
+- **The URL-detection hooks now ensure a mapping exists instead of nagging.** When a PR/MR/issue URL appears in a prompt or in tool output, the hook checks whether a tack already tracks it: an already-tracked URL stays silent (no more redundant reminders), and only an untracked URL prompts the agent to create the route/tack mapping — which, via the change above, also records the session. Shared detection logic now lives in one place so the two hooks can't drift.
+
 ## 0.25.0
 
 ### Changed
