@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.26.1
+
+### Fixed
+- **The marketplace component listing no longer counts `lib-url.sh` as a hook.** The shared URL-detection helper — sourced by the `session-nudge` and `capture-urls` hooks — moved from `hooks/` to `scripts/`, so it's no longer mistaken for a registered hook. The two hooks source it by relative path; behavior is unchanged.
+
+### Other
+- Spec requirement category prefixes were renamed to natural mnemonic codes (internal to `SPEC.md`; no runtime effect).
+
 ## 0.26.0
 
 ### Added
