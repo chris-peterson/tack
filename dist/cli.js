@@ -52,7 +52,7 @@ Usage:
   tack pins [--json]                 List all pins (flags dangling and idle entries)
   tack pins prune                    Remove pins with a deleted route or missing directory
   tack rm <slug> [--force]
-  tack export [path]                 Write a gzip backup (routes + repos + pins)
+  tack export [--out-file <path>] [--compress]  Dump a backup to stdout (routes + repos + pins)
   tack import <file> [--merge|--replace] [--dry-run]  Merge (default) or restore a backup
   tack install-cli [--dir <path>]    (also installs zsh completions)
   tack completions zsh
@@ -183,9 +183,6 @@ function readVersion() {
     catch {
         return "unknown";
     }
-}
-function defaultBackupName() {
-    return `tack-backup-${new Date().toISOString().slice(0, 10)}.json.gz`;
 }
 function run() {
     const args = process.argv.slice(2);
@@ -693,12 +690,29 @@ function run() {
             break;
         }
         case "export": {
-            const { positionals } = parseArgs({ args: rest, allowPositionals: true });
-            const { buffer, counts } = backup.buildArchive(`tack ${readVersion()}`);
-            const path = positionals[0] ?? defaultBackupName();
-            writeFileSync(path, buffer);
-            console.log(`exported ${counts.routes} routes, ${counts.repos} repos, ${counts.pins} pins → ${path} ` +
-                `(${(buffer.length / 1024).toFixed(1)} KB, schema v${backup.SCHEMA_VERSION})`);
+            const { values } = parseArgs({
+                args: rest,
+                options: {
+                    "out-file": { type: "string" },
+                    compress: { type: "boolean" },
+                },
+                allowPositionals: false,
+            });
+            const { json, counts } = backup.buildArchive(`tack ${readVersion()}`);
+            const compress = Boolean(values.compress);
+            const payload = compress ? backup.compress(json) : json;
+            const outFile = values["out-file"];
+            if (outFile) {
+                writeFileSync(outFile, payload);
+                const size = Buffer.byteLength(payload);
+                console.error(`exported ${counts.routes} routes, ${counts.repos} repos, ${counts.pins} pins → ${outFile} ` +
+                    `(${(size / 1024).toFixed(1)} KB${compress ? ", gzip" : ""}, schema v${backup.SCHEMA_VERSION})`);
+            }
+            else {
+                process.stdout.write(payload);
+                if (!compress)
+                    process.stdout.write("\n");
+            }
             break;
         }
         case "import": {

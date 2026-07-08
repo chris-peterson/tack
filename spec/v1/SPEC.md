@@ -632,15 +632,16 @@ excluded, so re-attaching a URL already present on that same tack does not
 warn. The warning is informational: the attach still completes and the command
 exits zero.
 
-**[CL-49]** Export — `tack export [path]` shall write the entire local store
-(all routes, the repo database, and pins) as a single gzip-compressed JSON
-document carrying a top-level `schemaVersion` (currently `1`), an `exportedAt`
-ISO timestamp, and a `generator` string. When `path` is omitted it shall
-default to `tack-backup-<YYYY-MM-DD>.json.gz` in the current directory.
+**[CL-49]** Export — `tack export [--out-file <path>] [--compress]` shall
+serialize the entire local store (all routes, the repo database, and pins) as a
+single JSON document carrying a top-level `schemaVersion` (currently `1`), an
+`exportedAt` ISO timestamp, and a `generator` string. It shall write the archive
+uncompressed to stdout by default; `--out-file` shall redirect it to a file
+(emitting the summary line to stderr) and `--compress` shall gzip the output.
 
 **[CL-50]** Import — `tack import <file> [--merge|--replace] [--dry-run]` shall
-read a gzip archive produced by [CL-49] and refuse one whose `schemaVersion`
-exceeds the running tack's. `--replace` (full restore) shall overwrite each
+read an archive produced by [CL-49] — gzip-compressed or plain JSON, detected by
+content — and refuse one whose `schemaVersion` exceeds the running tack's. `--replace` (full restore) shall overwrite each
 route in the archive verbatim and replace the repo database and pins wholesale.
 `--merge` (the default, for combining machines) shall: create routes absent
 locally; for a route that exists on both, append only tacks whose identity

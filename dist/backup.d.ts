@@ -11,7 +11,7 @@ export interface Archive {
     pins: ReturnType<typeof route.readAllPins>;
 }
 export interface ExportResult {
-    buffer: Buffer;
+    json: string;
     counts: {
         routes: number;
         repos: number;
@@ -19,6 +19,7 @@ export interface ExportResult {
     };
 }
 export declare function buildArchive(generator: string): ExportResult;
+export declare function compress(json: string): Buffer;
 export declare function parseArchive(buf: Buffer): Archive;
 export interface Reassignment {
     from: string;

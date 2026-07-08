@@ -357,26 +357,39 @@ describe("export / import backup (CL-49/CL-50)", () => {
     return { status: r.status ?? 0, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
   }
 
-  it("export writes a gzip document carrying schemaVersion 1 and the routes", () => {
+  it("export emits an uncompressed JSON archive to stdout by default", () => {
     const h = home();
-    const arc = join(h, "out.json.gz");
     run(h, ["init", "alpha"]);
     run(h, ["add", "alpha", "First", "--deliverable", "https://github.com/o/r/pull/1"]);
-    const r = run(h, ["export", arc]);
+    const r = run(h, ["export"]);
     assert.equal(r.status, 0);
-    const doc = JSON.parse(gunzipSync(readFileSync(arc)).toString("utf-8"));
+    const doc = JSON.parse(r.stdout);
     assert.equal(doc.schemaVersion, 1);
     assert.equal(doc.routes.length, 1);
     assert.equal(doc.routes[0].slug, "alpha");
   });
 
+  it("export --out-file --compress writes a gzip document; status goes to stderr", () => {
+    const h = home();
+    const arc = join(h, "out.json.gz");
+    run(h, ["init", "alpha"]);
+    run(h, ["add", "alpha", "First"]);
+    const r = run(h, ["export", "--out-file", arc, "--compress"]);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, "");
+    assert.match(r.stderr, /→ .*out\.json\.gz/);
+    const doc = JSON.parse(gunzipSync(readFileSync(arc)).toString("utf-8"));
+    assert.equal(doc.schemaVersion, 1);
+    assert.equal(doc.routes[0].slug, "alpha");
+  });
+
   it("import --replace restores routes into a fresh machine", () => {
     const a = home(), b = home();
-    const arc = join(a, "out.json.gz");
+    const arc = join(a, "out.json");
     run(a, ["init", "alpha"]);
     run(a, ["add", "alpha", "First"]);
     run(a, ["add", "alpha", "Second"]);
-    run(a, ["export", arc]);
+    run(a, ["export", "--out-file", arc]);
     const r = run(b, ["import", arc, "--replace"]);
     assert.equal(r.status, 0);
     const tree = run(b, ["tree", "alpha", "-d", "2"]).stdout;
@@ -384,13 +397,24 @@ describe("export / import backup (CL-49/CL-50)", () => {
     assert.match(tree, /t2: Second/);
   });
 
-  it("merge dedups a tack already present by deliverable url", () => {
+  it("import accepts a gzip-compressed archive", () => {
     const a = home(), b = home();
     const arc = join(a, "out.json.gz");
+    run(a, ["init", "alpha"]);
+    run(a, ["add", "alpha", "First"]);
+    run(a, ["export", "--out-file", arc, "--compress"]);
+    const r = run(b, ["import", arc, "--replace"]);
+    assert.equal(r.status, 0);
+    assert.match(run(b, ["tree", "alpha", "-d", "2"]).stdout, /t1: First/);
+  });
+
+  it("merge dedups a tack already present by deliverable url", () => {
+    const a = home(), b = home();
+    const arc = join(a, "out.json");
     const url = "https://github.com/o/r/pull/7";
     run(a, ["init", "alpha"]);
     run(a, ["add", "alpha", "Ship it", "--deliverable", url]);
-    run(a, ["export", arc]);
+    run(a, ["export", "--out-file", arc]);
     run(b, ["init", "alpha"]);
     run(b, ["add", "alpha", "Ship it", "--deliverable", url]);
     const r = run(b, ["import", arc]);
@@ -400,10 +424,10 @@ describe("export / import backup (CL-49/CL-50)", () => {
 
   it("merge appends a new tack with a reported id reassignment", () => {
     const a = home(), b = home();
-    const arc = join(a, "out.json.gz");
+    const arc = join(a, "out.json");
     run(a, ["init", "alpha"]);
     run(a, ["add", "alpha", "Extra work"]);
-    run(a, ["export", arc]);
+    run(a, ["export", "--out-file", arc]);
     run(b, ["init", "alpha"]);
     run(b, ["add", "alpha", "Local one"]);
     run(b, ["add", "alpha", "Local two"]);
@@ -415,11 +439,11 @@ describe("export / import backup (CL-49/CL-50)", () => {
 
   it("merge remaps depends_on edges among appended tacks", () => {
     const a = home(), b = home();
-    const arc = join(a, "out.json.gz");
+    const arc = join(a, "out.json");
     run(a, ["init", "alpha"]);
     run(a, ["add", "alpha", "Base"]);
     run(a, ["add", "alpha", "Dependent", "--depends-on", "t1"]);
-    run(a, ["export", arc]);
+    run(a, ["export", "--out-file", arc]);
     run(b, ["init", "alpha"]);
     run(b, ["add", "alpha", "Local"]); // occupies t1 in b
     run(b, ["import", arc]);
@@ -431,10 +455,10 @@ describe("export / import backup (CL-49/CL-50)", () => {
 
   it("--dry-run reports changes but writes nothing", () => {
     const a = home(), b = home();
-    const arc = join(a, "out.json.gz");
+    const arc = join(a, "out.json");
     run(a, ["init", "alpha"]);
     run(a, ["add", "alpha", "New tack"]);
-    run(a, ["export", arc]);
+    run(a, ["export", "--out-file", arc]);
     run(b, ["init", "alpha"]);
     run(b, ["add", "alpha", "Local"]);
     const r = run(b, ["import", arc, "--dry-run"]);

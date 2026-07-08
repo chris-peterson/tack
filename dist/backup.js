@@ -5,7 +5,8 @@ import * as repos from "./repos.js";
 // refuses an archive whose schemaVersion exceeds this, so a future v2 can ship a
 // migration rather than silently mishandling unknown fields.
 export const SCHEMA_VERSION = 1;
-// Bundle the whole local store into one gzip-compressed JSON document.
+// Bundle the whole local store into one JSON document. Callers emit it as-is
+// or run it through compress() first.
 export function buildArchive(generator) {
     const routes = route.loadAll();
     const repoDb = repos.loadRepos();
@@ -18,9 +19,8 @@ export function buildArchive(generator) {
         repos: repoDb,
         pins,
     };
-    const buffer = gzipSync(Buffer.from(JSON.stringify(archive, null, 2), "utf-8"));
     return {
-        buffer,
+        json: JSON.stringify(archive, null, 2),
         counts: {
             routes: routes.length,
             repos: Object.keys(repoDb).length,
@@ -28,13 +28,26 @@ export function buildArchive(generator) {
         },
     };
 }
+export function compress(json) {
+    return gzipSync(Buffer.from(json, "utf-8"));
+}
+// A gzip stream starts with the magic bytes 0x1f 0x8b; a JSON document never
+// does. Detect the shape so import accepts both compressed and plain archives.
+function isGzip(buf) {
+    return buf.length >= 2 && buf[0] === 0x1f && buf[1] === 0x8b;
+}
 export function parseArchive(buf) {
     let json;
-    try {
-        json = gunzipSync(buf).toString("utf-8");
+    if (isGzip(buf)) {
+        try {
+            json = gunzipSync(buf).toString("utf-8");
+        }
+        catch (e) {
+            throw new Error(`corrupt gzip archive (${e.message})`);
+        }
     }
-    catch (e) {
-        throw new Error(`not a gzip archive (${e.message})`);
+    else {
+        json = buf.toString("utf-8");
     }
     let data;
     try {

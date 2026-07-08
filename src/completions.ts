@@ -209,7 +209,7 @@ _tack() {
     'rm:Delete a route'
     'rename:Rename a route'
     'group:Set, change, or clear a route group'
-    'export:Write a gzip backup (routes + repos + pins)'
+    'export:Dump a backup to stdout (routes + repos + pins)'
     'import:Merge or restore a backup'
     'install-cli:Drop a tack wrapper on PATH'
     'completions:Output shell completion script'
@@ -447,10 +447,8 @@ _tack() {
       esac
       ;;
     export)
-      # tack export [path]
-      case "$CURRENT" in
-        3) _files ;;
-      esac
+      # tack export [--out-file <path>] [--compress]
+      _arguments '--out-file[Write to a file instead of stdout]:file:_files' '--compress[Gzip the output]'
       ;;
     import)
       # tack import <file> [--merge|--replace] [--dry-run]

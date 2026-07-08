@@ -455,18 +455,23 @@ tack pins prune
 
 ## Backup
 
-### `tack export [path]`
+### `tack export [--out-file <path>] [--compress]`
 
 Bundle the entire local store — every route, the repo database, and pins —
-into a single gzip-compressed JSON document. The document carries a
-`schemaVersion` (currently `1`), an `exportedAt` timestamp, and a `generator`
-string, so a future format change can be migrated rather than misread. When
-`path` is omitted the file is written to `tack-backup-<YYYY-MM-DD>.json.gz`
-in the current directory.
+into a single JSON document. The document carries a `schemaVersion` (currently
+`1`), an `exportedAt` timestamp, and a `generator` string, so a future format
+change can be migrated rather than misread.
+
+By default the archive is written **uncompressed to stdout**, so it pipes and
+diffs cleanly. `--out-file` redirects it to a file (the summary line then goes
+to stderr), and `--compress` gzips the output. `tack import` accepts either
+form.
 
 ```bash
-tack export                         # → tack-backup-2026-07-07.json.gz
-tack export ~/backups/tack.json.gz  # explicit path
+tack export                                        # JSON to stdout
+tack export > tack-backup.json                     # redirect to a file
+tack export --compress > tack-backup.json.gz       # gzip to a file
+tack export --out-file ~/backups/tack.json.gz --compress
 ```
 
 ### `tack import <file> [--merge|--replace] [--dry-run]`
