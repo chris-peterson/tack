@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
-# PostToolUse hook for Bash — detects PR/MR URLs in command output
-# and reminds the agent to record them via the tack skill.
+# PostToolUse hook for Bash — detects PR/MR/issue URLs in command output and,
+# for any the store doesn't already track, nudges the agent to ensure a
+# route/tack mapping exists via the tack skill.
 #
-# Reads the tool result JSON from stdin. Outputs a reminder string
-# to stdout if a PR/MR URL is found.
+# Reads the tool result JSON from stdin. Outputs a reminder string to stdout if
+# an untracked PR/MR/issue URL is found.
 
 set -euo pipefail
 
+source "$(dirname "${BASH_SOURCE[0]}")/lib-url.sh"
+
 input=$(cat)
 
-# Extract stdout from tool result
 # PostToolUse stdin shape: {"tool_name":"Bash","tool_input":{...},"tool_response":{"stdout":"..."}}
 output=$(echo "$input" | jq -r '.tool_response.stdout // empty' 2>/dev/null)
 [ -z "$output" ] && exit 0
 
-# Match GitHub PR or GitLab MR URLs
-url=$(echo "$output" | grep -oE 'https://(github\.com/[^/]+/[^/]+/(pull|issues)|gitlab\.[^[:space:]]*/-/(merge_requests|issues))/[0-9]+' | head -1)
-[ -z "$url" ] && exit 0
-
-echo "A PR/MR/issue URL appeared in tool output: $url — use the tack skill to record it on the active route's current tack (deliverable for PR/MR, link otherwise). The skill owns route resolution; don't run tack commands directly without it."
+nudges=$(url_nudges "$output" "PR/MR/issue URL in tool output:")
+[ -n "$nudges" ] && printf '%b' "$nudges"
+exit 0

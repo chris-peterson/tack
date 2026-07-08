@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # UserPromptSubmit hook — two responsibilities:
-#   1. Detect PR/MR URLs pasted by the user and remind the agent to record them.
-#   2. On the first message of a session, check whether a tack route exists
-#      for the current repo/branch. If not, suggest using /recipe.
+#   1. Detect PR/MR/issue URLs pasted by the user that no tack tracks yet, and
+#      nudge the agent to ensure a route/tack mapping exists.
+#   2. On the first message of a session, resolve the tack route for the current
+#      repo/branch. If one exists, record the session on it; if not, nudge.
 #
 # Stdin: JSON with "prompt", "cwd", "session_id" fields.
 # Stdout: reminder text (injected as system context for the agent).
 
 set -euo pipefail
+
+source "$(dirname "${BASH_SOURCE[0]}")/lib-url.sh"
 
 input=$(cat)
 prompt=$(echo "$input" | jq -r '.prompt // empty' 2>/dev/null)
@@ -19,12 +22,7 @@ session_id=$(echo "$input" | jq -r '.session_id // empty' 2>/dev/null)
 output=""
 
 # --- 1. URL detection ---
-urls=$(echo "$prompt" | grep -oE 'https://(github\.com/[^/]+/[^/]+/(pull|issues)|gitlab\.[^[:space:]]*/-/(merge_requests|issues))/[0-9]+' | head -3 || true)
-if [ -n "$urls" ]; then
-  for url in $urls; do
-    output="${output}PR/MR/issue URL in user message: ${url} — use the tack skill to record it on the active route (deliverable for PR/MR, link otherwise). The skill owns route resolution.\n"
-  done
-fi
+output="${output}$(url_nudges "$prompt" "PR/MR/issue URL in user message:")"
 
 # --- 2. Session nudge (once per session) ---
 nudge_dir="${TMPDIR:-/tmp}/tack-nudge"

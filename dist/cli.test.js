@@ -8,6 +8,10 @@ import { tmpdir } from "node:os";
 import { gzipSync, gunzipSync } from "node:zlib";
 const cli = join(dirname(fileURLToPath(import.meta.url)), "cli.js");
 const env = { ...process.env, TACK_HOME: mkdtempSync(join(tmpdir(), "tack-cli-test-")) };
+// Strip the ambient session id so the suite behaves the same inside a Claude
+// session as outside it — otherwise `init`/`add`/`start` would record the
+// runner's own session and inflate sessions[] in tests that never set it.
+delete env.CLAUDE_CODE_SESSION_ID;
 function runFail(args) {
     try {
         const stdout = execFileSync("node", [cli, ...args], { env, encoding: "utf-8" });
@@ -235,6 +239,34 @@ describe("tack start auto-binds the current Claude session (beacon fleet join)",
         execFileSync("node", [cli, "add", "nobind", "Wire it"], { env: e });
         execFileSync("node", [cli, "start", "nobind", "t1"], { env: e });
         const yaml = readFileSync(join(home, "routes", "nobind.yaml"), "utf-8");
+        assert.doesNotMatch(yaml, /sessions:/);
+    });
+});
+describe("route/tack creation records the current Claude session", () => {
+    it("tack init records the session on the new route (route-level, no tack)", () => {
+        const home = mkdtempSync(join(tmpdir(), "tack-init-sess-"));
+        const e = { ...process.env, TACK_HOME: home, CLAUDE_CODE_SESSION_ID: "sess-init-1" };
+        execFileSync("node", [cli, "init", "initroute"], { env: e });
+        const yaml = readFileSync(join(home, "routes", "initroute.yaml"), "utf-8");
+        assert.match(yaml, /- id: sess-init-1/);
+        assert.doesNotMatch(yaml, /tacks:\s*\n\s*- t1/); // no tack bound by init alone
+    });
+    it("tack add records the session on the route", () => {
+        const home = mkdtempSync(join(tmpdir(), "tack-add-sess-"));
+        const e = { ...process.env, TACK_HOME: home, CLAUDE_CODE_SESSION_ID: "sess-add-1" };
+        execFileSync("node", [cli, "init", "addroute"], { env: e });
+        execFileSync("node", [cli, "add", "addroute", "Do the thing"], { env: e });
+        const yaml = readFileSync(join(home, "routes", "addroute.yaml"), "utf-8");
+        // Same session id across init + add dedups to a single sessions[] entry.
+        assert.equal((yaml.match(/- id: sess-add-1/g) ?? []).length, 1);
+    });
+    it("is a no-op outside a Claude session", () => {
+        const home = mkdtempSync(join(tmpdir(), "tack-create-nobind-"));
+        const e = { ...process.env, TACK_HOME: home };
+        delete e.CLAUDE_CODE_SESSION_ID;
+        execFileSync("node", [cli, "init", "noroute"], { env: e });
+        execFileSync("node", [cli, "add", "noroute", "Work"], { env: e });
+        const yaml = readFileSync(join(home, "routes", "noroute.yaml"), "utf-8");
         assert.doesNotMatch(yaml, /sessions:/);
     });
 });

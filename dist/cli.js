@@ -81,6 +81,16 @@ function warnUrlCollision(url, slug, tackId) {
     const locations = collisions.map((m) => `${m.slug}/${m.tackId} (${m.match})`).join(", ");
     console.error(`warning: url already on ${locations}: ${url}`);
 }
+// Attribute the current Claude session to a route it just touched, so fleet
+// views can see which session is driving the work. A no-op outside a Claude
+// session (the env var is unset in an ad-hoc terminal). `init` and `add` record
+// route-level (a session that created a route/tack is working that route);
+// `start` additionally binds the specific tack it just started.
+function recordSessionIfPresent(slug, tackId) {
+    const sid = process.env.CLAUDE_CODE_SESSION_ID;
+    if (sid)
+        route.recordSession(slug, sid, tackId);
+}
 function resolveSource() {
     // Plugin install: prefer the bash shim that lazy-builds dist on first run.
     const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT;
@@ -217,6 +227,7 @@ function run() {
             const r = route.init(slug, {
                 group: initValues.group,
             });
+            recordSessionIfPresent(slug);
             console.log(formatRoute(r));
             break;
         }
@@ -327,6 +338,7 @@ function run() {
             });
             if (deliverableUrl)
                 warnUrlCollision(deliverableUrl, slug, tack.id);
+            recordSessionIfPresent(slug);
             console.log(formatTack(tack));
             break;
         }
@@ -337,10 +349,7 @@ function run() {
             // Bind the current Claude session to the tack it just started, so the
             // fleet view (beacon reads sessions[].tacks) attributes the session to
             // the tack it is driving with no separate `tack session --tack` call.
-            // No-op in an ad-hoc terminal where the session env var is unset.
-            const startSid = process.env.CLAUDE_CODE_SESSION_ID;
-            if (startSid)
-                route.recordSession(rest[0], startSid, rest[1]);
+            recordSessionIfPresent(rest[0], rest[1]);
             console.log(formatTack(tack));
             break;
         }

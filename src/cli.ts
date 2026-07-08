@@ -86,6 +86,16 @@ function warnUrlCollision(url: string, slug: string, tackId: string): void {
   console.error(`warning: url already on ${locations}: ${url}`);
 }
 
+// Attribute the current Claude session to a route it just touched, so fleet
+// views can see which session is driving the work. A no-op outside a Claude
+// session (the env var is unset in an ad-hoc terminal). `init` and `add` record
+// route-level (a session that created a route/tack is working that route);
+// `start` additionally binds the specific tack it just started.
+function recordSessionIfPresent(slug: string, tackId?: string): void {
+  const sid = process.env.CLAUDE_CODE_SESSION_ID;
+  if (sid) route.recordSession(slug, sid, tackId);
+}
+
 type Source = { path: string; kind: "shim" | "node" };
 
 function resolveSource(): Source {
@@ -230,6 +240,7 @@ function run(): void {
       const r = route.init(slug, {
         group: initValues.group as string | undefined,
       });
+      recordSessionIfPresent(slug);
       console.log(formatRoute(r));
       break;
     }
@@ -350,6 +361,7 @@ function run(): void {
         deliverable,
       });
       if (deliverableUrl) warnUrlCollision(deliverableUrl, slug, tack.id);
+      recordSessionIfPresent(slug);
       console.log(formatTack(tack));
       break;
     }
@@ -360,9 +372,7 @@ function run(): void {
       // Bind the current Claude session to the tack it just started, so the
       // fleet view (beacon reads sessions[].tacks) attributes the session to
       // the tack it is driving with no separate `tack session --tack` call.
-      // No-op in an ad-hoc terminal where the session env var is unset.
-      const startSid = process.env.CLAUDE_CODE_SESSION_ID;
-      if (startSid) route.recordSession(rest[0], startSid, rest[1]);
+      recordSessionIfPresent(rest[0], rest[1]);
       console.log(formatTack(tack));
       break;
     }

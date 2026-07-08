@@ -279,7 +279,13 @@ repo where it has no business. All tack state lives under `~/.tack/`.
 create a new route file at `~/.tack/routes/<slug>.yaml` with a generated v4
 UUID as `id`, an empty `tacks` array, and `created_at`/`updated_at` set to
 the current time. When `--group` is passed, the route's `group` shall be set
-to the given slug.
+to the given slug. When the `CLAUDE_CODE_SESSION_ID` environment variable is
+set (the CLI is running inside a Claude Code session), the CLI shall also
+record that session on the route per [RT-09] — route-level, without binding a
+tack ([RT-11] binding is reserved for [CL-07] / [CL-17], which know the tack).
+Creating a route in a session is a declaration that the session is working it,
+so a fleet reader keyed on the session id attributes the session to the route
+with no separate `tack session` call. Outside a Claude session this is a no-op.
 
 **[CL-03]** `tack status [slug] [--all]` — When invoked with a slug, the CLI
 shall display the route's tacks, their statuses, dependencies, deliverable,
@@ -298,6 +304,9 @@ created with its `deliverable` field set; the label is auto-derived from the
 URL using the recognition rules in [CL-37]. When the URL does not match
 a recognized pattern, the URL itself is used as the label. The CLI shall
 reject unknown flags with a usage error rather than silently ignoring them.
+When the `CLAUDE_CODE_SESSION_ID` environment variable is set, the CLI shall
+also record that session on the route per [RT-09], route-level (as [CL-02]
+does for `tack init`).
 
 **[CL-05]** `tack done <slug> <tack-id> [--date <ts>]` — When invoked, the CLI
 shall set the specified tack's status to `done`. `done_at` shall be set to the
@@ -760,29 +769,37 @@ start.
 
 **[HK-02]** A `PostToolUse` hook scoped to the `Bash` tool shall scan tool
 output for PR/MR and issue URLs (the recognized forges are defined in
-[CL-37]). When a match is found, the hook shall emit reminder text
-instructing the agent to record the URL via the tack skill per [AG-05] or
-[AG-06] depending on URL type.
+[CL-37]). For each match, the hook shall first check whether a tack already
+tracks the URL by running `tack find <url>` ([CL-23]); a URL already mapped
+emits no reminder, so the hooks stop nagging about work that is already
+recorded. Only an untracked URL shall emit reminder text, instructing the
+agent to ensure a route/tack mapping exists via the tack skill per [AG-05] or
+[AG-06] depending on URL type. When `tack` is not on `PATH` the tracked-check
+cannot run, so the hook shall emit the reminder unconditionally.
 
 **[HK-03]** A `UserPromptSubmit` hook shall scan the user's prompt for
 PR/MR and issue URLs ([CL-37]) and emit the same kind of reminder as
-[HK-02]. The
+[HK-02], with the same already-tracked gating. The
 hook is responsible for noticing URLs the user pastes inline rather than
 through a Bash tool call.
 
-**[HK-04]** The `UserPromptSubmit` hook shall also, once per session, check
-whether a route exists for the current cwd by running [AG-03] step 1 (pin
-for cwd, via `tack pin`) and step 3 (branch-slug route) — existence-only,
-without verifying the
-route's open-tack state and without prompting the user. If neither resolves,
-the hook shall emit a one-line nudge suggesting the user invoke the tack skill
-to identify or create a route. The hook shall debounce so this nudge fires at
-most once per session.
+**[HK-04]** The `UserPromptSubmit` hook shall also, once per session, resolve
+the route for the current cwd by running [AG-03] step 1 (pin for cwd, via
+`tack pin`) and step 3 (branch-slug route) — existence-only, without verifying
+the route's open-tack state and without prompting the user. When a route
+resolves, the hook shall record the current session on it per [RT-09]
+(route-level, no tack binding), so session→route attribution does not depend on
+the agent remembering to run `tack session`. When neither resolves, the hook
+shall emit a one-line nudge suggesting the user invoke the tack skill to
+identify or create a route. The hook shall debounce so this fires at most once
+per session.
 
-**[HK-05]** Hook reminders are advisory. The agent shall act on them via
-the tack skill rather than the hook running CLI commands directly. This
-routes all schema writes through one path and lets the agent apply context
-(which slug, which tack) the hook cannot see.
+**[HK-05]** Hook reminders are advisory: the *judgment-laden* writes — which
+slug and tack a URL maps to — shall be made by the agent via the tack skill,
+not by the hook, so that context the hook cannot see is applied and those
+schema writes go through one path. The hook may perform deterministic reads
+(the `tack find` tracked-check per [HK-02]) and the route-level session record
+per [HK-04], which need no such judgment.
 
 ---
 
