@@ -25,7 +25,7 @@ Usage:
   tack list [--json]
   tack recent [--count <n>] [--since <date>] [--json]
   tack tree [path] [-d <depth>] [--json]    (path supports glob: */*/deliverable)
-  tack add <slug> <summary> [--depends-on <id,...>] [--done] [--date <ts>] [--deliverable <url>]
+  tack add <slug> <summary> [--depends-on <id,...>] [--done] [--date <ts>] [--deliverable <url>] [--link "label,url"]...
   tack edit <slug> <tack-id> <summary>
   tack merge <slug> <source-id> <target-id>
   tack move <src-slug>/<tack-id> <dst-slug> [--include-dependents]
@@ -34,6 +34,7 @@ Usage:
   tack drop <slug> <tack-id>
   tack remove <slug> <tack-id> [--force]
   tack deliverable <slug> <tack-id> <url> [--label <text>] [--force]   (label auto-derived from url by default)
+  tack deliverable rm <slug> <tack-id> [--to-link]   (clear the deliverable, or --to-link to demote it into links)
   tack before <slug> <tack-id> <text>
   tack after <slug> <tack-id> <text>
   tack todo done <slug> <tack-id> <todo-id>
@@ -341,6 +342,7 @@ function run(): void {
           done: { type: "boolean" },
           date: { type: "string" },
           deliverable: { type: "string" },
+          link: { type: "string", multiple: true },
         },
         allowPositionals: true,
       });
@@ -354,13 +356,27 @@ function run(): void {
         ? { label: route.deriveDeliverableLabel(deliverableUrl), url: deliverableUrl }
         : undefined;
 
+      // Each --link is "label,url" — split on the first comma so URLs (which
+      // never start a value) keep any later commas, mirroring `link add`'s
+      // positional <label> <url> pair.
+      const links = (values.link as string[] | undefined)?.map((spec) => {
+        const comma = spec.indexOf(",");
+        if (comma < 0) {
+          console.error(`Invalid --link "${spec}": expected "label,url".`);
+          process.exit(1);
+        }
+        return { label: spec.slice(0, comma), url: spec.slice(comma + 1) };
+      });
+
       const tack = route.addTack(slug, summary, {
         dependsOn,
         done: values.done as boolean | undefined,
         doneAt: values.date as string | undefined,
         deliverable,
+        links,
       });
       if (deliverableUrl) warnUrlCollision(deliverableUrl, slug, tack.id);
+      for (const link of tack.links ?? []) warnUrlCollision(link.url, slug, tack.id);
       recordSessionIfPresent(slug);
       console.log(formatTack(tack));
       break;
@@ -415,6 +431,23 @@ function run(): void {
     }
 
     case "deliverable": {
+      // `deliverable` is a set-verb by default; the `rm` subcommand clears or
+      // (with --to-link) demotes the deliverable, matching link/depends/todo.
+      if (rest[0] === "rm") {
+        const { values: rmValues, positionals: rmPositionals } = parseArgs({
+          args: rest.slice(1),
+          options: {
+            "to-link": { type: "boolean" },
+          },
+          allowPositionals: true,
+        });
+        if (rmPositionals.length !== 2) usage();
+        const tack = route.removeDeliverable(rmPositionals[0], rmPositionals[1], {
+          toLink: rmValues["to-link"] as boolean | undefined,
+        });
+        console.log(formatTack(tack));
+        break;
+      }
       const { values: dlvValues, positionals: dlvPositionals } = parseArgs({
         args: rest,
         options: {

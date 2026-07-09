@@ -92,6 +92,40 @@ describe("addTack", () => {
       /not found/i
     );
   });
+
+  it("attaches links passed on creation", () => {
+    route.init("add-links");
+    const t = route.addTack("add-links", "Task", {
+      links: [
+        { label: "issue", url: "https://example.com/issues/1" },
+        { label: "design", url: "https://example.com/design" },
+      ],
+    });
+    assert.equal(t.links!.length, 2);
+    assert.deepEqual(t.links!.map((l) => l.label), ["issue", "design"]);
+  });
+
+  it("dedupes a link that matches the deliverable on creation", () => {
+    route.init("add-links-dlv-dup");
+    const t = route.addTack("add-links-dlv-dup", "Task", {
+      deliverable: { label: "PR", url: "https://github.com/acme/repo/pull/1" },
+      links: [{ label: "same", url: "https://github.com/acme/repo/pull/1" }],
+    });
+    assert.equal(t.deliverable!.url, "https://github.com/acme/repo/pull/1");
+    assert.equal(t.links, undefined);
+  });
+
+  it("dedupes repeated link urls on creation", () => {
+    route.init("add-links-self-dup");
+    const t = route.addTack("add-links-self-dup", "Task", {
+      links: [
+        { label: "first", url: "https://example.com/doc" },
+        { label: "second", url: "https://example.com/doc" },
+      ],
+    });
+    assert.equal(t.links!.length, 1);
+    assert.equal(t.links![0].label, "first");
+  });
 });
 
 describe("startTack", () => {
@@ -598,6 +632,56 @@ describe("setDeliverable", () => {
     const t = route.setDeliverable("dlv-strip-empty", "t1", "PR A", "https://github.com/acme/repo/pull/1");
     assert.equal(t.deliverable!.url, "https://github.com/acme/repo/pull/1");
     assert.equal(t.links, undefined);
+  });
+});
+
+describe("removeDeliverable", () => {
+  it("clears the deliverable by default", () => {
+    route.init("dlv-rm");
+    route.addTack("dlv-rm", "Task");
+    route.setDeliverable("dlv-rm", "t1", "PR", "https://github.com/acme/repo/pull/1");
+    const t = route.removeDeliverable("dlv-rm", "t1");
+    assert.equal(t.deliverable, undefined);
+    assert.equal(t.links, undefined);
+  });
+
+  it("demotes the deliverable into links with --to-link, preserving label and url", () => {
+    route.init("dlv-rm-to-link");
+    route.addTack("dlv-rm-to-link", "Task");
+    route.setDeliverable("dlv-rm-to-link", "t1", "My PR", "https://github.com/acme/repo/pull/1");
+    const t = route.removeDeliverable("dlv-rm-to-link", "t1", { toLink: true });
+    assert.equal(t.deliverable, undefined);
+    assert.equal(t.links!.length, 1);
+    assert.deepEqual(t.links![0], { label: "My PR", url: "https://github.com/acme/repo/pull/1" });
+  });
+
+  it("does not create a duplicate link when the url is already present in links", () => {
+    // A tack can't hold the same URL as both deliverable and link through the
+    // normal API (addLink refuses the deliverable's URL), so seed that state
+    // directly to exercise the demote-time dedupe guard.
+    const r = route.init("dlv-rm-to-link-dup");
+    const url = "https://github.com/acme/repo/pull/1";
+    r.tacks.push({
+      id: "t1",
+      summary: "Task",
+      status: "pending",
+      deliverable: { label: "PR", url },
+      links: [{ label: "Same PR", url }],
+    });
+    route.writeRoute(r);
+    const t = route.removeDeliverable("dlv-rm-to-link-dup", "t1", { toLink: true });
+    assert.equal(t.deliverable, undefined);
+    assert.equal(t.links!.length, 1);
+    assert.equal(t.links![0].label, "Same PR");
+  });
+
+  it("throws when the tack has no deliverable", () => {
+    route.init("dlv-rm-none");
+    route.addTack("dlv-rm-none", "Task");
+    assert.throws(
+      () => route.removeDeliverable("dlv-rm-none", "t1"),
+      /no deliverable/i,
+    );
   });
 });
 

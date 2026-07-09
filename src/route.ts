@@ -221,6 +221,7 @@ export function addTack(
     done?: boolean;
     doneAt?: string;
     deliverable?: { label: string; url: string };
+    links?: Link[];
   } = {}
 ): Tack {
   const route = load(slug);
@@ -242,9 +243,24 @@ export function addTack(
   if (opts.deliverable) tack.deliverable = opts.deliverable;
   if (opts.done) tack.done_at = opts.doneAt ? normalizeTimestamp(opts.doneAt) : now();
 
+  // Attach any links, deduping against the deliverable and each other so
+  // `--link` on creation obeys the same no-op-on-duplicate rule as `link add`.
+  if (opts.links?.length) {
+    const links: Link[] = [];
+    for (const link of opts.links) {
+      if (tack.deliverable?.url === link.url) continue;
+      if (links.some((l) => l.url === link.url)) continue;
+      links.push(link);
+    }
+    if (links.length) tack.links = links;
+  }
+
   route.tacks.push(tack);
   save(route);
   if (opts.deliverable) captureBestEffort(() => repos.recordUrl(opts.deliverable!.url));
+  if (tack.links) {
+    for (const link of tack.links) captureBestEffort(() => repos.recordUrl(link.url));
+  }
   return tack;
 }
 
@@ -460,6 +476,30 @@ export function setDeliverable(
   }
   save(route);
   captureBestEffort(() => repos.recordUrl(url));
+  return tack;
+}
+
+export function removeDeliverable(
+  slug: string,
+  tackId: string,
+  opts: { toLink?: boolean } = {},
+): Tack {
+  const route = load(slug);
+  const tack = findTack(route, tackId);
+  if (!tack.deliverable) {
+    throw new Error(`${slug}/${tackId} has no deliverable to remove.`);
+  }
+  const { label, url } = tack.deliverable;
+  delete tack.deliverable;
+  // --to-link relocates the URL into links. Clearing the deliverable first
+  // sidesteps addLink's dedupe no-op (which skips a URL still held as the
+  // deliverable); the demoted link is only skipped when the URL is already
+  // present in links, matching tack's existing dedupe behavior.
+  if (opts.toLink && !tack.links?.some((l) => l.url === url)) {
+    if (!tack.links) tack.links = [];
+    tack.links.push({ label, url });
+  }
+  save(route);
   return tack;
 }
 

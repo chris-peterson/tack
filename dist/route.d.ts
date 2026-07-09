@@ -24,6 +24,7 @@ export declare function addTack(slug: string, summary: string, opts?: {
         label: string;
         url: string;
     };
+    links?: Link[];
 }): Tack;
 export declare function markDone(slug: string, tackId: string, opts?: {
     at?: string;
@@ -42,6 +43,9 @@ export declare function setGroup(slug: string, group: string): Route;
 export declare function clearGroup(slug: string): Route;
 export declare function setDeliverable(slug: string, tackId: string, label: string, url: string, opts?: {
     force?: boolean;
+}): Tack;
+export declare function removeDeliverable(slug: string, tackId: string, opts?: {
+    toLink?: boolean;
 }): Tack;
 export declare function addBefore(slug: string, tackId: string, text: string): Tack;
 export declare function addAfter(slug: string, tackId: string, text: string): Tack;
