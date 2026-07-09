@@ -3,20 +3,17 @@
 Tracking status of the requirements declared in [`spec/v1/SPEC.md`](spec/v1/SPEC.md).
 Updated after each `/spec-audit`.
 
-**Last audit:** 2026-07-08
+**Last audit:** 2026-07-09
 **Spec version:** v1
-**Coverage:** 120 / 120 source-verified normative behaviors (100%) — 0 Partial, 0 Missing, 0 Contradicts — plus 5 deferred (FUT-01..05)
+**Coverage:** 121 / 121 source-verified normative behaviors (100%) — 0 Partial, 0 Missing, 0 Contradicts — plus 5 deferred (FUT-01..05)
 
-This audit covers two releases (0.25.0, 0.26.0) and a taxonomy rename. Category
-prefixes were expanded to natural mnemonic codes — RT→RTE, TK→TACK, DV→DEL,
-TD→TODO, DP→DEP, LK→LINK, ST→STG, CL→CLI, AG→AGT, HK→HOOK, RP→REPO (FUT
-unchanged) — across the spec, this file, the changelog, and code comments; the
-numeric part of every ID is unchanged, so the rename touches no behavior. No new
-IDs were added: `tack init`/`add` recording the session (CLI-02/CLI-04), the
-`export`-to-stdout default with `--out-file`/`--compress` (CLI-49) and
-gzip-or-plain import (CLI-50), and the hooks' already-tracked URL gating plus
-route-level session record (HOOK-02..04) all extend existing requirements, so
-the source-verified count holds at 120.
+This audit covers 0.27.0 (issues #15, #24). One new ID: **CLI-08a** (`tack
+deliverable rm`), the inverse of setting a deliverable — clears it by default,
+or relocates it into `links` with `--to-link` (`removeDeliverable` in
+`src/route.ts`, dispatch in `src/cli.ts`). **CLI-04** gained a repeatable
+`--link "label,url"` flag that attaches a link on creation, deduped against the
+deliverable and other links — an extension of an existing ID, no count change
+for it. Source-verified count moves 120 → 121.
 
 ## Status by category
 
@@ -29,13 +26,29 @@ the source-verified count holds at 120.
 | DEP-01..04 | 4 | All Covered | `src/route.ts` |
 | LINK-01 | 1 | Covered | `src/types.ts` |
 | STG-01..06 | 6 | All Covered | `src/route.ts`; STG-06 pins file (`~/.tack/pins.yaml`) |
-| CLI-01..50 (+CLI-19a, CLI-21a..d, CLI-36a..d, CLI-37a) | 60 | All Covered | includes CLI-02/CLI-04 (`init`/`add` record the current session route-level via `recordSessionIfPresent`, `src/cli.ts`), CLI-17/CLI-18 (session + `--tack` binding / `--json`), CLI-19a (`install-cli`), CLI-30..36 (pin/unpin, depends add/rm, status set, rename, move), CLI-37 (forge note) + CLI-37a (commit-URL label derivation), CLI-38 (`--help`/`-h`/`help` + usage exit semantics, incl. subcommand-level `--help`/`-h`, `src/cli.ts`), CLI-39/CLI-40 (`tack pins` list + prune, `src/route.ts` `listPins`/`prunePins`), CLI-41 (group-scoped subcommand errors on stderr, `src/cli.ts` `groupError`, `src/cli.test.ts`), CLI-42..47 (`tack repo` lookup/list/alias/prune/rebuild/rm, `src/repos.ts` + `src/cli.ts`), CLI-48 (duplicate-URL warning on attach, `src/route.ts` `findCollisions`, `src/cli.ts` `warnUrlCollision`, `src/cli.test.ts`), CLI-49/CLI-50 (`export` to stdout by default with `--out-file`/`--compress`, `import` detecting gzip-vs-plain by content, schema versioning + identity-dedup merge, `src/backup.ts` + `src/cli.ts`, `src/cli.test.ts`) |
+| CLI-01..50 (+CLI-08a, CLI-19a, CLI-21a..d, CLI-36a..d, CLI-37a) | 61 | All Covered | includes CLI-02/CLI-04 (`init`/`add` record the current session route-level via `recordSessionIfPresent`, `src/cli.ts`; CLI-04 also takes repeatable `--link "label,url"`, deduped in `addTack`), CLI-08a (`deliverable rm` clears or `--to-link`-demotes the deliverable, `src/route.ts` `removeDeliverable` + `src/cli.ts` dispatch, tests in `src/route.test.ts`/`src/cli.test.ts`), CLI-17/CLI-18 (session + `--tack` binding / `--json`), CLI-19a (`install-cli`), CLI-30..36 (pin/unpin, depends add/rm, status set, rename, move), CLI-37 (forge note) + CLI-37a (commit-URL label derivation), CLI-38 (`--help`/`-h`/`help` + usage exit semantics, incl. subcommand-level `--help`/`-h`, `src/cli.ts`), CLI-39/CLI-40 (`tack pins` list + prune, `src/route.ts` `listPins`/`prunePins`), CLI-41 (group-scoped subcommand errors on stderr, `src/cli.ts` `groupError`, `src/cli.test.ts`), CLI-42..47 (`tack repo` lookup/list/alias/prune/rebuild/rm, `src/repos.ts` + `src/cli.ts`), CLI-48 (duplicate-URL warning on attach, `src/route.ts` `findCollisions`, `src/cli.ts` `warnUrlCollision`, `src/cli.test.ts`), CLI-49/CLI-50 (`export` to stdout by default with `--out-file`/`--compress`, `import` detecting gzip-vs-plain by content, schema versioning + identity-dedup merge, `src/backup.ts` + `src/cli.ts`, `src/cli.test.ts`) |
 | AGT-01..11 | 11 | All Covered | AGT-02 reworded to drop "without blocking"; AGT-10 (auto-pin on confident resolution); AGT-11 (early session→tack binding via `tack find`, existing-vs-emerging derivation) covered in `skills/tack/SKILL.md` |
 | HOOK-01..05 | 5 | All Covered | HOOK-02/HOOK-03 gate the URL reminder on `tack find` (already-tracked URLs stay silent; untracked ones nudge to create the mapping), shared in `scripts/lib-url.sh`; HOOK-04 records the session route-level when a route resolves; HOOK-05 permits the hook's deterministic reads (`tack find`) and the route-level session write while keeping URL→tack mapping with the agent |
 | REPO-01..07 | 7 | All Covered | `~/.tack/repos.yaml` repo database (`src/repos.ts`): REPO-02 remote normalization, REPO-06 capture from deliverable/link URLs, REPO-07 capture from `init`/`pin` cwd origin; tests in `src/repos.test.ts`, `src/cli.test.ts` |
 | FUT-01..05 | 5 | Deferred | Backup feature — out of scope for v1 |
 
 ## Audit history
+
+### 2026-07-09 — deliverable rm + add --link (0.27.0)
+
++1 ID (CLI-08a). **CLI-08a** adds `tack deliverable rm <slug> <tack-id>
+[--to-link]`, the inverse of CLI-08: it clears the deliverable by default, or
+relocates it into `links` (preserving label + URL) with `--to-link`. The
+clear-then-relocate is one operation on the tack, so the URL is never
+momentarily absent — sidestepping `addLink`'s dedupe no-op — and the relocation
+is skipped when the URL is already a link; removing from a tack with no
+deliverable fails with a clear message. **CLI-04** gained a repeatable `--link
+"label,url"` flag (split on the first comma, comma-less rejected) that attaches
+links on creation, deduped against the deliverable and one another in
+`addTack` — an extension of an existing ID. Covered by `src/route.ts`
+(`removeDeliverable`, `addTack` links), `src/cli.ts`, and new tests in
+`src/route.test.ts` and `src/cli.test.ts` (13 added). Also swept the grammar
+through `--help`, zsh completions, `docs/cli.md`, and `skills/tack/SKILL.md`.
 
 ### 2026-07-08 — Category prefix rename + session/URL capture (0.25.0, 0.26.0)
 
