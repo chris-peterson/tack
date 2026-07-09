@@ -272,11 +272,16 @@ _tack() {
       _arguments '--count[Max routes]:count' '--since[Updated since date]:since' '--json[Output JSON]'
       ;;
     add)
-      # tack add <slug> <summary> [--depends-on <id,...>]
+      # tack add <slug> <summary> [--depends-on <id,...>] [--deliverable <url>] [--link "label,url"]...
       case "$CURRENT" in
         3) _tack_routes ;;
         4) _message 'summary' ;;
-        *) _arguments '--depends-on[Comma-separated tack IDs]:depends' ;;
+        *) _arguments \
+             '--depends-on[Comma-separated tack IDs]:depends' \
+             '--done[Create the tack already done]' \
+             '--date[Backfill done_at]:date:' \
+             '--deliverable[Set deliverable URL on creation]:url:' \
+             '*--link[Attach a link (label,url); repeatable]:link:' ;;
       esac
       ;;
     start|done|drop)
@@ -320,12 +325,22 @@ _tack() {
       ;;
     deliverable)
       # tack deliverable <slug> <tack-id> <url> [--label <text>] [--force]
-      case "$CURRENT" in
-        3) _tack_routes ;;
-        4) _tack_tack_ids "\${words[3]}" ;;
-        5) _message 'url' ;;
-        *) _arguments '--label[Override the derived label]:label:' '--force[Overwrite existing deliverable]' ;;
-      esac
+      # tack deliverable rm <slug> <tack-id> [--to-link]
+      if [[ "\${words[3]}" == "rm" ]]; then
+        case "$CURRENT" in
+          3) _tack_routes ;;
+          4) _tack_routes ;;
+          5) _tack_tack_ids "\${words[4]}" ;;
+          *) _arguments '--to-link[Demote the deliverable into links]' ;;
+        esac
+      else
+        case "$CURRENT" in
+          3) _alternative 'subcommands:subcommand:((rm\:"clear or demote the deliverable"))' 'routes:route:_tack_routes' ;;
+          4) _tack_tack_ids "\${words[3]}" ;;
+          5) _message 'url' ;;
+          *) _arguments '--label[Override the derived label]:label:' '--force[Overwrite existing deliverable]' ;;
+        esac
+      fi
       ;;
     before|after)
       # tack {before|after} <slug> <tack-id> <text>

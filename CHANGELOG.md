@@ -1,6 +1,13 @@
 # Changelog
 
-## 0.26.1
+## 0.27.0
+
+### Added
+- **`tack add --link "label,url"` attaches a link on creation** (issue #15). The flag mirrors `--deliverable` and is repeatable, so filing an issue-shaped tack no longer needs a follow-up `tack link add` with the freshly-minted tack id threaded in. `--link` combines with `--deliverable`, and links are deduplicated against the deliverable and one another on creation.
+- **`tack deliverable rm <slug> <tack-id>` clears a deliverable** (issue #24) — the inverse of setting one. `--to-link` instead demotes the deliverable into `links`, preserving its label and URL, which is the fix for a cross-route duplicate: keep the deliverable on the tack that owns it and demote it to a link on the other so it stops double-counting. Removing from a tack with no deliverable fails with a clear message.
+
+### Fixed
+- The `tack add` row in the README quick reference listed a `--project` flag that the command does not accept; it now lists the real options.
 
 ### Fixed
 - **The marketplace component listing no longer counts `lib-url.sh` as a hook.** The shared URL-detection helper — sourced by the `session-nudge` and `capture-urls` hooks — moved from `hooks/` to `scripts/`, so it's no longer mistaken for a registered hook. The two hooks source it by relative path; behavior is unchanged.

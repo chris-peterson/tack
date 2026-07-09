@@ -293,7 +293,7 @@ and any pending todo items. Tacks with status `dropped` shall be omitted by
 default; when `--all` is passed, dropped tacks shall be included. When invoked
 without a slug, the CLI shall display a summary of all routes.
 
-**[CLI-04]** `tack add <slug> <summary> [--depends-on <id,...>] [--done] [--date <ts>] [--deliverable <url>]` —
+**[CLI-04]** `tack add <slug> <summary> [--depends-on <id,...>] [--done] [--date <ts>] [--deliverable <url>] [--link "label,url"]...` —
 When invoked, the CLI shall add a new tack to the specified route with the
 next sequential ID. When `--done` is passed, the tack shall be created with
 status `done` and `done_at` set to the current ISO 8601 date-time, or to the
@@ -302,7 +302,12 @@ date-time) when supplied — this is the supported path for backfilling
 already-merged work. When `--deliverable <url>` is passed, the tack shall be
 created with its `deliverable` field set; the label is auto-derived from the
 URL using the recognition rules in [CLI-37]. When the URL does not match
-a recognized pattern, the URL itself is used as the label. The CLI shall
+a recognized pattern, the URL itself is used as the label. `--link` is
+repeatable and attaches a link per invocation; each value is `"label,url"`
+split on the first comma (matching `tack link add`'s `<label> <url>` pair per
+[CLI-13]), and a value with no comma is rejected with a usage error. Links are
+deduplicated on creation against the deliverable and one another, consistent
+with [CLI-13]. The CLI shall
 reject unknown flags with a usage error rather than silently ignoring them.
 When the `CLAUDE_CODE_SESSION_ID` environment variable is set, the CLI shall
 also record that session on the route per [RTE-09], route-level (as [CLI-02]
@@ -349,6 +354,17 @@ with a usage error otherwise. If the tack already has a deliverable, the CLI
 shall fail with an error showing the existing deliverable's label and URL
 unless `--force` is passed. The overwrite guard prevents typo'd tack IDs from
 silently clobbering an unrelated tack's deliverable.
+
+**[CLI-08a]** `tack deliverable rm <slug> <tack-id> [--to-link]` — When
+invoked, the CLI shall remove the deliverable from the specified tack — the
+inverse of [CLI-08]. By default the tack is left with no deliverable. When
+`--to-link` is passed, the deliverable shall instead be relocated into the
+tack's `links` array preserving its label and URL, so the URL is never lost in
+the transition; if that URL is already present in `links`, the relocation is a
+no-op on the link (no duplicate), consistent with [CLI-13]. If the tack has no
+deliverable, the CLI shall fail with a clear message. The `rm` subcommand does
+not rename the set form of [CLI-08], which keeps its bare `<slug> <tack-id>
+<url>` positional grammar.
 
 **[CLI-09]** `tack before <slug> <tack-id> <text>` — When invoked, the CLI
 shall add a pre-work todo item to the specified tack with `done: false`.

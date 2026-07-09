@@ -95,6 +95,63 @@ describe("tack deliverable url-only form (issue #11)", () => {
   });
 });
 
+describe("tack add --link (issue #15)", () => {
+  it("creates a tack with a link in one call", () => {
+    runFail(["init", "add-link-one"]);
+    const r = runFail([
+      "add", "add-link-one", "Work",
+      "--link", "issue,https://github.com/o/r/issues/1",
+    ]);
+    assert.equal(r.status, 0);
+    assert.match(r.stdout, /link: issue — https:\/\/github\.com\/o\/r\/issues\/1/);
+  });
+
+  it("accumulates multiple --link flags and combines with --deliverable", () => {
+    runFail(["init", "add-link-multi"]);
+    const r = runFail([
+      "add", "add-link-multi", "Work",
+      "--deliverable", "https://github.com/o/r/pull/2",
+      "--link", "issue,https://github.com/o/r/issues/1",
+      "--link", "design,https://docs.example.com/x",
+    ]);
+    assert.equal(r.status, 0);
+    assert.match(r.stdout, /deliverable: r#2/);
+    assert.match(r.stdout, /link: issue/);
+    assert.match(r.stdout, /link: design/);
+  });
+
+  it("rejects a --link value without a comma", () => {
+    runFail(["init", "add-link-bad"]);
+    const r = runFail(["add", "add-link-bad", "Work", "--link", "nocomma"]);
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /expected "label,url"/);
+  });
+});
+
+describe("tack deliverable rm (issue #24)", () => {
+  it("clears the deliverable", () => {
+    runFail(["init", "dlv-rm-cli"]);
+    runFail(["add", "dlv-rm-cli", "Work", "--deliverable", "https://github.com/o/r/pull/1"]);
+    const r = runFail(["deliverable", "rm", "dlv-rm-cli", "t1"]);
+    assert.equal(r.status, 0);
+    assert.doesNotMatch(r.stdout, /deliverable:/);
+  });
+
+  it("demotes the deliverable into links with --to-link", () => {
+    runFail(["init", "dlv-rm-cli-link"]);
+    runFail(["add", "dlv-rm-cli-link", "Work", "--deliverable", "https://github.com/o/r/pull/1"]);
+    const r = runFail(["deliverable", "rm", "dlv-rm-cli-link", "t1", "--to-link"]);
+    assert.equal(r.status, 0);
+    assert.doesNotMatch(r.stdout, /deliverable:/);
+    assert.match(r.stdout, /link: r#1 — https:\/\/github\.com\/o\/r\/pull\/1/);
+  });
+
+  it("errors with missing args", () => {
+    const r = runFail(["deliverable", "rm", "some-slug"]);
+    assert.equal(r.status, 1);
+  });
+});
+
 describe("tack accepts bare tack ids (issue #11)", () => {
   it("resolves a bare id through the CLI", () => {
     runFail(["init", "bare-cli"]);

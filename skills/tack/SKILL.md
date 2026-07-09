@@ -279,6 +279,7 @@ tack add <slug> <summary>          Add a tack
   [--depends-on <id,...>]
   [--done] [--date <ts>]           Create already-done (for backfill)
   [--deliverable <url>]            Set deliverable on creation (label auto-derived)
+  [--link "label,url"]...          Attach a link on creation (repeatable)
 tack edit <slug> <tack-id> <summary>  Edit a tack summary
 tack merge <slug> <src-id> <tgt-id>  Merge source into target (drops source)
 tack move <src-slug>/<tack-id> <dst-slug>  Move a tack to another route (preserves metadata)
@@ -289,6 +290,7 @@ tack done <slug> <tack-id>         Complete a tack
 tack drop <slug> <tack-id>         Mark dropped (preserved for history)
 tack remove <slug> <tack-id> [--force]  Delete a tack (use for accidents)
 tack deliverable <slug> <id> <url> [--label <text>] [--force]  Set deliverable (label auto-derived from url; --label overrides; refuses overwrite without --force)
+tack deliverable rm <slug> <id> [--to-link]  Clear the deliverable, or --to-link to demote it into links
 tack before <slug> <id> <text>     Add pre-work todo
 tack after <slug> <id> <text>      Add post-work todo
 tack todo done <slug> <id> <todo>  Complete a todo

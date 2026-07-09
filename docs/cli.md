@@ -183,12 +183,17 @@ Add a tack to a route.
 | `--done` | Create the tack already marked done (for backfilling merged work) |
 | `--date <ts>` | When used with `--done`, set `done_at` to this `YYYY-MM-DD` or ISO 8601 date-time instead of "now" |
 | `--deliverable <url>` | Set the deliverable URL on creation. The label is auto-derived from the URL (`repo#N` for GitHub PRs/issues, `repo!N` for GitLab MRs, `repo@<sha7>` for commits). For a custom label, use `tack deliverable` after creation. |
+| `--link "label,url"` | Attach a non-deliverable link on creation, mirroring `tack link add`'s `<label> <url>` pair. Repeatable — each flag adds one link. Combine with `--deliverable`. |
 
 Unknown flags fail with a usage error rather than being silently ignored.
 
 ```bash
 tack add auth-rewrite "Replace session middleware"
 tack add auth-rewrite "Update SDK" --depends-on t1
+
+# Attach an issue link in one call (no follow-up `tack link add`)
+tack add auth-rewrite "Rate-limit login" \
+  --link "issue,https://github.com/org/repo/issues/123"
 
 # Backfill a tack for an already-merged PR
 tack add auth-rewrite "Vault role migration" \
@@ -340,6 +345,23 @@ informational. Re-attaching a URL already on the same tack does not warn.
 tack deliverable auth-rewrite t1 https://github.com/org/repo/pull/42            # label → "repo#42"
 tack deliverable auth-rewrite t1 https://github.com/org/repo/pull/42 --label "Session PR"
 tack deliverable auth-rewrite t1 https://github.com/org/repo/pull/43 --label "New session PR" --force
+```
+
+### `tack deliverable rm <slug> <tack-id> [--to-link]`
+
+Remove a tack's deliverable — the inverse of setting one. By default the tack
+ends with no deliverable. Pass `--to-link` to instead **demote** it into
+`links`, preserving its label and URL rather than discarding it.
+
+`--to-link` is the duplicate-remediation case: when the same PR/MR is
+mistakenly the deliverable on two tacks, keep it on the tack that owns it and
+demote it to a link on the other so it stops double-counting. If that URL is
+already present in `links`, the demote is a no-op on the link (no duplicate).
+Removing a deliverable from a tack that has none fails with a clear message.
+
+```bash
+tack deliverable rm auth-rewrite t1                # clear the deliverable
+tack deliverable rm auth-rewrite t1 --to-link      # demote it into links
 ```
 
 ## Todos
