@@ -1,4 +1,4 @@
 - [Home](/)
-- [Spec](/spec)
+- [SPEC](/spec)
 - [CLI Reference](/cli)
 - [Examples & Visualizations](/examples)
