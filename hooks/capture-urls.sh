@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# DOCUMENTATION: Detects PR/MR/issue URLs in Bash tool output and nudges the agent to ensure a tack route mapping exists for each.
 # PostToolUse hook for Bash — detects PR/MR/issue URLs in command output and,
 # for any the store doesn't already track, nudges the agent to ensure a
 # route/tack mapping exists via the tack skill.

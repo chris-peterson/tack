@@ -28,6 +28,16 @@ suite:
     - ["tack", "Track routes, tasks, and deliverables from any terminal"]
   # Skill-anchored previews of the flagship flows, shown live on the docs site;
   # the session: below is the at-a-glance flow the hub also reads.
+  # >>> shipyard:describe — generated from source by `shipyard gen-describe`; do not edit >>>
+  describe:
+    skills:
+      tack: Track AI-assisted development work with the `tack` route tracker, spanning session boundaries.
+    hooks:
+      capture-urls: PostToolUse — Detects PR/MR/issue URLs in Bash tool output and nudges the agent to ensure a tack route mapping exists for each.
+      cli-freshness: SessionStart — Detects when the installed tack CLI wrapper is stale relative to the plugin version and nudges to refresh it.
+      hooks: 'Hook wiring: SessionStart→cli-freshness; UserPromptSubmit→session-nudge; PostToolUse→capture-urls.'
+      session-nudge: UserPromptSubmit — Detects untracked PR/MR/issue URLs in user messages and, on the first prompt of a session, resolves and records the session's tack route.
+  # <<< shipyard:describe <<<
   examples:
     - label: "/tack:tack"
       ac: "--orient"
