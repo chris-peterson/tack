@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# DOCUMENTATION: Detects when the installed tack CLI wrapper is stale relative to the plugin version and nudges to refresh it.
 # SessionStart hook: detect CLI wrapper drift after a plugin update.
 #
 # The `install-cli` subcommand drops a wrapper at ~/.local/bin/<name>

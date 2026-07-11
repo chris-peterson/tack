@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# DOCUMENTATION: Detects untracked PR/MR/issue URLs in user messages and, on the first prompt of a session, resolves and records the session's tack route.
 # UserPromptSubmit hook — two responsibilities:
 #   1. Detect PR/MR/issue URLs pasted by the user that no tack tracks yet, and
 #      nudge the agent to ensure a route/tack mapping exists.

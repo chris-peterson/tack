@@ -1,0 +1,12 @@
+# Source of record for tack's hooks — shipyard generates hooks.json.
+hooks:
+  - event: SessionStart
+    command: 'bash ${CLAUDE_PLUGIN_ROOT}/hooks/cli-freshness.sh'
+    description: Detects when the installed tack CLI wrapper is stale relative to the plugin version and nudges to refresh it.
+  - event: UserPromptSubmit
+    command: 'bash ${CLAUDE_PLUGIN_ROOT}/hooks/session-nudge.sh'
+    description: Detects untracked PR/MR/issue URLs in user messages and, on the first prompt of a session, resolves and records the session's tack route.
+  - event: PostToolUse
+    matcher: Bash
+    command: 'bash ${CLAUDE_PLUGIN_ROOT}/hooks/capture-urls.sh'
+    description: Detects PR/MR/issue URLs in Bash tool output and nudges the agent to ensure a tack route mapping exists for each.
