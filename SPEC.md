@@ -1,4 +1,4 @@
-# Specification
+# tack — Specification
 
 tack v1 is a tool-agnostic route schema with a deterministic CLI and a
 Claude Code plugin that layers reasoning on top.
