@@ -35,7 +35,7 @@ suite:
     hooks:
       capture-urls: PostToolUse — Detects PR/MR/issue URLs in Bash tool output and nudges the agent to ensure a tack route mapping exists for each.
       cli-freshness: SessionStart — Detects when the installed tack CLI wrapper is stale relative to the plugin version and nudges to refresh it.
-      hooks: 'Hook wiring: SessionStart→cli-freshness; UserPromptSubmit→session-nudge; PostToolUse→capture-urls.'
+      hooks: 'Hook wiring: SessionStart→cli-freshness; UserPromptSubmit→session-nudge; PostToolUse→capture-urls (Bash).'
       session-nudge: UserPromptSubmit — Detects untracked PR/MR/issue URLs in user messages and, on the first prompt of a session, resolves and records the session's tack route.
   # <<< shipyard:describe <<<
   examples:
