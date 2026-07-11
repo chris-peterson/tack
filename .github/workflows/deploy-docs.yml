@@ -1,46 +1,18 @@
 name: Deploy docs
+
+# Delegates to shipyard's reusable docs deploy (float to @actions during
+# consolidation). Pages permissions are granted here because reusable-workflow
+# permissions are capped by the caller's token.
+
 on:
   push:
     branches: [main]
-    paths: ['docs/**', 'assets/**']
   workflow_dispatch:
+
 permissions:
   pages: write
   id-token: write
-concurrency:
-  group: pages
-  cancel-in-progress: false
+
 jobs:
   deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - run: pip install pyyaml
-
-      - name: Generate docs/suite.json from plugin.yml
-        run: python3 scripts/gen-suite-json.py
-
-      - name: Copy assets into docs
-        run: cp assets/* docs/
-
-      - name: Generate icon.png from SVG
-        run: |
-          sudo apt-get install -y librsvg2-bin
-          rsvg-convert docs/favicon.svg -w 256 -h 256 -o docs/icon.png
-
-      - uses: actions/configure-pages@v5
-
-      - uses: actions/upload-pages-artifact@v4
-        with:
-          path: docs
-
-      - id: deployment
-        uses: actions/deploy-pages@v4
+    uses: chris-peterson/shipyard/.github/workflows/deploy-docs.yml@main

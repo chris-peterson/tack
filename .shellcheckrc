@@ -1,0 +1,6 @@
+# Follow `source`d files (the URL-detection hooks source scripts/lib-url.sh by
+# relative path) so cross-file variables aren't flagged SC2034/SC2154, and the
+# source itself isn't flagged SC1091. source-path=SCRIPTDIR resolves the sourced
+# path relative to the directory of the script being checked.
+external-sources=true
+source-path=SCRIPTDIR
