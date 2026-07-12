@@ -59,16 +59,17 @@ Route (1 YAML file per route)
 
 | Category | Description |
 |---|---|
-| RT | Route schema structure and constraints |
-| TK | Tack fields, statuses, and ID sequencing |
-| DV | Deliverable (single change request per tack) |
-| TD | Todo items (before/after arrays with IDs) |
-| DP | Dependency tracking and enforcement |
-| LK | Link structure (label + url) |
-| ST | Storage location, directory creation, validation, cwd pointer file |
-| CL | CLI commands and output behavior |
-| AG | Claude Code agent integration (skill responsibilities) |
-| HK | Hook responsibilities (nudges, freshness checks) |
+| RTE | Route schema structure and constraints |
+| TACK | Tack fields, statuses, and ID sequencing |
+| DEL | Deliverable (single change request per tack) |
+| TODO | Todo items (before/after arrays with IDs) |
+| DEP | Dependency tracking and enforcement |
+| LINK | Link structure (label + url) |
+| STG | Storage location, directory creation, validation, cwd pointer file |
+| CLI | CLI commands and output behavior |
+| AGT | Claude Code agent integration (skill responsibilities) |
+| HOOK | Hook responsibilities (nudges, freshness checks) |
+| REPO | Repo database (name→remote index, captured as work is observed) |
 
 ## Anti-Requirements
 

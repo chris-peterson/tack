@@ -99,7 +99,8 @@ Repo database (1 YAML file, ~/.tack/repos.yaml)
 shall fail with an error.
 
 **[RTE-06]** The `updated_at` field shall be set to the current time whenever
-the route file is written.
+the route file is written, except when `tack import --replace` ([CLI-50])
+restores a route verbatim, which preserves the archived timestamp.
 
 **[RTE-07]** A route shall be valid with an empty `tacks` array.
 
@@ -467,8 +468,10 @@ as JSON. If no matches are found, the CLI shall report that no tacks reference
 the given URL.
 
 **[CLI-25]** `tack remove <slug> <tack-id> [--force]` — When invoked, the CLI
-shall delete the specified tack from the route's `tacks` array. The tack's ID
-shall not be reused; subsequent tacks shall continue the sequence per [TACK-05].
+shall delete the specified tack from the route's `tacks` array. Subsequent tacks
+continue the ID sequence per [TACK-05] — `t<N>` is one greater than the highest
+*existing* tack number — so removing the highest-numbered tack frees that ID for
+the next `tack add` to reuse.
 If any other tack's `depends_on` array references the tack being deleted, the
 operation shall fail with an error listing the dependents, unless `--force` is
 passed. When `--force` is passed, the references to the deleted tack shall be
@@ -489,9 +492,10 @@ and `links` are appended to the target (with new sequential todo IDs); if
 the source has a `deliverable` and the target does not, the deliverable is
 moved to the target; if both tacks have a deliverable, the target's
 deliverable is kept and the source's is discarded. The source tack is then
-removed from the route's `tacks` array, leaving a single surviving tack. The
-source ID shall not be reused; subsequent tacks continue the sequence per
-[TACK-05] (consistent with `tack remove`, [CLI-25]).
+removed from the route's `tacks` array, leaving a single surviving tack.
+Subsequent tacks continue the ID sequence per [TACK-05], consistent with
+`tack remove` ([CLI-25]) — the freed source ID is reusable if it was the
+highest-numbered.
 
 > Note: callers wanting to preserve a source deliverable when both tacks
 > have one should record it as a link on the target before merging.
@@ -543,10 +547,12 @@ references `<old-slug>` (per [DEP-01]).
 — When invoked, the CLI shall remove the specified tack from the source
 route's `tacks` array and append it to the destination route's `tacks` array.
 
-**[CLI-36a]** The moved tack shall receive a new sequential ID per [TACK-05] (ID
-continues from the destination's existing maximum; source IDs are not reused
-per [CLI-25]). All tack metadata — `summary`, `status`, `done_at`,
-`deliverable`, `links`, `before`, `after` — shall be preserved verbatim.
+**[CLI-36a]** The moved tack shall receive a new sequential ID per [TACK-05] (the
+ID continues from the destination's existing maximum; the source-route ID it
+vacates follows the same [TACK-05] sequencing as `tack remove` ([CLI-25]) — it
+is reusable if it was the highest-numbered). All tack metadata — `summary`,
+`status`, `done_at`, `deliverable`, `links`, `before`, `after` — shall be
+preserved verbatim.
 
 **[CLI-36b]** Because tack IDs are route-local per [TACK-05], `depends_on`
 references cannot cross route boundaries. The CLI shall refuse the move if the
@@ -675,6 +681,14 @@ fresh ids and remapping `depends_on` edges to those ids; union repo *names*
 while ignoring machine-specific repo `locals`; and skip pins. It shall report
 every `old id → new id` reassignment. `--dry-run` shall report the outcome
 without writing.
+
+**[CLI-51]** `tack group <slug> [<group>] [--clear]` — When invoked with a
+`<group>` argument, the CLI shall set the route's `group` field ([RTE-04]) to
+that slug; the value is validated against the schema's slug pattern on write.
+When `--clear` is passed, the CLI shall remove the `group` field. When invoked
+with neither, the CLI shall report the route's current group — printing it and
+exiting zero if a group is set, or reporting that none is set and exiting
+non-zero, mirroring `tack pin` ([CLI-30]).
 
 ---
 

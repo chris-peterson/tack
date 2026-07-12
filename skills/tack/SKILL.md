@@ -54,8 +54,10 @@ confident match.
    all of `tack list --json`, that's active. Pin it.
 5. **Ambiguous or unknown.** Ask the user with `AskUserQuestion`. Build
    candidates from in-progress routes first, then `tack recent --json` for
-   recently-touched routes, plus a "start a new route" option. On the
-   user's pick, run `tack pin <slug>`.
+   recently-touched routes, plus a "start a new route" option. When the user
+   picks an existing route, run `tack pin <slug>`. When the user starts a new
+   route, run `tack init <slug>`, add the first tack with `tack add <slug>
+   <summary>`, then pin it.
 
 Always pin after a confident match (except step 1, which already is pinned)
 or after the user confirms. Pins make the next resolution a single lookup.
@@ -267,7 +269,7 @@ quick lookup; if the two ever disagree, trust `tack --help`.
 
 ```text
 tack init <slug> [--group <slug>]  Create a new route
-tack rename <old-slug> <new-slug>  Rename a route (updates the slug + pins)
+tack rename <old-slug> <new-slug>  Rename a route (updates the slug)
 tack group <slug> [<group>] [--clear]  Show/set/clear a route's group
 tack list [--json]                 List all routes
 tack status [slug] [--json] [--all]  Show route details (dropped hidden unless --all)
