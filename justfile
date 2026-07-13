@@ -21,12 +21,12 @@ spec:
     @cat spec/{{spec}}/SPEC.md
 
 # regenerate all generated artifacts from source (describe, plugin.json, docs)
-build:
-    scripts/shipyard build
+generate:
+    scripts/shipyard generate
 
-# verify committed generated artifacts (plugin.json, describe) match source
+# validate source projects cleanly and preview the pending projection (no write)
 check:
-    scripts/shipyard check
+    scripts/shipyard generate --dry-run
 
 # preview the docsify docs site locally
 docs:
@@ -44,12 +44,6 @@ describe:
 # verify every CLI command is offered by shell completion (used by CI)
 completions-check:
     node scripts/check-completions.mjs
-
-# install the git pre-commit hook that keeps generated artifacts in sync
-install-hooks:
-    cp scripts/hooks/pre-commit .git/hooks/pre-commit
-    chmod +x .git/hooks/pre-commit
-    @echo "installed .git/hooks/pre-commit"
 
 # Launch an interactive session with the local plugin loaded
 try:
