@@ -55,3 +55,7 @@ suite:
     - { t: note, text: "Mid-refactor across two repos; the context window is filling up." }
     - { t: event, text: "a fresh session, next morning" }
     - { t: cmd, cmd: "/tack:tack", out: "Replays the route — 3 of 5 tasks done, next is the client SDK." }
+
+docs:
+  code_languages: [typescript, yaml, bash]
+  mermaid: true
