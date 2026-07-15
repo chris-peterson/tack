@@ -690,6 +690,37 @@ with neither, the CLI shall report the route's current group — printing it and
 exiting zero if a group is set, or reporting that none is set and exiting
 non-zero, mirroring `tack pin` ([CLI-30]).
 
+**[CLI-52]** `tack merge-routes <new-slug> <src-slug>... [--group <slug>] [--created-at <date>] [--break-deps]`
+— When invoked, the CLI shall create a new route `<new-slug>`, move every tack
+from every `<src-slug>` into it, and delete the emptied source route files. The
+CLI shall fail if `<new-slug>` already exists, if it names a source route, if
+any `<src-slug>` is repeated or does not exist, or if no source is given.
+
+**[CLI-52a]** Destination tack IDs shall be assigned in chronological order — by
+each tack's `done_at`, falling back to its source route's `created_at` for tacks
+without one, then the source route's `created_at` and original numeric ID as
+tiebreakers — following [TACK-05] sequencing over the combined set. All tack
+metadata — `summary`, `status`, `done_at`, `deliverable`, `links`, `before`,
+`after` — and route-local `depends_on` (remapped to the new IDs) shall be
+preserved.
+
+**[CLI-52b]** Session records ([RTE-09]) from every source shall carry over to
+the new route with their tack references remapped to the new IDs; a session
+recorded on more than one source shall be unified into a single entry taking the
+earliest `started_at`. A session tack reference with no surviving tack (which
+`tack remove` ([CLI-25]) can leave behind, since it does not prune session refs)
+shall be dropped rather than fail the merge.
+
+**[CLI-52c]** The new route's `created_at` shall default to the earliest source
+route's `created_at`, or the `--created-at <date>` value when given. The new
+route's group shall be the `--group <slug>` value, or the first source route's
+group otherwise.
+
+**[CLI-52d]** When a route outside the merge set has a route-level `depends_on`
+([DEP-01]) referencing a source route, the CLI shall refuse the merge to avoid
+dangling the reference, unless `--break-deps` is passed, which repoints those
+references at `<new-slug>`.
+
 ---
 
 ### AGT — Agent Integration

@@ -29,6 +29,7 @@ Usage:
   tack edit <slug> <tack-id> <summary>
   tack merge <slug> <source-id> <target-id>
   tack move <src-slug>/<tack-id> <dst-slug> [--include-dependents]
+  tack merge-routes <new-slug> <src-slug>... [--group <slug>] [--created-at <date>] [--break-deps]
   tack start <slug> <tack-id>
   tack done <slug> <tack-id> [--date <ts>]
   tack drop <slug> <tack-id>
@@ -544,6 +545,39 @@ function run(): void {
       console.log(lines.join("\n"));
       console.log("");
       console.log(formatRoute(result.dstRoute));
+      break;
+    }
+
+    case "merge-routes": {
+      const { values: mergeValues, positionals: mergePositionals } = parseArgs({
+        args: rest,
+        options: {
+          group: { type: "string" },
+          "created-at": { type: "string" },
+          "break-deps": { type: "boolean" },
+        },
+        allowPositionals: true,
+      });
+      if (mergePositionals.length < 2) usage();
+      const [newSlug, ...srcSlugs] = mergePositionals;
+      const result = route.mergeRoutes(newSlug, srcSlugs, {
+        group: mergeValues.group as string | undefined,
+        createdAt: mergeValues["created-at"] as string | undefined,
+        breakDeps: mergeValues["break-deps"] as boolean | undefined,
+      });
+      recordSessionIfPresent(newSlug);
+      const total = result.sources.reduce((n, s) => n + s.moved.length, 0);
+      console.log(`Merged ${result.sources.length} route(s), ${total} tack(s) → ${newSlug}:`);
+      for (const s of result.sources) {
+        for (const m of s.moved) {
+          console.log(`  ${s.slug}/${m.srcId} → ${newSlug}/${m.dstId}: ${m.summary}`);
+        }
+      }
+      if (result.repointed.length > 0) {
+        console.log(`Repointed depends_on → ${newSlug} on: ${result.repointed.join(", ")}`);
+      }
+      console.log("");
+      console.log(formatRoute(result.route));
       break;
     }
 

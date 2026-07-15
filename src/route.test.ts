@@ -1166,6 +1166,173 @@ describe("removeTack", () => {
   });
 });
 
+describe("mergeRoutes", () => {
+  async function backdate(slug: string, createdAt: string): Promise<void> {
+    const { writeFileSync, readFileSync } = await import("node:fs");
+    const yaml = await import("yaml");
+    const path = join(tmp, "routes", `${slug}.yaml`);
+    const data = yaml.parse(readFileSync(path, "utf-8")) as any;
+    data.created_at = createdAt;
+    writeFileSync(path, yaml.stringify(data), "utf-8");
+  }
+
+  it("folds all sources into a new route and deletes the sources", () => {
+    route.init("mr-a");
+    route.addTack("mr-a", "A1");
+    route.init("mr-b");
+    route.addTack("mr-b", "B1");
+    route.addTack("mr-b", "B2");
+    const result = route.mergeRoutes("mr-umbrella", ["mr-a", "mr-b"]);
+    assert.equal(result.route.tacks.length, 3);
+    assert.equal(route.load("mr-umbrella").tacks.length, 3);
+    assert.throws(() => route.load("mr-a"), /not found/i);
+    assert.throws(() => route.load("mr-b"), /not found/i);
+  });
+
+  it("assigns destination t-IDs in chronological order by done_at", () => {
+    route.init("mr-late");
+    route.addTack("mr-late", "Later work", { done: true, doneAt: "2026-05-01" });
+    route.init("mr-early");
+    route.addTack("mr-early", "Earlier work", { done: true, doneAt: "2026-03-01" });
+    const { route: merged } = route.mergeRoutes("mr-chrono", ["mr-late", "mr-early"]);
+    assert.equal(merged.tacks[0].summary, "Earlier work");
+    assert.equal(merged.tacks[0].id, "t1");
+    assert.equal(merged.tacks[1].summary, "Later work");
+    assert.equal(merged.tacks[1].id, "t2");
+  });
+
+  it("preserves per-tack metadata across the merge", () => {
+    route.init("mr-meta");
+    route.addTack("mr-meta", "Delivered", {
+      done: true,
+      doneAt: "2026-04-09",
+      deliverable: { label: "repo#7", url: "https://github.com/o/r/pull/7" },
+    });
+    const { route: merged } = route.mergeRoutes("mr-meta-dst", ["mr-meta"]);
+    const t = merged.tacks[0];
+    assert.equal(t.status, "done");
+    assert.equal(t.done_at, "2026-04-09");
+    assert.equal(t.deliverable!.url, "https://github.com/o/r/pull/7");
+  });
+
+  it("remaps route-local depends_on to the new IDs", () => {
+    route.init("mr-dep");
+    route.addTack("mr-dep", "Base");
+    route.addTack("mr-dep", "Dependent", { dependsOn: ["t1"] });
+    route.init("mr-dep-other");
+    route.addTack("mr-dep-other", "Unrelated", { done: true, doneAt: "2026-01-01" });
+    const { route: merged } = route.mergeRoutes("mr-dep-dst", ["mr-dep-other", "mr-dep"]);
+    const dependent = merged.tacks.find((t) => t.summary === "Dependent")!;
+    const base = merged.tacks.find((t) => t.summary === "Base")!;
+    assert.deepEqual(dependent.depends_on, [base.id]);
+  });
+
+  it("defaults created_at to the earliest source route", async () => {
+    route.init("mr-old");
+    route.init("mr-new");
+    await backdate("mr-old", "2026-02-01T00:00:00.000Z");
+    await backdate("mr-new", "2026-06-01T00:00:00.000Z");
+    const { route: merged } = route.mergeRoutes("mr-age", ["mr-new", "mr-old"]);
+    assert.equal(merged.created_at, "2026-02-01T00:00:00.000Z");
+  });
+
+  it("honors --created-at, promoting a bare date to a date-time", () => {
+    route.init("mr-ca");
+    const { route: merged } = route.mergeRoutes("mr-ca-dst", ["mr-ca"], {
+      createdAt: "2026-01-15",
+    });
+    assert.equal(merged.created_at, "2026-01-15T00:00:00.000Z");
+  });
+
+  it("carries the first source group, and --group overrides", () => {
+    route.init("mr-grp", { group: "infra" });
+    route.init("mr-grp2");
+    const { route: inherited } = route.mergeRoutes("mr-grp-a", ["mr-grp", "mr-grp2"]);
+    assert.equal(inherited.group, "infra");
+    route.init("mr-grp3", { group: "infra" });
+    const { route: overridden } = route.mergeRoutes("mr-grp-b", ["mr-grp3"], {
+      group: "standards",
+    });
+    assert.equal(overridden.group, "standards");
+  });
+
+  it("refuses when the destination already exists", () => {
+    route.init("mr-exists");
+    route.init("mr-exists-src");
+    assert.throws(
+      () => route.mergeRoutes("mr-exists", ["mr-exists-src"]),
+      /already exists/,
+    );
+  });
+
+  it("refuses when the destination is also a source", () => {
+    route.init("mr-self");
+    assert.throws(
+      () => route.mergeRoutes("mr-self", ["mr-self"]),
+      /cannot also be a source/,
+    );
+  });
+
+  it("refuses a duplicate source and a missing source", () => {
+    route.init("mr-dup");
+    assert.throws(() => route.mergeRoutes("mr-dup-dst", ["mr-dup", "mr-dup"]), /Duplicate source/);
+    assert.throws(() => route.mergeRoutes("mr-ghost-dst", ["mr-ghost"]), /not found/i);
+  });
+
+  it("refuses with no sources", () => {
+    assert.throws(() => route.mergeRoutes("mr-none", []), /at least one source/);
+  });
+
+  it("carries sessions over, remapping their tack refs to the new IDs", () => {
+    route.init("mr-sess-early");
+    route.addTack("mr-sess-early", "Done first", { done: true, doneAt: "2026-02-01" });
+    route.recordSession("mr-sess-early", "sess-1", "t1");
+    route.init("mr-sess-late");
+    route.addTack("mr-sess-late", "Open work");
+    route.recordSession("mr-sess-late", "sess-2", "t1");
+    const { route: merged } = route.mergeRoutes("mr-sess-dst", ["mr-sess-late", "mr-sess-early"]);
+    const s1 = merged.sessions!.find((s) => s.id === "sess-1")!;
+    const s2 = merged.sessions!.find((s) => s.id === "sess-2")!;
+    // "Done first" (2026-02-01) sorts to t1; "Open work" to t2.
+    assert.deepEqual(s1.tacks, ["t1"]);
+    assert.deepEqual(s2.tacks, ["t2"]);
+  });
+
+  it("unifies a session that spanned multiple sources", () => {
+    route.init("mr-shared-a");
+    route.addTack("mr-shared-a", "A work", { done: true, doneAt: "2026-01-10" });
+    route.recordSession("mr-shared-a", "shared", "t1");
+    route.init("mr-shared-b");
+    route.addTack("mr-shared-b", "B work", { done: true, doneAt: "2026-01-20" });
+    route.recordSession("mr-shared-b", "shared", "t1");
+    const { route: merged } = route.mergeRoutes("mr-shared-dst", ["mr-shared-a", "mr-shared-b"]);
+    const shared = merged.sessions!.filter((s) => s.id === "shared");
+    assert.equal(shared.length, 1);
+    // A work → t1, B work → t2; both refs unified onto the one session entry.
+    assert.deepEqual(shared[0].tacks, ["t1", "t2"]);
+  });
+
+  it("guards external route-level depends_on, repointing under --break-deps", async () => {
+    const { writeFileSync, readFileSync } = await import("node:fs");
+    const yaml = await import("yaml");
+    route.init("mr-ref-target");
+    route.init("mr-ref-outsider");
+    const path = join(tmp, "routes", "mr-ref-outsider.yaml");
+    const data = yaml.parse(readFileSync(path, "utf-8")) as any;
+    data.depends_on = ["mr-ref-target"];
+    writeFileSync(path, yaml.stringify(data), "utf-8");
+
+    assert.throws(
+      () => route.mergeRoutes("mr-ref-dst", ["mr-ref-target"]),
+      /depend on a source route/,
+    );
+
+    const result = route.mergeRoutes("mr-ref-dst", ["mr-ref-target"], { breakDeps: true });
+    assert.deepEqual(result.repointed, ["mr-ref-outsider"]);
+    assert.deepEqual(route.load("mr-ref-outsider").depends_on, ["mr-ref-dst"]);
+  });
+});
+
 describe("pin/unpin", () => {
   let cwd: string;
 
