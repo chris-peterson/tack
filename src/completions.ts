@@ -194,6 +194,7 @@ _tack() {
     'edit:Edit a tack summary'
     'merge:Merge a tack into another'
     'move:Move a tack to another route'
+    'merge-routes:Consolidate whole routes into one'
     'deliverable:Set a deliverable on a tack'
     'before:Add a pre-work todo'
     'after:Add a post-work todo'
@@ -321,6 +322,14 @@ _tack() {
         3) _tack_move_src ;;
         4) _tack_routes ;;
         *) _arguments '--include-dependents[Move dependents too]' ;;
+      esac
+      ;;
+    merge-routes)
+      # tack merge-routes <new-slug> <src-slug>... [--group <slug>] [--created-at <date>] [--break-deps]
+      case "$CURRENT" in
+        3) _message 'new-slug' ;;
+        *) _alternative 'routes:source route:_tack_routes' \
+             'flags:flag:((--group\:"Set the group on the new route" --created-at\:"Backdate created_at (YYYY-MM-DD)" --break-deps\:"Repoint external route deps"))' ;;
       esac
       ;;
     deliverable)

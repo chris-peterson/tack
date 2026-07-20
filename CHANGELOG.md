@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.28.0
+
+### Added
+- **`tack merge-routes <new-slug> <src-slug>...` consolidates whole routes into one** (issue #8). The whole-route analogue of `tack move`: it creates the umbrella route, moves every tack from every source, and deletes the emptied sources in a single command instead of the ~16 it took by hand. Two things a sequence of `tack move` calls can't do on their own — destination t-IDs are assigned in chronological order (by `done_at`, falling back to each source route's `created_at` for open tacks) so the merged route reads in the order the work happened, and the umbrella's `created_at` defaults to the earliest source's so its age reflects the real span of the work (`--created-at` overrides). `--group` sets the group (else the first source group carries over); all per-tack metadata, route-local `depends_on`, and session history (with tack refs remapped, unified across sources that shared a session) are preserved. If a route outside the merge set depends on a source, the merge refuses rather than dangle the reference, and `--break-deps` repoints those references at the new route.
+
 ## 0.27.0
 
 ### Added

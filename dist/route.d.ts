@@ -121,6 +121,23 @@ export interface MoveResult {
 export declare function moveTack(srcSlug: string, srcTackId: string, dstSlug: string, opts?: {
     includeDependents?: boolean;
 }): MoveResult;
+export interface MergeRoutesResult {
+    route: Route;
+    sources: {
+        slug: string;
+        moved: {
+            srcId: string;
+            dstId: string;
+            summary: string;
+        }[];
+    }[];
+    repointed: string[];
+}
+export declare function mergeRoutes(newSlug: string, srcSlugs: string[], opts?: {
+    group?: string;
+    createdAt?: string;
+    breakDeps?: boolean;
+}): MergeRoutesResult;
 export declare function removeTack(slug: string, tackId: string, opts?: {
     force?: boolean;
 }): Route;

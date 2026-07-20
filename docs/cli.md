@@ -296,6 +296,37 @@ Their `depends_on` arrays are rewritten to the new IDs in the
 destination. The cross-boundary refusal still applies — if a tack
 that's staying behind depends on a moving tack, the move fails.
 
+### `tack merge-routes <new-slug> <src-slug>... [--group <slug>] [--created-at <date>] [--break-deps]`
+
+Fold several whole routes into one new route — the whole-route analogue
+of `tack move`. Creates `<new-slug>` (which must not already exist),
+moves every tack from every source into it, and deletes the emptied
+source files.
+
+Unlike a sequence of `tack move` calls, the destination t-IDs are
+assigned in **chronological order** — by each tack's `done_at`, falling
+back to its source route's `created_at` for open tacks — so the merged
+route reads in the order the work actually happened rather than the
+order the routes were listed. All per-tack metadata (`status`,
+`done_at`, `deliverable`, `links`, `before`, `after`, and route-local
+`depends_on`, remapped to the new IDs) is preserved. Session history
+carries over too — a session that spanned several sources is unified
+into one entry (earliest `started_at`, tack refs remapped).
+
+The new route's `created_at` defaults to the earliest source route's,
+so its age reflects the real span of the work; `--created-at
+YYYY-MM-DD` overrides it. `--group` sets the group (otherwise the first
+source group carries over).
+
+```bash
+tack merge-routes infrastructure-documentation machine-image-docs env-aware-compliance core-vpc-layout --group standards-and-security
+```
+
+If a route *outside* the merge set has a route-level `depends_on`
+pointing at a source, the merge refuses rather than leave a dangling
+reference; `--break-deps` authorizes repointing those references at
+`<new-slug>`.
+
 ## Dependencies
 
 Tack-level dependencies declare ordering within a route — child tacks

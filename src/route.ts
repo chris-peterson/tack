@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { parse, stringify } from "yaml";
 import { validate } from "./schema.js";
 import * as repos from "./repos.js";
-import type { Link, Route, Tack, TackStatus, TodoItem } from "./types.js";
+import type { Link, Route, Session, Tack, TackStatus, TodoItem } from "./types.js";
 
 const TACK_HOME = process.env.TACK_HOME ?? join(homedir(), ".tack");
 const TACK_DIR = join(TACK_HOME, "routes");
@@ -988,6 +988,169 @@ export function moveTack(
   save(srcRoute);
 
   return { srcRoute, dstRoute, moved: movedReport };
+}
+
+export interface MergeRoutesResult {
+  route: Route;
+  sources: { slug: string; moved: { srcId: string; dstId: string; summary: string }[] }[];
+  repointed: string[];
+}
+
+// Fold every source route into one new route. Morally `init` + N×`moveTack` +
+// N×`remove`, but done as one pass so destination t-IDs land in chronological
+// order rather than command order, and the umbrella route's created_at reflects
+// the work's real age rather than today (issue #8).
+export function mergeRoutes(
+  newSlug: string,
+  srcSlugs: string[],
+  opts: { group?: string; createdAt?: string; breakDeps?: boolean } = {},
+): MergeRoutesResult {
+  if (srcSlugs.length === 0) {
+    throw new Error("merge-routes requires at least one source route");
+  }
+  const srcSet = new Set<string>();
+  for (const s of srcSlugs) {
+    if (srcSet.has(s)) throw new Error(`Duplicate source route: ${s}`);
+    srcSet.add(s);
+  }
+  // Merging into an existing destination is a separate sub-flow (issue #8, out
+  // of scope): the destination is always created fresh here.
+  if (srcSet.has(newSlug)) {
+    throw new Error(`Destination ${newSlug} cannot also be a source route`);
+  }
+  if (routeExists(newSlug)) {
+    throw new Error(`Route already exists: ${newSlug}`);
+  }
+
+  const sources = srcSlugs.map((s) => load(s));
+
+  // Route-level deps from outside the merge set that point at a source would
+  // dangle once the source is deleted. Refuse unless --break-deps authorizes
+  // repointing them at the new route (mirrors the rename referer guard).
+  const externalReferers = loadAll()
+    .filter((r) => !srcSet.has(r.slug) && r.depends_on?.some((d) => srcSet.has(d)))
+    .map((r) => r.slug);
+  if (externalReferers.length > 0 && !opts.breakDeps) {
+    throw new Error(
+      `Cannot merge: ${externalReferers.join(", ")} depend on a source route. ` +
+        `Pass --break-deps to repoint those references to ${newSlug}.`,
+    );
+  }
+
+  // Order every tack across all sources chronologically: by done_at, falling
+  // back to the source route's created_at for open tacks, then source created_at
+  // and original numeric id as tiebreakers.
+  const numId = (id: string) => {
+    const n = parseInt(id.slice(1), 10);
+    return Number.isNaN(n) ? 0 : n;
+  };
+  const entries = sources.flatMap((src) => src.tacks.map((tack) => ({ tack, src })));
+  entries.sort((a, b) => {
+    const ka = a.tack.done_at ?? a.src.created_at;
+    const kb = b.tack.done_at ?? b.src.created_at;
+    if (ka !== kb) return ka < kb ? -1 : 1;
+    if (a.src.created_at !== b.src.created_at) return a.src.created_at < b.src.created_at ? -1 : 1;
+    return numId(a.tack.id) - numId(b.tack.id);
+  });
+
+  // depends_on is route-local, so map old→new per source. Build the full map
+  // before remapping, since a dep can point at a tack anywhere in its route.
+  const idMapBySrc = new Map<string, Map<string, string>>(srcSlugs.map((s) => [s, new Map()]));
+  entries.forEach((e, i) => idMapBySrc.get(e.src.slug)!.set(e.tack.id, `t${i + 1}`));
+
+  const newTacks: Tack[] = entries.map((e) => {
+    const map = idMapBySrc.get(e.src.slug)!;
+    const clone: Tack = { ...structuredClone(e.tack), id: map.get(e.tack.id)! };
+    if (e.tack.depends_on?.length) {
+      clone.depends_on = e.tack.depends_on.map((dep) => {
+        const mapped = map.get(dep);
+        if (!mapped) {
+          throw new Error(
+            `Source route ${e.src.slug} tack ${e.tack.id} depends on ${dep}, which is not in the route`,
+          );
+        }
+        return mapped;
+      });
+    }
+    return clone;
+  });
+
+  // Carry sessions from every source, remapping their route-local tack refs to
+  // the new IDs. A session that spanned several sources is unified: earliest
+  // started_at wins and its tack refs concatenate in source order (last =
+  // current focus, per recordSession). `tack remove` doesn't prune session tack
+  // refs, so a ref with no mapping points at an already-removed tack — drop it
+  // rather than fail the merge.
+  const sessionsById = new Map<string, Session>();
+  for (const src of sources) {
+    const map = idMapBySrc.get(src.slug)!;
+    for (const s of src.sessions ?? []) {
+      const remapped = (s.tacks ?? [])
+        .map((id) => map.get(id))
+        .filter((id): id is string => id !== undefined);
+      const existing = sessionsById.get(s.id);
+      if (!existing) {
+        const session: Session = { id: s.id, started_at: s.started_at };
+        if (remapped.length) session.tacks = remapped;
+        sessionsById.set(s.id, session);
+        continue;
+      }
+      if (s.started_at < existing.started_at) existing.started_at = s.started_at;
+      for (const id of remapped) {
+        if (!existing.tacks) existing.tacks = [];
+        const idx = existing.tacks.indexOf(id);
+        if (idx !== -1) existing.tacks.splice(idx, 1);
+        existing.tacks.push(id);
+      }
+    }
+  }
+  const sessions = [...sessionsById.values()].sort((a, b) =>
+    a.started_at < b.started_at ? -1 : a.started_at > b.started_at ? 1 : 0,
+  );
+
+  const createdAt = opts.createdAt
+    ? new Date(normalizeTimestamp(opts.createdAt)).toISOString()
+    : sources.map((s) => s.created_at).sort()[0];
+
+  const merged: Route = {
+    id: randomUUID(),
+    slug: newSlug,
+    created_at: createdAt,
+    updated_at: now(),
+    tacks: newTacks,
+  };
+  const group = opts.group ?? sources.find((s) => s.group)?.group;
+  if (group) merged.group = group;
+  if (sessions.length) merged.sessions = sessions;
+  // Carry the sources' outward route-deps, dropping any that pointed within the
+  // merge set (those would become self-references).
+  const carriedDeps = [
+    ...new Set(sources.flatMap((s) => s.depends_on ?? []).filter((d) => !srcSet.has(d))),
+  ];
+  if (carriedDeps.length) merged.depends_on = carriedDeps;
+
+  save(merged);
+
+  const repointed: string[] = [];
+  for (const slug of externalReferers) {
+    const r = load(slug);
+    r.depends_on = [...new Set(r.depends_on!.map((d) => (srcSet.has(d) ? newSlug : d)))];
+    save(r);
+    repointed.push(slug);
+  }
+
+  for (const s of srcSlugs) remove(s);
+
+  const report = sources.map((src) => ({
+    slug: src.slug,
+    moved: src.tacks.map((t) => ({
+      srcId: t.id,
+      dstId: idMapBySrc.get(src.slug)!.get(t.id)!,
+      summary: t.summary,
+    })),
+  }));
+
+  return { route: merged, sources: report, repointed };
 }
 
 export function removeTack(
