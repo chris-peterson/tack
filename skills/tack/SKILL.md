@@ -44,15 +44,19 @@ confident match.
    that's the active route. Done.
 2. **URL match.** If there's a PR/MR/issue URL in scope (recently emitted
    by a tool, pasted by the user, given to you as a hint), run `tack find
-   <url> --json`. If exactly one route matches, that's active. Pin it — and
-   the matched tack is the one this session is driving, so bind it (see
+   --url <url> --json`. If exactly one route matches, that's active. Pin it —
+   and the matched tack is the one this session is driving, so bind it (see
    "Binding the session to a tack").
-3. **Branch slug.** If `git rev-parse --abbrev-ref HEAD` returns a branch
+3. **Repo match.** With no URL in hand, run `tack find --path --json` (it
+   resolves the cwd's `origin` remote to a repo and returns the routes whose
+   deliverables/links live there). If exactly one route matches, that's
+   active. Pin it.
+4. **Branch slug.** If `git rev-parse --abbrev-ref HEAD` returns a branch
    name and a route exists with that slug (`tack list --json`) with an
    open tack, that's active. Pin it.
-4. **Single open route.** If exactly one route has any open tack across
+5. **Single open route.** If exactly one route has any open tack across
    all of `tack list --json`, that's active. Pin it.
-5. **Ambiguous or unknown.** Ask the user with `AskUserQuestion`. Build
+6. **Ambiguous or unknown.** Ask the user with `AskUserQuestion`. Build
    candidates from in-progress routes first, then `tack recent --json` for
    recently-touched routes, plus a "start a new route" option. When the user
    picks an existing route, run `tack pin <slug>`. When the user starts a new
@@ -109,7 +113,7 @@ spun up a new tack).
 Establish the link as early as you confidently can. The strongest early signal
 is a work-tracker URL the user pastes (or a tool emits) at the start:
 
-1. Run `tack find <url> --json`.
+1. Run `tack find --url <url> --json`.
 2. **One tack matches** → the session is resuming existing work. Bind to that
    tack: `tack session <slug> $CLAUDE_CODE_SESSION_ID --tack <tack-id>`.
 3. **No match** → the work is emerging. Create the tack (recording the URL as
@@ -276,7 +280,8 @@ tack status [slug] [--json] [--all]  Show route details (dropped hidden unless -
 tack status set <slug> <id> <pending|in_progress|done|blocked|dropped>  Set a tack's status directly
 tack tree [path] [-d <depth>] [--json]  Browse routes/tacks (glob: */*/deliverable)
 tack recent [--count <n>] [--since <date>] [--json]  Recently-updated routes
-tack find <url> [--json]           Find routes/tacks by URL
+tack find --url <url> [--json]     Find routes/tacks by URL
+tack find --path [<dir>] [--json]  Find routes covering a repo checkout (default cwd)
 tack add <slug> <summary>          Add a tack
   [--depends-on <id,...>]
   [--done] [--date <ts>]           Create already-done (for backfill)

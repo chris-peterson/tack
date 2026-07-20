@@ -22,9 +22,9 @@ url_nudges() {
   [ -z "$urls" ] && return 0
   for url in $urls; do
     if command -v tack >/dev/null 2>&1; then
-      # `tack find <url> --json` prints a JSON array of the tacks referencing
-      # the URL; "[]" (or empty) means no mapping exists yet.
-      matches=$(tack find "$url" --json 2>/dev/null || true)
+      # `tack find --url <url> --json` prints a JSON array of the tacks
+      # referencing the URL; "[]" (or empty) means no mapping exists yet.
+      matches=$(tack find --url "$url" --json 2>/dev/null || true)
       if [ -n "$matches" ] && [ "$(printf '%s' "$matches" | tr -d '[:space:]')" != "[]" ]; then
         continue
       fi

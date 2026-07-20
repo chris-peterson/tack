@@ -1323,3 +1323,28 @@ describe("moveTack", () => {
         assert.throws(() => route.moveTack("move-no-tack-src", "t99", "move-no-tack-dst"), /Tack not found/);
     });
 });
+describe("findByRepoKey (CLI-23a)", () => {
+    it("matches deliverables and links belonging to the repo key, across routes", () => {
+        route.init("fbk-a");
+        route.addTack("fbk-a", "PR work", {
+            deliverable: { label: "PR 1", url: "https://github.com/acme/widget/pull/1" },
+        });
+        route.addTack("fbk-a", "Issue work", {
+            links: [{ label: "issue", url: "https://github.com/acme/widget/issues/9" }],
+        });
+        route.init("fbk-b");
+        route.addTack("fbk-b", "Other repo", {
+            deliverable: { label: "PR 2", url: "https://github.com/acme/gadget/pull/2" },
+        });
+        const matches = route.findByRepoKey("github.com/acme/widget");
+        assert.equal(matches.length, 2);
+        assert.deepEqual(matches.map((m) => `${m.slug}/${m.tackId}:${m.match}`).sort(), ["fbk-a/t1:deliverable", "fbk-a/t2:link"]);
+    });
+    it("returns nothing for a repo key no tack references", () => {
+        route.init("fbk-empty");
+        route.addTack("fbk-empty", "PR", {
+            deliverable: { label: "PR", url: "https://github.com/acme/widget/pull/1" },
+        });
+        assert.deepEqual(route.findByRepoKey("github.com/acme/nonesuch"), []);
+    });
+});

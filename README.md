@@ -95,7 +95,8 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 | `tack status [slug] [--all] [--json]` | Show route details (dropped tacks hidden unless `--all`) |
 | `tack list [--json]` | List all routes with open/total counts |
 | `tack recent [--count <n>] [--since <date>] [--json]` | List routes by most recently updated |
-| `tack find <url> [--json]` | Find every tack referencing a URL, in any deliverable or link |
+| `tack find --url <url> [--json]` | Find every tack referencing a URL, in any deliverable or link |
+| `tack find --path [<dir>] [--json]` | Find routes covering a repo checkout (default cwd), via its origin remote |
 | `tack add <slug> <summary> [opts]` | Add a tack (`--depends-on`, `--deliverable <url>`, repeatable `--link "label,url"`) |
 | `tack start <slug> <tack-id>` | Start a tack (checks dependencies) |
 | `tack done <slug> <tack-id>` | Complete a tack |

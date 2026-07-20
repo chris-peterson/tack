@@ -43,7 +43,8 @@ Usage:
   tack link add <slug> <tack-id> <label> <url>
   tack link rm <slug> <tack-id> <url>
   tack session <slug> <session-id> [--tack <tack-id>]
-  tack find <url> [--json]
+  tack find --url <url> [--json]     Find tacks referencing a URL (in any deliverable or link)
+  tack find --path [<dir>] [--json]  Find routes covering a repo checkout (default cwd)
   tack repo [<partial>] [--json]     Look up repo remote(s) by name; no arg lists all
   tack repo alias <match> <alias>    Add a custom name to a repo
   tack repo prune                    Drop locals that no longer exist on disk
@@ -645,12 +646,37 @@ function run() {
             break;
         }
         case "find": {
+            // Two symmetric selectors, exactly one required: --url matches a forge URL
+            // against deliverables/links; --path [<dir>] (default cwd) resolves a
+            // checkout's origin remote to a repo key and matches routes in that repo.
+            // Both render through formatFind / --json identically.
             const jsonFlag = rest.includes("--json");
-            const url = rest.filter((a) => a !== "--json")[0];
-            if (!url)
-                usage();
-            const matches = route.find(url);
-            console.log(jsonFlag ? JSON.stringify(matches, null, 2) : formatFind(matches));
+            const args = rest.filter((a) => a !== "--json");
+            const urlIdx = args.indexOf("--url");
+            const pathIdx = args.indexOf("--path");
+            if ((urlIdx === -1) === (pathIdx === -1)) {
+                groupError("find", "pass exactly one of --url <url> or --path [<dir>].");
+            }
+            if (urlIdx !== -1) {
+                const url = args[urlIdx + 1];
+                if (!url)
+                    groupError("find", "--url requires a url.");
+                const matches = route.find(url);
+                console.log(jsonFlag ? JSON.stringify(matches, null, 2) : formatFind(matches));
+                break;
+            }
+            const dir = args[pathIdx + 1] ?? process.cwd();
+            const key = repos.repoKeyForCwd(dir);
+            const matches = key ? route.findByRepoKey(key) : [];
+            if (jsonFlag) {
+                console.log(JSON.stringify(matches, null, 2));
+            }
+            else if (!key) {
+                console.log(`No git repo with an origin remote at ${dir}.`);
+            }
+            else {
+                console.log(matches.length ? formatFind(matches) : `No tacks reference repo ${key}.`);
+            }
             break;
         }
         case "repo": {

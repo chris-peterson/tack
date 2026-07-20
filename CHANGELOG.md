@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.29.0
+
+### Added
+- **`tack find --path [<dir>]` finds the routes covering a repo checkout** (issue #3). It resolves the directory's `origin` remote to a repo key and returns every route whose deliverable or link lives in that repo, so a session that opens in a checkout with no URL in hand can discover its route from the working directory instead of scanning `tack tree` by eye. Defaults to the current directory, takes `--json` like the URL form, and exits zero with an empty result when the directory isn't a git repo or no tack references it. The tack skill's resolution procedure uses it as a cold-start step after the URL match.
+
+### Changed
+- **`tack find` now selects its lookup with a flag: `tack find --url <url>`** (previously the URL was a bare positional argument). This makes the URL and `--path` forms symmetric; exactly one of `--url` or `--path` is required. Scripts calling `tack find <url>` must add `--url`.
+
 ## 0.28.0
 
 ### Added

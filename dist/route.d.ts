@@ -81,6 +81,7 @@ export interface FindMatch {
     url: string;
 }
 export declare function find(url: string): FindMatch[];
+export declare function findByRepoKey(key: string): FindMatch[];
 export declare function findCollisions(url: string, exclude: {
     slug: string;
     tackId: string;

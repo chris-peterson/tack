@@ -460,12 +460,28 @@ prefix the tack ID with a bracketed status icon: `[ ]` pending, `[>]`
 in_progress, `[x]` done, `[!]` blocked, `[-]` dropped. Todo items shall use
 `[x]` for done and `[ ]` for not done.
 
-**[CLI-23]** `tack find <url> [--json]` — When invoked, the CLI shall search all
-routes for tacks whose deliverable URL or link URLs match the given URL, and
-display each match as a tree: route slug, tack summary, and the matching
-deliverable or link. When `--json` is passed, the CLI shall output the results
-as JSON. If no matches are found, the CLI shall report that no tacks reference
-the given URL.
+**[CLI-23]** `tack find --url <url> [--json]` — When invoked with `--url`, the
+CLI shall search all routes for tacks whose deliverable URL or link URLs match
+the given URL, and display each match as a tree: route slug, tack summary, and
+the matching deliverable or link. When `--json` is passed, the CLI shall output
+the results as JSON. If no matches are found, the CLI shall report that no tacks
+reference the given URL.
+
+**[CLI-23a]** `tack find --path [<dir>] [--json]` — When invoked with `--path`,
+the CLI shall resolve the given directory (default the current working
+directory) to a repo key by reading its `origin` remote and normalizing it per
+the repo database rules, then search all routes for tacks whose deliverable or
+link URL belongs to that repo key using the forge-URL recognition rules in
+[CLI-37]. Matches shall be displayed and, with `--json`, emitted in the same
+form as [CLI-23]. When the directory is not a git repository with an `origin`
+remote, `--json` shall emit an empty array and the human form shall report that
+no repo was found; when the repo is recognized but no tack references it, the
+CLI shall report that no tacks reference that repo. The command shall exit zero
+in all of these cases (a lookup with no result is not an error).
+
+**[CLI-23b]** `tack find` shall require exactly one of `--url` ([CLI-23]) or
+`--path` ([CLI-23a]) as its selector; invoking it with neither or with both
+shall fail with an error naming the two selectors.
 
 **[CLI-25]** `tack remove <slug> <tack-id> [--force]` — When invoked, the CLI
 shall delete the specified tack from the route's `tacks` array. Subsequent tacks
@@ -745,8 +761,8 @@ procedure in order, stopping at the first confident match:
    present and the referenced route exists with at least one open tack, the
    pinned route is active.
 2. **URL match** — When a PR/MR/issue URL is in scope (recently emitted by
-   a tool, pasted by the user, or passed as a hint), run `tack find <url>
-   --json` and use the matched route if exactly one is returned. The matched
+   a tool, pasted by the user, or passed as a hint), run `tack find --url
+   <url> --json` and use the matched route if exactly one is returned. The matched
    tack is also the session's tack per [AGT-11] — bind it via [AGT-09].
 3. **Branch slug** — When the cwd is a git repository, run `tack list
    --json` and use the route whose slug equals the current branch name if
@@ -792,7 +808,7 @@ confidently can, so a fleet view can distinguish *existing* work (a session
 resumed on tracked work) from *emerging* work (a session that spun up a new
 tack). When a PR/MR/issue/tracker URL is in scope at session start (pasted by
 the user, passed as a hint, or emitted by a tool per [HOOK-02]/[HOOK-03]), the
-agent shall run `tack find <url> --json` per [CLI-23]:
+agent shall run `tack find --url <url> --json` per [CLI-23]:
 - **Match** — exactly one tack references the URL: the session is resuming
   existing work. The agent shall bind the session to that tack per [AGT-09].
 - **No match** — the work is emerging. The agent shall create a tack per
@@ -831,7 +847,7 @@ start.
 **[HOOK-02]** A `PostToolUse` hook scoped to the `Bash` tool shall scan tool
 output for PR/MR and issue URLs (the recognized forges are defined in
 [CLI-37]). For each match, the hook shall first check whether a tack already
-tracks the URL by running `tack find <url>` ([CLI-23]); a URL already mapped
+tracks the URL by running `tack find --url <url>` ([CLI-23]); a URL already mapped
 emits no reminder, so the hooks stop nagging about work that is already
 recorded. Only an untracked URL shall emit reminder text, instructing the
 agent to ensure a route/tack mapping exists via the tack skill per [AGT-05] or
