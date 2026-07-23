@@ -514,3 +514,60 @@ describe("export / import backup (CLI-49/CLI-50)", () => {
         assert.match(r.stderr, /newer than this tack supports/);
     });
 });
+describe("tack find --path (CLI-23a)", () => {
+    function gitRepo(origin) {
+        const dir = mkdtempSync(join(tmpdir(), "tack-find-path-"));
+        execFileSync("git", ["-C", dir, "init", "-q"]);
+        execFileSync("git", ["-C", dir, "remote", "add", "origin", origin]);
+        return dir;
+    }
+    it("finds routes whose deliverable lives in the checkout's repo", () => {
+        runFail(["init", "fp-match"]);
+        runFail(["add", "fp-match", "Work", "--deliverable", "https://github.com/acme/pathtest/pull/1"]);
+        const dir = gitRepo("git@github.com:acme/pathtest.git");
+        const r = runFail(["find", "--path", dir, "--json"]);
+        assert.equal(r.status, 0);
+        const matches = JSON.parse(r.stdout);
+        assert.equal(matches.length, 1);
+        assert.equal(matches[0].slug, "fp-match");
+        assert.equal(matches[0].url, "https://github.com/acme/pathtest/pull/1");
+    });
+    it("emits an empty array for a directory with no git origin", () => {
+        const dir = mkdtempSync(join(tmpdir(), "tack-find-nogit-"));
+        const r = runFail(["find", "--path", dir, "--json"]);
+        assert.equal(r.status, 0);
+        assert.deepEqual(JSON.parse(r.stdout), []);
+    });
+    it("reports no match (exit 0) when the repo is recognized but untracked", () => {
+        const dir = gitRepo("git@github.com:acme/untracked.git");
+        const r = runFail(["find", "--path", dir]);
+        assert.equal(r.status, 0);
+        assert.match(r.stdout, /No tacks reference repo github\.com\/acme\/untracked/);
+    });
+});
+describe("tack find --url (CLI-23) and selector requirement (CLI-23b)", () => {
+    it("finds tacks referencing a URL via --url", () => {
+        runFail(["init", "furl-match"]);
+        runFail(["add", "furl-match", "Work", "--deliverable", "https://github.com/acme/urltest/pull/7"]);
+        const r = runFail(["find", "--url", "https://github.com/acme/urltest/pull/7", "--json"]);
+        assert.equal(r.status, 0);
+        const matches = JSON.parse(r.stdout);
+        assert.equal(matches.length, 1);
+        assert.equal(matches[0].slug, "furl-match");
+    });
+    it("fails when neither --url nor --path is given", () => {
+        const r = runFail(["find"]);
+        assert.equal(r.status, 1);
+        assert.match(r.stderr, /exactly one of --url .* or --path/);
+    });
+    it("fails when both --url and --path are given", () => {
+        const r = runFail(["find", "--url", "https://x/y/pull/1", "--path"]);
+        assert.equal(r.status, 1);
+        assert.match(r.stderr, /exactly one of --url .* or --path/);
+    });
+    it("fails when --url has no value", () => {
+        const r = runFail(["find", "--url"]);
+        assert.equal(r.status, 1);
+        assert.match(r.stderr, /--url requires a url/);
+    });
+});

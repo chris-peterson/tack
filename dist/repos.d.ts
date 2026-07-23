@@ -17,6 +17,7 @@ export declare function loadRepos(): RepoDb;
 export declare function saveReplace(db: RepoDb): void;
 export declare function recordUrl(url: string): void;
 export declare function recordCwd(cwd: string): void;
+export declare function repoKeyForCwd(cwd: string): string | null;
 export declare function matchByName(partial: string): RepoMatch[];
 export declare function listRepos(): RepoMatch[];
 export declare function addAlias(match: string, alias: string): RepoMatch;

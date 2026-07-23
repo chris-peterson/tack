@@ -50,14 +50,27 @@ tack recent --count 5
 tack recent --since 2026-05-01 --json
 ```
 
-### `tack find <url> [--json]`
+### `tack find --url <url> [--json]`
 
 Find every tack that references a URL, in any deliverable or link. `--json`
 emits the matches as an array.
 
 ```bash
-tack find https://github.com/org/repo/pull/42
-tack find https://github.com/org/repo/pull/42 --json
+tack find --url https://github.com/org/repo/pull/42
+tack find --url https://github.com/org/repo/pull/42 --json
+```
+
+### `tack find --path [<dir>] [--json]`
+
+Find the routes covering a repo checkout. It resolves the directory's `origin`
+remote (default the current directory) to a repo and returns every route whose
+deliverable or link lives in that repo, so a session opening in a checkout can
+find its route without a URL in hand. Exactly one of `--url` or `--path` is
+required.
+
+```bash
+tack find --path
+tack find --path ~/src/org/repo --json
 ```
 
 ### `tack tree [path] [-d <depth>] [--json]`

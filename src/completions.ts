@@ -464,11 +464,11 @@ _tack() {
       esac
       ;;
     find)
-      # tack find <url> [--json]
-      case "$CURRENT" in
-        3) _message 'url' ;;
-        *) _arguments '--json[Output JSON]' ;;
-      esac
+      # tack find --url <url> [--json] | tack find --path [<dir>] [--json]
+      _arguments \
+        '--url[Find tacks referencing a URL]:url:' \
+        '--path[Find routes covering a repo checkout]:dir:_files -/' \
+        '--json[Output JSON]'
       ;;
     export)
       # tack export [--out-file <path>] [--compress]

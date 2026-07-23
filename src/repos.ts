@@ -151,6 +151,15 @@ export function recordCwd(cwd: string): void {
   saveRepos(db);
 }
 
+// CLI-23a: resolve a working directory's origin remote to a normalized repo
+// key, or null when the directory isn't a git repo, has no origin, or the
+// remote isn't recognizable. The cwd→key half of path-to-route lookup.
+export function repoKeyForCwd(cwd: string): string | null {
+  const remote = readOriginRemote(cwd);
+  if (!remote) return null;
+  return normalizeGitRemote(remote);
+}
+
 // --- Queries / commands (CLI-42..46) ---
 
 // Match a partial case-insensitively against every repo's names (CLI-42).

@@ -737,19 +737,22 @@ export interface FindMatch {
   url: string;
 }
 
-export function find(url: string): FindMatch[] {
+// Scan every route/tack, collecting a FindMatch for each deliverable or link
+// URL the predicate accepts. Shared by find() (exact URL) and findByRepoKey()
+// (same repo), so both render identically through formatFind.
+function findBy(accepts: (url: string) => boolean): FindMatch[] {
   const matches: FindMatch[] = [];
 
   for (const r of loadAll()) {
     const routeOpen = r.tacks.filter(isOpen).length;
     for (const tack of r.tacks) {
       const base = { slug: r.slug, group: r.group, routeTotal: r.tacks.length, routeOpen, tackId: tack.id, summary: tack.summary, status: tack.status, done_at: tack.done_at };
-      if (tack.deliverable?.url === url) {
+      if (tack.deliverable && accepts(tack.deliverable.url)) {
         matches.push({ ...base, match: "deliverable", label: tack.deliverable.label, url: tack.deliverable.url });
       }
       if (tack.links) {
         for (const link of tack.links) {
-          if (link.url === url) {
+          if (accepts(link.url)) {
             matches.push({ ...base, match: "link", label: link.label, url: link.url });
           }
         }
@@ -758,6 +761,17 @@ export function find(url: string): FindMatch[] {
   }
 
   return matches;
+}
+
+export function find(url: string): FindMatch[] {
+  return findBy((u) => u === url);
+}
+
+// CLI-23a: return every tack whose deliverable or link URL belongs to the given
+// repo key, computed via the forge-URL recognition rules ([CLI-37]). Powers
+// `tack find --path`, which resolves a working directory to a repo key first.
+export function findByRepoKey(key: string): FindMatch[] {
+  return findBy((u) => repos.repoKeyFromForgeUrl(u) === key);
 }
 
 // Return every tack that already references this URL, excluding the tack being
