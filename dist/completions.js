@@ -210,6 +210,8 @@ _tack() {
     'rm:Delete a route'
     'rename:Rename a route'
     'group:Set, change, or clear a route group'
+    'title:Set, show, or clear a route title'
+    'describe:Set, show, or clear a route description'
     'export:Dump a backup to stdout (routes + repos + pins)'
     'import:Merge or restore a backup'
     'install-cli:Drop a tack wrapper on PATH'
@@ -414,6 +416,28 @@ _tack() {
       case "$CURRENT" in
         3) _tack_routes ;;
         *) _arguments '--clear[Remove the route group]' ;;
+      esac
+      ;;
+    title)
+      # tack title <slug> [<text>] [--clear]
+      case "$CURRENT" in
+        3) _tack_routes ;;
+        4) _message 'title text' ;;
+        *) _arguments '--clear[Remove the route title]' ;;
+      esac
+      ;;
+    describe)
+      # tack describe <slug> [<text>] [--file <path>] [--clear]
+      case "$CURRENT" in
+        3) _tack_routes ;;
+        4) _message 'description text' ;;
+        *)
+          if [[ "\${words[CURRENT-1]}" == "--file" ]]; then
+            _files
+          else
+            _arguments '--file[Read the description from a file (- for stdin)]:file:_files' '--clear[Remove the route description]'
+          fi
+          ;;
       esac
       ;;
     session)

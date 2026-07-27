@@ -17,6 +17,14 @@
       "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
       "description": "Unique route identifier, lowercase, hyphenated"
     },
+    "title": {
+      "type": "string",
+      "description": "Optional human-readable name for the route, displayed alongside the slug rather than in place of it. The slug stays the addressing key."
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional markdown prose stating the route's goal and why it matters. Durable context, kept free of ephemeral state (counts, tack IDs, status), which is derived from the tacks themselves."
+    },
     "created_at": {
       "type": "string",
       "format": "date-time",

@@ -52,6 +52,14 @@ describe("list", () => {
         const slugs = result.map((r) => r.slug).sort();
         assert.deepEqual(slugs, ["list-a", "list-b"]);
     });
+    it("carries the route title so a consumer need not open each file (CLI-14)", () => {
+        route.init("list-titled");
+        route.setTitle("list-titled", "Q3 auth rewrite");
+        route.init("list-untitled");
+        const result = route.list();
+        assert.equal(result.find((r) => r.slug === "list-titled")?.title, "Q3 auth rewrite");
+        assert.equal(result.find((r) => r.slug === "list-untitled")?.title, undefined);
+    });
 });
 describe("addTack", () => {
     it("adds a tack with sequential ids", () => {
@@ -287,6 +295,47 @@ describe("setGroup / clearGroup", () => {
     });
     it("throws for a missing route", () => {
         assert.throws(() => route.setGroup("group-ghost", "x"), /not found/i);
+    });
+});
+describe("setTitle / clearTitle (CLI-53)", () => {
+    it("sets a title on an untitled route", () => {
+        route.init("title-set");
+        const r = route.setTitle("title-set", "Q3 auth rewrite");
+        assert.equal(r.title, "Q3 auth rewrite");
+        assert.equal(route.load("title-set").title, "Q3 auth rewrite");
+    });
+    it("clears the title", () => {
+        route.init("title-clear");
+        route.setTitle("title-clear", "temporary");
+        const r = route.clearTitle("title-clear");
+        assert.equal(r.title, undefined);
+        assert.equal(route.load("title-clear").title, undefined);
+    });
+    it("accepts free-form text the slug pattern would reject", () => {
+        route.init("title-freeform");
+        const r = route.setTitle("title-freeform", "Auth: rewrite (phase 2)");
+        assert.equal(route.load("title-freeform").title, r.title);
+    });
+    it("throws for a missing route", () => {
+        assert.throws(() => route.setTitle("title-ghost", "x"), /not found/i);
+    });
+});
+describe("setDescription / clearDescription (CLI-54)", () => {
+    it("round-trips a multi-line markdown body through the YAML", () => {
+        route.init("desc-md");
+        const body = "# Goal\n\nShip the rewrite.\n\n- [ ] one\n\n```ts\nconst x = 1;\n```";
+        route.setDescription("desc-md", body);
+        assert.equal(route.load("desc-md").description, body);
+    });
+    it("clears the description", () => {
+        route.init("desc-clear");
+        route.setDescription("desc-clear", "temporary");
+        const r = route.clearDescription("desc-clear");
+        assert.equal(r.description, undefined);
+        assert.equal(route.load("desc-clear").description, undefined);
+    });
+    it("throws for a missing route", () => {
+        assert.throws(() => route.setDescription("desc-ghost", "x"), /not found/i);
     });
 });
 describe("markDone", () => {
@@ -1021,6 +1070,24 @@ describe("mergeRoutes", () => {
             group: "standards",
         });
         assert.equal(overridden.group, "standards");
+    });
+    it("carries the first source title and every source description (CLI-52c)", () => {
+        route.init("mr-meta-a");
+        route.setTitle("mr-meta-a", "Auth rewrite");
+        route.setDescription("mr-meta-a", "Collapse the auth paths.");
+        route.init("mr-meta-b");
+        route.setTitle("mr-meta-b", "Session cleanup");
+        route.setDescription("mr-meta-b", "Retire the legacy session store.");
+        const { route: merged } = route.mergeRoutes("mr-meta", ["mr-meta-a", "mr-meta-b"]);
+        assert.equal(merged.title, "Auth rewrite");
+        assert.equal(merged.description, "Collapse the auth paths.\n\n---\n\nRetire the legacy session store.");
+    });
+    it("leaves title and description unset when no source has them", () => {
+        route.init("mr-nometa-a");
+        route.init("mr-nometa-b");
+        const { route: merged } = route.mergeRoutes("mr-nometa", ["mr-nometa-a", "mr-nometa-b"]);
+        assert.equal(merged.title, undefined);
+        assert.equal(merged.description, undefined);
     });
     it("refuses when the destination already exists", () => {
         route.init("mr-exists");

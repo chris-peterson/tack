@@ -29,8 +29,9 @@ tack status auth-rewrite --json
 
 ### `tack list [--json]`
 
-List all routes with open/total tack counts. `--json` emits the full route
-objects.
+List all routes with open/total tack counts, and the title where one is set.
+`--json` emits the same rows as an array of `{slug, title, group, total,
+open}`.
 
 ```bash
 tack list
@@ -175,6 +176,43 @@ tack group auth-rewrite             # print the current group (exits non-zero if
 The group must be a valid slug (`^[a-z0-9][a-z0-9-]*[a-z0-9]$`) — the same
 constraint `tack init --group` enforces. An invalid group surfaces a
 validation error and the route is left unchanged.
+
+### `tack title <slug> [<text>] [--clear]`
+
+Set, show, or clear a route's title: a human-readable name for work whose slug
+is terse by design. The title is displayed alongside the slug and never in
+place of it, so the slug stays the key you type back into the CLI.
+
+```bash
+tack title auth-rewrite "Q3 auth rewrite"   # set or change the title
+tack title auth-rewrite --clear             # remove it
+tack title auth-rewrite                     # print the current title (exits non-zero if none)
+```
+
+`tack list --json` carries the title on each route summary, so a dashboard gets
+the display name without opening every route file.
+
+### `tack describe <slug> [<text>] [--file <path>] [--clear]`
+
+Set, show, or clear a route's description: markdown prose stating the goal and
+why it matters, for a reader deciding between routes. Since markdown is
+multi-line, the body can come from a file or a pipe instead of an inline
+argument; trailing newlines are stripped so both forms store the same value. An
+empty body fails — a pipe that produced nothing reads as a mistake, and `--clear`
+is how you remove a description.
+
+```bash
+tack describe auth-rewrite "Consolidate the three auth paths into one."
+tack describe auth-rewrite --file ROUTE.md
+gh issue view 42 --json body --jq .body | tack describe auth-rewrite --file -
+tack describe auth-rewrite --clear
+tack describe auth-rewrite    # print the current description (exits non-zero if none)
+```
+
+Keep it durable: counts, tack IDs, and status live on the tacks and are already
+derived, so restating them in the description goes stale the first time a tack
+lands. The CLI stores and prints the markdown verbatim; rendering it is the
+reader's job.
 
 ### `tack rm <slug> [--force]`
 
@@ -329,7 +367,10 @@ into one entry (earliest `started_at`, tack refs remapped).
 The new route's `created_at` defaults to the earliest source route's,
 so its age reflects the real span of the work; `--created-at
 YYYY-MM-DD` overrides it. `--group` sets the group (otherwise the first
-source group carries over).
+source group carries over), as does the first source `title`. Every
+source `description` carries over, joined by a `---` rule in source
+order, since the sources are deleted and a body left behind would be
+gone for good. Rewrite the merged prose afterward with `tack describe`.
 
 ```bash
 tack merge-routes infrastructure-documentation machine-image-docs env-aware-compliance core-vpc-layout --group standards-and-security

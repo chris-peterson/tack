@@ -275,6 +275,8 @@ quick lookup; if the two ever disagree, trust `tack --help`.
 tack init <slug> [--group <slug>]  Create a new route
 tack rename <old-slug> <new-slug>  Rename a route (updates the slug)
 tack group <slug> [<group>] [--clear]  Show/set/clear a route's group
+tack title <slug> [<text>] [--clear]  Show/set/clear a route's display name
+tack describe <slug> [<text>] [--file <path>] [--clear]  Show/set/clear a route's markdown description (--file - reads stdin)
 tack list [--json]                 List all routes
 tack status [slug] [--json] [--all]  Show route details (dropped hidden unless --all)
 tack status set <slug> <id> <pending|in_progress|done|blocked|dropped>  Set a tack's status directly

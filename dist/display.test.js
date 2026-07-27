@@ -82,6 +82,31 @@ describe("formatRoute", () => {
         const out = formatRoute(route);
         assert.ok(out.includes("[>] t1: Build it"));
     });
+    it("shows the title alongside the slug, not in place of it (RTE-04)", () => {
+        const route = {
+            id: "uuid",
+            slug: "auth-rewrite",
+            title: "Q3 auth rewrite",
+            created_at: "2026-03-30T00:00:00Z",
+            updated_at: "2026-03-30T00:00:00Z",
+            tacks: [],
+        };
+        const out = formatRoute(route);
+        assert.ok(out.includes("# auth-rewrite"));
+        assert.ok(out.includes("  title: Q3 auth rewrite"));
+    });
+    it("indents a multi-line description without padding its blank lines", () => {
+        const route = {
+            id: "uuid",
+            slug: "auth-rewrite",
+            description: "# Goal\n\nShip it.",
+            created_at: "2026-03-30T00:00:00Z",
+            updated_at: "2026-03-30T00:00:00Z",
+            tacks: [],
+        };
+        const out = formatRoute(route);
+        assert.ok(out.includes("  description:\n    # Goal\n\n    Ship it."));
+    });
 });
 describe("treeData", () => {
     const routes = [
@@ -154,6 +179,14 @@ describe("formatList", () => {
         ]);
         assert.ok(out.includes("feat-a  (1 open / 3 total)"));
         assert.ok(out.includes("feat-b  (0 open / 5 total)"));
+    });
+    it("appends the title after the counts, keeping the slug in front", () => {
+        const out = formatList([
+            { slug: "feat-a", title: "Q3 auth rewrite", total: 3, open: 1 },
+            { slug: "feat-b", total: 5, open: 0 },
+        ]);
+        assert.ok(out.startsWith("feat-a  (1 open / 3 total)  Q3 auth rewrite"));
+        assert.ok(out.includes("feat-b  (0 open / 5 total)\n") || out.endsWith("feat-b  (0 open / 5 total)"));
     });
 });
 describe("formatPins", () => {
