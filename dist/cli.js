@@ -18,6 +18,8 @@ Usage:
   tack init <slug> [--group <slug>]
   tack rename <old-slug> <new-slug>
   tack group <slug> [<group>] [--clear]   (no group: show current; --clear: ungroup)
+  tack title <slug> [<text>] [--clear]    (no text: show current; --clear: remove)
+  tack describe <slug> [<text>] [--file <path>] [--clear]   (--file -: read markdown from stdin)
   tack status [slug] [--all]
   tack status set <slug> <tack-id> <pending|in_progress|done|blocked|dropped>
   tack list [--json]
@@ -74,6 +76,13 @@ function groupError(group, detail) {
 function expectedOneOf(expected, got) {
     const list = expected.map((s) => `'${s}'`).join(" or ");
     return got ? `expected ${list} (got '${got}')` : `expected ${list}`;
+}
+// A route description is markdown, so it arrives from a file or a pipe as often
+// as from an inline argument. Trailing newlines are stripped so `--file` and an
+// equivalent inline argument store the same value (CLI-54a).
+function readDescriptionBody(file) {
+    const raw = file === "-" ? readFileSync(0, "utf-8") : readFileSync(file, "utf-8");
+    return raw.replace(/\n+$/, "");
 }
 // Warn (to stderr) when a URL being attached already lives on another tack, so
 // the caller can spot a duplicate before a downstream tool double-counts it.
@@ -628,6 +637,85 @@ function run() {
                 }
                 else {
                     console.log(`no group set on ${groupSlug}`);
+                    process.exit(1);
+                }
+            }
+            break;
+        }
+        case "title": {
+            const { values: titleValues, positionals: titlePositionals } = parseArgs({
+                args: rest,
+                options: {
+                    clear: { type: "boolean" },
+                },
+                allowPositionals: true,
+            });
+            const titleSlug = titlePositionals[0];
+            if (!titleSlug)
+                usage();
+            if (titleValues.clear) {
+                const r = route.clearTitle(titleSlug);
+                console.log(`Cleared title on ${titleSlug}`);
+                console.log(formatRoute(r));
+            }
+            else if (titlePositionals[1]) {
+                const r = route.setTitle(titleSlug, titlePositionals[1]);
+                console.log(formatRoute(r));
+            }
+            else {
+                // No text argument: report the current title, mirroring `tack group`.
+                const r = route.load(titleSlug);
+                if (r.title) {
+                    console.log(r.title);
+                }
+                else {
+                    console.log(`no title set on ${titleSlug}`);
+                    process.exit(1);
+                }
+            }
+            break;
+        }
+        case "describe": {
+            const { values: describeValues, positionals: describePositionals } = parseArgs({
+                args: rest,
+                options: {
+                    clear: { type: "boolean" },
+                    file: { type: "string" },
+                },
+                allowPositionals: true,
+            });
+            const describeSlug = describePositionals[0];
+            if (!describeSlug)
+                usage();
+            const describeFile = describeValues.file;
+            if (describeFile !== undefined && describePositionals[1]) {
+                groupError("describe", "pass either <text> or --file <path>, not both.");
+            }
+            if (describeValues.clear) {
+                const r = route.clearDescription(describeSlug);
+                console.log(`Cleared description on ${describeSlug}`);
+                console.log(formatRoute(r));
+            }
+            else if (describeFile !== undefined || describePositionals[1]) {
+                const body = describeFile !== undefined
+                    ? readDescriptionBody(describeFile)
+                    : describePositionals[1];
+                // An empty body is a truncated pipe far more often than an intent to
+                // remove the field, and storing "" leaves a description the show branch
+                // then reports as unset. `--clear` is the way to remove one.
+                if (body === "") {
+                    groupError("describe", `${describeFile === "-" ? "stdin" : describeFile} is empty; use --clear to remove the description.`);
+                }
+                const r = route.setDescription(describeSlug, body);
+                console.log(formatRoute(r));
+            }
+            else {
+                const r = route.load(describeSlug);
+                if (r.description) {
+                    console.log(r.description);
+                }
+                else {
+                    console.log(`no description set on ${describeSlug}`);
                     process.exit(1);
                 }
             }

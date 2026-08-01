@@ -21,6 +21,7 @@ export declare function formatRecent(routes: {
 export declare function formatFind(matches: FindMatch[]): string;
 export declare function formatList(routes: {
     slug: string;
+    title?: string;
     group?: string;
     total: number;
     open: number;

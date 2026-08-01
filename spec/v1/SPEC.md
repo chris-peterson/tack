@@ -93,6 +93,16 @@ Repo database (1 YAML file, ~/.tack/repos.yaml)
   validate group membership.
 - `depends_on` (array of strings) — slugs of routes that must complete before
   this one can proceed
+- `title` (string) — a human-readable name for the route, free-form and
+  unconstrained. It is displayed alongside the slug, never in place of it: the
+  slug remains the addressing key every command takes and every listing prints,
+  so a reader can always type back what they see.
+- `description` (string) — markdown prose stating the route's goal and why it
+  matters, for a consumer that shows route-level context (a WIP dashboard, or
+  `tack status`). It is durable prose, kept free of ephemeral state: counts,
+  tack IDs, and current status are derived from the `tacks` array and go stale
+  the moment a tack lands. The CLI stores and prints the markdown verbatim; it
+  does not render or interpret it.
 
 **[RTE-05]** The `slug` field shall be unique across all route files in
 `~/.tack/routes/`. When a slug matches an existing filename, the operation
@@ -390,6 +400,10 @@ the `deliverable` URL or in `links`), the CLI shall not add a duplicate.
 
 **[CLI-14]** `tack list` — When invoked, the CLI shall list all route files in
 `~/.tack/routes/` with their slug, number of tacks, and number of open tacks.
+Each entry shall also carry the route's `title` ([RTE-04]) when one is set, so
+the listing names the route as well as addressing it. The `--json` form
+([CLI-18]) serializes the full route, so it carries `title` alongside every
+other field.
 
 **[CLI-15]** `tack rm <slug> [--force]` — When invoked, the CLI shall delete
 the route file at `~/.tack/routes/<slug>.yaml`. The CLI shall require
@@ -730,12 +744,35 @@ shall be dropped rather than fail the merge.
 **[CLI-52c]** The new route's `created_at` shall default to the earliest source
 route's `created_at`, or the `--created-at <date>` value when given. The new
 route's group shall be the `--group <slug>` value, or the first source route's
-group otherwise.
+group otherwise. The `title` ([RTE-04]) shall be the first source route's title.
+Every source `description` shall carry over, joined in source order by a
+markdown horizontal rule, since the merge deletes the source files and a body
+left behind would be unrecoverable.
 
 **[CLI-52d]** When a route outside the merge set has a route-level `depends_on`
 ([DEP-01]) referencing a source route, the CLI shall refuse the merge to avoid
 dangling the reference, unless `--break-deps` is passed, which repoints those
 references at `<new-slug>`.
+
+**[CLI-53]** `tack title <slug> [<text>] [--clear]` — When invoked with a
+`<text>` argument, the CLI shall set the route's `title` field ([RTE-04]) to
+that text. When `--clear` is passed, the CLI shall remove the field. When
+invoked with neither, the CLI shall report the route's current title — printing
+it and exiting zero if one is set, or reporting that none is set and exiting
+non-zero, mirroring `tack group` ([CLI-51]).
+
+**[CLI-54]** `tack describe <slug> [<text>] [--file <path>] [--clear]` — When
+invoked, the CLI shall set, clear, or report the route's `description` field
+([RTE-04]) following the same three-way shape as [CLI-53].
+
+**[CLI-54a]** A description is markdown and therefore multi-line, so the CLI
+shall accept the body from a file with `--file <path>`, or from standard input
+with `--file -`, in addition to an inline `<text>` argument. Passing both
+`<text>` and `--file` shall fail rather than pick a winner. The body shall be
+stored verbatim except for trailing newlines, which shall be stripped so a piped
+file and an equivalent inline argument produce the same stored value. A body that
+is empty once stripped shall fail rather than store an empty description, since
+that reads as a truncated pipe and `--clear` already removes the field.
 
 ---
 

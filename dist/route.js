@@ -104,7 +104,7 @@ export function init(slug, opts = {}) {
 }
 export function list() {
     return loadAll().map((r) => ({
-        slug: r.slug, group: r.group, total: r.tacks.length, open: r.tacks.filter(isOpen).length,
+        slug: r.slug, title: r.title, group: r.group, total: r.tacks.length, open: r.tacks.filter(isOpen).length,
     }));
 }
 function nextTackNumber(route) {
@@ -364,6 +364,30 @@ export function setGroup(slug, group) {
 export function clearGroup(slug) {
     const route = load(slug);
     delete route.group;
+    save(route);
+    return route;
+}
+export function setTitle(slug, title) {
+    const route = load(slug);
+    route.title = title;
+    save(route);
+    return route;
+}
+export function clearTitle(slug) {
+    const route = load(slug);
+    delete route.title;
+    save(route);
+    return route;
+}
+export function setDescription(slug, description) {
+    const route = load(slug);
+    route.description = description;
+    save(route);
+    return route;
+}
+export function clearDescription(slug) {
+    const route = load(slug);
+    delete route.description;
     save(route);
     return route;
 }
@@ -926,6 +950,15 @@ export function mergeRoutes(newSlug, srcSlugs, opts = {}) {
     const group = opts.group ?? sources.find((s) => s.group)?.group;
     if (group)
         merged.group = group;
+    const title = sources.find((s) => s.title)?.title;
+    if (title)
+        merged.title = title;
+    // Descriptions are hand-written prose, so every source's body carries over
+    // rather than the first one winning: the merge deletes the source files, and
+    // the merged route is the only place left to rewrite them from.
+    const descriptions = sources.map((s) => s.description).filter((d) => Boolean(d));
+    if (descriptions.length)
+        merged.description = descriptions.join("\n\n---\n\n");
     if (sessions.length)
         merged.sessions = sessions;
     // Carry the sources' outward route-deps, dropping any that pointed within the

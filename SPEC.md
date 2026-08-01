@@ -37,6 +37,7 @@ speaking to the CLI directly.
 ```text
 Route (1 YAML file per route)
 ├── id (UUID), slug, created_at, updated_at
+├── title (optional display name), description (optional markdown)
 ├── group (optional grouping slug)
 ├── depends_on: [route slugs]
 ├── sessions[]

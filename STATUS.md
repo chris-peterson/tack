@@ -3,9 +3,9 @@
 Tracking status of the requirements declared in [`spec/v1/SPEC.md`](spec/v1/SPEC.md).
 Updated after each `/sextant:spec-status` or `/sextant:spec-sync` run.
 
-**Last audit:** 2026-07-15
+**Last audit:** 2026-08-01
 **Spec version:** v1
-**Coverage:** 127 / 127 source-verified normative behaviors (100%) — 0 Partial, 0 Missing, 0 Contradicts — plus 5 deferred (FUT-01..05)
+**Coverage:** 132 / 132 source-verified normative behaviors (100%) — 0 Partial, 0 Missing, 0 Contradicts — plus 5 deferred (FUT-01..05)
 
 This `/sextant:spec-sync` pass captured one drift item: the new
 `tack merge-routes` command (issue #8) shipped without a requirement. Added as
@@ -20,20 +20,32 @@ Source-verified count moves 122 → 127.
 
 | Prefix | Count | Status | Notes |
 |--------|------:|--------|-------|
-| RTE-01..11 | 11 | All Covered | `src/types.ts`, `schema/route.schema.json`, `src/route.ts`; includes RTE-09/RTE-10 sessions and RTE-11 session→tack binding (`Session.tacks`) |
+| RTE-01..11 | 11 | All Covered | `src/types.ts`, `schema/route.schema.json`, `src/route.ts`; RTE-04 optional fields now include `title`/`description` (`Route` in `src/types.ts`, rendered by `formatRoute` in `src/display.ts`); includes RTE-09/RTE-10 sessions and RTE-11 session→tack binding (`Session.tacks`) |
 | TACK-01..08 | 8 | All Covered | `src/route.ts`; TACK-08 bare-id resolution (`normalizeTackId`) |
 | DEL-01..02 | 2 | All Covered | `src/types.ts`, `src/route.ts` |
 | TODO-01..05 | 5 | All Covered | `src/route.ts`; TODO-01 reworded to shall form |
 | DEP-01..04 | 4 | All Covered | `src/route.ts` |
 | LINK-01 | 1 | Covered | `src/types.ts` |
 | STG-01..06 | 6 | All Covered | `src/route.ts`; STG-06 pins file (`~/.tack/pins.yaml`) |
-| CLI-01..52 (+CLI-08a, CLI-19a, CLI-21a..d, CLI-23a..b, CLI-36a..d, CLI-37a, CLI-52a..d) | 69 | All Covered | CLI-23a/CLI-23b (`tack find --path` path lookup and the exactly-one `--url`/`--path` selector guard — `repoKeyForCwd` in `src/repos.ts`, `findByRepoKey` in `src/route.ts`, `find` dispatch in `src/cli.ts`, tests in `src/route.test.ts`/`src/cli.test.ts`); CLI-52 (`tack merge-routes`, whole-route consolidation with chronological destination IDs, metadata/`depends_on`/session preservation, `created_at`/group defaults, external route-dep guard — `mergeRoutes` in `src/route.ts`, `merge-routes` dispatch in `src/cli.ts`, tests in `src/route.test.ts`); CLI-51 (`tack group` show/set/clear, `src/cli.ts` group case + `setGroup`/`clearGroup` in `src/route.ts`); also includes CLI-02/CLI-04 (`init`/`add` record the current session route-level via `recordSessionIfPresent`, `src/cli.ts`; CLI-04 also takes repeatable `--link "label,url"`, deduped in `addTack`), CLI-08a (`deliverable rm` clears or `--to-link`-demotes the deliverable, `src/route.ts` `removeDeliverable` + `src/cli.ts` dispatch, tests in `src/route.test.ts`/`src/cli.test.ts`), CLI-17/CLI-18 (session + `--tack` binding / `--json`), CLI-19a (`install-cli`), CLI-30..36 (pin/unpin, depends add/rm, status set, rename, move), CLI-37 (forge note) + CLI-37a (commit-URL label derivation), CLI-38 (`--help`/`-h`/`help` + usage exit semantics, incl. subcommand-level `--help`/`-h`, `src/cli.ts`), CLI-39/CLI-40 (`tack pins` list + prune, `src/route.ts` `listPins`/`prunePins`), CLI-41 (group-scoped subcommand errors on stderr, `src/cli.ts` `groupError`, `src/cli.test.ts`), CLI-42..47 (`tack repo` lookup/list/alias/prune/rebuild/rm, `src/repos.ts` + `src/cli.ts`), CLI-48 (duplicate-URL warning on attach, `src/route.ts` `findCollisions`, `src/cli.ts` `warnUrlCollision`, `src/cli.test.ts`), CLI-49/CLI-50 (`export` to stdout by default with `--out-file`/`--compress`, `import` detecting gzip-vs-plain by content, schema versioning + identity-dedup merge, `src/backup.ts` + `src/cli.ts`, `src/cli.test.ts`) |
+| CLI-01..54 (+CLI-08a, CLI-19a, CLI-21a..d, CLI-23a..b, CLI-36a..d, CLI-37a, CLI-52a..d, CLI-54a) | 72 | All Covered | CLI-53/CLI-54/CLI-54a (`tack title` and `tack describe` show/set/clear, plus `describe`'s `--file <path>` / `--file -` body input, trailing-newline stripping, and the empty-body refusal — `title`/`describe` dispatch and `readDescriptionBody` in `src/cli.ts`, `setTitle`/`clearTitle`/`setDescription`/`clearDescription` in `src/route.ts`, tests in `src/cli.test.ts`/`src/route.test.ts`); CLI-14 carries the route `title` in the text listing (`list` in `src/route.ts`, `formatList` in `src/display.ts`), while the `--json` form serializes the full route (`loadAll` in `src/route.ts`); CLI-52c title/description carry-over on merge (`mergeRoutes` in `src/route.ts`); CLI-23a/CLI-23b (`tack find --path` path lookup and the exactly-one `--url`/`--path` selector guard — `repoKeyForCwd` in `src/repos.ts`, `findByRepoKey` in `src/route.ts`, `find` dispatch in `src/cli.ts`, tests in `src/route.test.ts`/`src/cli.test.ts`); CLI-52 (`tack merge-routes`, whole-route consolidation with chronological destination IDs, metadata/`depends_on`/session preservation, `created_at`/group defaults, external route-dep guard — `mergeRoutes` in `src/route.ts`, `merge-routes` dispatch in `src/cli.ts`, tests in `src/route.test.ts`); CLI-51 (`tack group` show/set/clear, `src/cli.ts` group case + `setGroup`/`clearGroup` in `src/route.ts`); also includes CLI-02/CLI-04 (`init`/`add` record the current session route-level via `recordSessionIfPresent`, `src/cli.ts`; CLI-04 also takes repeatable `--link "label,url"`, deduped in `addTack`), CLI-08a (`deliverable rm` clears or `--to-link`-demotes the deliverable, `src/route.ts` `removeDeliverable` + `src/cli.ts` dispatch, tests in `src/route.test.ts`/`src/cli.test.ts`), CLI-17/CLI-18 (session + `--tack` binding / `--json`), CLI-19a (`install-cli`), CLI-30..36 (pin/unpin, depends add/rm, status set, rename, move), CLI-37 (forge note) + CLI-37a (commit-URL label derivation), CLI-38 (`--help`/`-h`/`help` + usage exit semantics, incl. subcommand-level `--help`/`-h`, `src/cli.ts`), CLI-39/CLI-40 (`tack pins` list + prune, `src/route.ts` `listPins`/`prunePins`), CLI-41 (group-scoped subcommand errors on stderr, `src/cli.ts` `groupError`, `src/cli.test.ts`), CLI-42..47 (`tack repo` lookup/list/alias/prune/rebuild/rm, `src/repos.ts` + `src/cli.ts`), CLI-48 (duplicate-URL warning on attach, `src/route.ts` `findCollisions`, `src/cli.ts` `warnUrlCollision`, `src/cli.test.ts`), CLI-49/CLI-50 (`export` to stdout by default with `--out-file`/`--compress`, `import` detecting gzip-vs-plain by content, schema versioning + identity-dedup merge, `src/backup.ts` + `src/cli.ts`, `src/cli.test.ts`) |
 | AGT-01..11 | 11 | All Covered | AGT-02 reworded to drop "without blocking"; AGT-10 (auto-pin on confident resolution); AGT-11 (early session→tack binding via `tack find`, existing-vs-emerging derivation) covered in `skills/tack/SKILL.md` |
 | HOOK-01..05 | 5 | All Covered | HOOK-02/HOOK-03 gate the URL reminder on `tack find` (already-tracked URLs stay silent; untracked ones nudge to create the mapping), shared in `scripts/lib-url.sh`; HOOK-04 records the session route-level when a route resolves; HOOK-05 permits the hook's deterministic reads (`tack find`) and the route-level session write while keeping URL→tack mapping with the agent |
 | REPO-01..07 | 7 | All Covered | `~/.tack/repos.yaml` repo database (`src/repos.ts`): REPO-02 remote normalization, REPO-06 capture from deliverable/link URLs, REPO-07 capture from `init`/`pin` cwd origin; tests in `src/repos.test.ts`, `src/cli.test.ts` |
 | FUT-01..05 | 5 | Deferred | Backup feature — out of scope for v1 |
 
 ## Audit history
+
+### 2026-08-01 — Coverage refresh (spec-status)
+
++3 IDs (CLI-53, CLI-54, CLI-54a — `tack title` / `tack describe`, issue #31), all
+Covered; RTE-04 gained the `title`/`description` fields, CLI-14 the title in the
+`tack list` text output, and CLI-52c the merge carry-over, none of which add an
+ID. The pass also found CLI-14's added rationale crediting the wrong code path
+for the title reaching `tack list --json` — reworded in the spec rather than
+recorded as a needs-decision row, since the mismatch was in prose this changeset
+introduced. The header count absorbs CLI-23a/CLI-23b, which a prior pass added to
+the CLI row without updating it: 127 → 132, and the header now agrees with the
+sum of the per-category counts.
 
 ### 2026-07-15 — merge-routes drift → spec (issue #8)
 

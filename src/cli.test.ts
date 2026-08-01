@@ -26,8 +26,8 @@ function runFail(args: string[]): { status: number; stdout: string; stderr: stri
 
 // Captures stderr regardless of exit code — runFail discards it on success,
 // which hides warnings emitted by commands that still exit 0.
-function runCapture(args: string[]): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync("node", [cli, ...args], { env, encoding: "utf-8" });
+function runCapture(args: string[], input?: string): { status: number; stdout: string; stderr: string } {
+  const r = spawnSync("node", [cli, ...args], { env, encoding: "utf-8", input });
   return { status: r.status ?? 0, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 }
 
@@ -225,6 +225,144 @@ describe("tack group (issue #19)", () => {
     runFail(["init", "grp-bad"]);
     const r = runFail(["group", "grp-bad", "Not A Slug"]);
     assert.equal(r.status, 1);
+  });
+});
+
+describe("tack title (CLI-53)", () => {
+  it("sets a title on an existing route", () => {
+    runFail(["init", "ttl-set"]);
+    const r = runFail(["title", "ttl-set", "Q3 auth rewrite"]);
+    assert.equal(r.status, 0);
+    assert.match(r.stdout, /title: Q3 auth rewrite/);
+    assert.match(r.stdout, /# ttl-set/);
+  });
+
+  it("prints the current title when no text argument is given", () => {
+    runFail(["init", "ttl-show"]);
+    runFail(["title", "ttl-show", "Payments cutover"]);
+    const r = runFail(["title", "ttl-show"]);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout.trim(), "Payments cutover");
+  });
+
+  it("clears the title with --clear", () => {
+    runFail(["init", "ttl-clear"]);
+    runFail(["title", "ttl-clear", "temporary"]);
+    const r = runFail(["title", "ttl-clear", "--clear"]);
+    assert.equal(r.status, 0);
+    assert.doesNotMatch(r.stdout, /title: temporary/);
+  });
+
+  it("exits non-zero when reporting an untitled route", () => {
+    runFail(["init", "ttl-none"]);
+    const r = runFail(["title", "ttl-none"]);
+    assert.equal(r.status, 1);
+    assert.match(r.stdout, /no title set on ttl-none/);
+  });
+
+  it("leaves the slug as the listing key, with the title alongside", () => {
+    runFail(["init", "ttl-listed"]);
+    runFail(["title", "ttl-listed", "Q3 auth rewrite"]);
+    const r = runFail(["list"]);
+    assert.match(r.stdout, /ttl-listed {2}\(0 open \/ 0 total\) {2}Q3 auth rewrite/);
+  });
+
+  it("carries the title in list --json", () => {
+    runFail(["init", "ttl-json"]);
+    runFail(["title", "ttl-json", "Q3 auth rewrite"]);
+    const r = runFail(["list", "--json"]);
+    const entry = JSON.parse(r.stdout).find((e: { slug: string }) => e.slug === "ttl-json");
+    assert.equal(entry.title, "Q3 auth rewrite");
+  });
+});
+
+describe("tack describe (CLI-54)", () => {
+  const md = "# Goal\n\nShip the rewrite.\n\n- one\n- two";
+
+  it("sets a description from an inline argument", () => {
+    runFail(["init", "dsc-inline"]);
+    const r = runFail(["describe", "dsc-inline", "Consolidate the auth paths."]);
+    assert.equal(r.status, 0);
+    assert.match(r.stdout, /description:\n {4}Consolidate the auth paths\./);
+  });
+
+  it("reads a markdown body from --file and prints it back verbatim", () => {
+    const path = join(mkdtempSync(join(tmpdir(), "tack-desc-")), "body.md");
+    writeFileSync(path, `${md}\n`);
+    runFail(["init", "dsc-file"]);
+    runFail(["describe", "dsc-file", "--file", path]);
+    const r = runFail(["describe", "dsc-file"]);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, `${md}\n`);
+  });
+
+  it("reads a markdown body from stdin with --file -", () => {
+    runFail(["init", "dsc-stdin"]);
+    const set = runCapture(["describe", "dsc-stdin", "--file", "-"], `${md}\n`);
+    assert.equal(set.status, 0);
+    const r = runFail(["describe", "dsc-stdin"]);
+    assert.equal(r.stdout, `${md}\n`);
+  });
+
+  it("stores the same value whether the body arrived inline or by pipe (CLI-54a)", () => {
+    runFail(["init", "dsc-inline-eq"]);
+    runFail(["describe", "dsc-inline-eq", "Ship the rewrite."]);
+    runFail(["init", "dsc-piped-eq"]);
+    runCapture(["describe", "dsc-piped-eq", "--file", "-"], "Ship the rewrite.\n");
+    assert.equal(
+      runFail(["describe", "dsc-inline-eq"]).stdout,
+      runFail(["describe", "dsc-piped-eq"]).stdout,
+    );
+  });
+
+  it("fails when given both inline text and --file", () => {
+    runFail(["init", "dsc-both"]);
+    const r = runFail(["describe", "dsc-both", "inline", "--file", "-"]);
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /tack describe: pass either <text> or --file <path>, not both\./);
+  });
+
+  it("fails on an empty piped body rather than storing one", () => {
+    runFail(["init", "dsc-empty-pipe"]);
+    const r = runCapture(["describe", "dsc-empty-pipe", "--file", "-"], "\n");
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /tack describe: stdin is empty; use --clear to remove the description\./);
+    assert.equal(runFail(["describe", "dsc-empty-pipe"]).status, 1);
+  });
+
+  it("fails on an empty --file body and names the path", () => {
+    const path = join(mkdtempSync(join(tmpdir(), "tack-desc-")), "empty.md");
+    writeFileSync(path, "");
+    runFail(["init", "dsc-empty-file"]);
+    const r = runFail(["describe", "dsc-empty-file", "--file", path]);
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /is empty; use --clear to remove the description\./);
+    assert.ok(r.stderr.includes(path));
+  });
+
+  it("clears the description with --clear", () => {
+    runFail(["init", "dsc-clear"]);
+    runFail(["describe", "dsc-clear", "temporary"]);
+    const r = runFail(["describe", "dsc-clear", "--clear"]);
+    assert.equal(r.status, 0);
+    assert.doesNotMatch(r.stdout, /temporary/);
+  });
+
+  it("exits non-zero when reporting a route with no description", () => {
+    runFail(["init", "dsc-none"]);
+    const r = runFail(["describe", "dsc-none"]);
+    assert.equal(r.status, 1);
+    assert.match(r.stdout, /no description set on dsc-none/);
+  });
+
+  it("includes both fields in status --json", () => {
+    runFail(["init", "dsc-json"]);
+    runFail(["title", "dsc-json", "Q3 auth rewrite"]);
+    runFail(["describe", "dsc-json", md]);
+    const r = runFail(["status", "dsc-json", "--json"]);
+    const parsed = JSON.parse(r.stdout);
+    assert.equal(parsed.title, "Q3 auth rewrite");
+    assert.equal(parsed.description, md);
   });
 });
 

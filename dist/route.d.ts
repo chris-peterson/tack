@@ -11,6 +11,7 @@ export declare function init(slug: string, opts?: {
 }): Route;
 export declare function list(): {
     slug: string;
+    title?: string;
     group?: string;
     total: number;
     open: number;
@@ -41,6 +42,10 @@ export declare function removeDependency(slug: string, tackId: string, depId: st
 export declare function rename(oldSlug: string, newSlug: string): Route;
 export declare function setGroup(slug: string, group: string): Route;
 export declare function clearGroup(slug: string): Route;
+export declare function setTitle(slug: string, title: string): Route;
+export declare function clearTitle(slug: string): Route;
+export declare function setDescription(slug: string, description: string): Route;
+export declare function clearDescription(slug: string): Route;
 export declare function setDeliverable(slug: string, tackId: string, label: string, url: string, opts?: {
     force?: boolean;
 }): Tack;

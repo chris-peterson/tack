@@ -23,6 +23,8 @@ export function formatTack(tack) {
 export function formatRoute(route) {
     const lines = [];
     lines.push(`# ${route.slug}`);
+    if (route.title)
+        lines.push(`  title: ${route.title}`);
     lines.push(`  id: ${route.id}`);
     if (route.group)
         lines.push(`  group: ${route.group}`);
@@ -42,6 +44,14 @@ export function formatRoute(route) {
                 const trail = also.length ? ` (also ${also.join(", ")})` : "";
                 lines.push(`    ${s.id.slice(0, 8)} → ${current}${trail}`);
             }
+        }
+    }
+    if (route.description) {
+        lines.push("  description:");
+        // The stored markdown is unrendered; indenting keeps a multi-line body
+        // attached to the header block without touching the text itself.
+        for (const line of route.description.split("\n")) {
+            lines.push(line ? `    ${line}` : "");
         }
     }
     if (route.tacks.length === 0) {
@@ -375,7 +385,9 @@ export function formatList(routes) {
     }
     const lines = [];
     for (const r of routes) {
-        lines.push(`${r.slug}  (${r.open} open / ${r.total} total)`);
+        // The slug leads: it stays the key the reader types back into the CLI.
+        const title = r.title ? `  ${r.title}` : "";
+        lines.push(`${r.slug}  (${r.open} open / ${r.total} total)${title}`);
     }
     return lines.join("\n");
 }

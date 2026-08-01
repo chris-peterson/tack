@@ -46,6 +46,8 @@ export interface Session {
 export interface Route {
   id: string;
   slug: string;
+  title?: string;
+  description?: string;
   created_at: string;
   updated_at: string;
   group?: string;
