@@ -189,8 +189,8 @@ tack title auth-rewrite --clear             # remove it
 tack title auth-rewrite                     # print the current title (exits non-zero if none)
 ```
 
-`tack list --json` carries the title on each route summary, so a dashboard gets
-the display name without opening every route file.
+`tack list` prints the title after the counts. `tack list --json` serializes the
+full route, so a dashboard reads `title` there alongside every other field.
 
 ### `tack describe <slug> [<text>] [--file <path>] [--clear]`
 

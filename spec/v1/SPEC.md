@@ -400,9 +400,10 @@ the `deliverable` URL or in `links`), the CLI shall not add a duplicate.
 
 **[CLI-14]** `tack list` — When invoked, the CLI shall list all route files in
 `~/.tack/routes/` with their slug, number of tacks, and number of open tacks.
-Each entry shall also carry the route's `title` ([RTE-04]) when one is set, so a
-consumer reading `tack list --json` ([CLI-18]) gets the display name without
-opening each route file.
+Each entry shall also carry the route's `title` ([RTE-04]) when one is set, so
+the listing names the route as well as addressing it. The `--json` form
+([CLI-18]) serializes the full route, so it carries `title` alongside every
+other field.
 
 **[CLI-15]** `tack rm <slug> [--force]` — When invoked, the CLI shall delete
 the route file at `~/.tack/routes/<slug>.yaml`. The CLI shall require
