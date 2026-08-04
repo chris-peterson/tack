@@ -43,6 +43,27 @@ tack is not a project management system. It answers three questions:
 - Route slugs are the human-facing key — unique, lowercase, hyphenated
 - Each route also has an immutable v4 UUID for stable machine references
 
+## Quality Gates
+
+Every gate below runs on `pull_request` in `.github/workflows/build.yml` and has
+a `just` recipe for running it locally first:
+
+| Gate | Local | What it catches |
+|---|---|---|
+| Build + tests | `just test` | Behavior regressions |
+| Committed `dist/` | `just check-dist` | A `src/` edit shipped without the rebuild — `bin/tack` runs the committed `dist/cli.js`, so a stale one reaches every installed user while CI's own fresh build stays green |
+| Completion coverage | `just completions-check` | A command added to `src/cli.ts` and forgotten in `src/completions.ts` |
+| CLI grammar | included in `just test` | Any change to a command, subcommand, or flag, against the `spec/v1/cli-usage.txt` snapshot |
+| Schema conformance | `just validate-schema` | A published `examples/` fixture that no longer validates |
+| shellcheck | `just lint-shell` | Defects in the hooks and the URL library |
+| Generated artifacts | `just check-generated` | `plugin.json`, `suite.describe`, or docs drifting from their source |
+
+Two notes on the last two rows. `just check` previews pending projections but
+exits zero even when drift is pending, so `check-generated` is the gate:
+regenerate, then let `git diff --exit-code` decide. And when a usage change is
+intended, re-record the grammar with `just usage-snapshot` in the same commit —
+the snapshot diff is how a reviewer sees a grammar change.
+
 ## Naming Conventions
 
 The word "tack" is used at two levels:
