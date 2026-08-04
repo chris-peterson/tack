@@ -19,6 +19,36 @@ jobs:
 
       - run: npm ci
       - run: npm run build
+
+      # bin/tack runs the committed dist, not this job's build.
+      - name: Committed dist matches src
+        run: git diff --exit-code dist
+
       - run: npm test
       - name: Completions cover every CLI command
         run: node scripts/check-completions.mjs
+
+  shell:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # Fail by name on a runner without shellcheck.
+      - run: shellcheck --version
+      - run: shellcheck hooks/*.sh scripts/lib-url.sh scripts/shipyard
+
+  generated:
+    name: Generated artifacts match source
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - run: pip install pyyaml
+
+      # --dry-run exits zero on drift, so regenerate and let git compare.
+      - name: Regenerate projections
+        run: scripts/shipyard generate
+
+      - name: Committed artifacts match their source
+        run: git diff --exit-code

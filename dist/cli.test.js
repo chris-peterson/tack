@@ -689,3 +689,16 @@ describe("tack find --url (CLI-23) and selector requirement (CLI-23b)", () => {
         assert.match(r.stderr, /--url requires a url/);
     });
 });
+// The usage text is the CLI's public grammar; the snapshot makes a grammar
+// change a diff. Regenerate with `just usage-snapshot`.
+describe("the CLI grammar matches its checked-in snapshot", () => {
+    const snapshotPath = join(dirname(fileURLToPath(import.meta.url)), "..", "spec", "v1", "cli-usage.txt");
+    it("--help output is unchanged", () => {
+        const lines = readFileSync(snapshotPath, "utf-8").split("\n");
+        while (lines[0]?.startsWith("#"))
+            lines.shift();
+        const r = runFail(["--help"]);
+        assert.equal(r.status, 0);
+        assert.equal(r.stdout, lines.join("\n"), "CLI usage drifted from spec/v1/cli-usage.txt — run `just usage-snapshot` if the change is intended");
+    });
+});
