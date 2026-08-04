@@ -267,6 +267,20 @@ canonical validation source for route files.
 JSON Schema. If validation fails, the CLI shall report the errors and exit
 without modifying the file.
 
+**[STG-07]** When reading a route file, the CLI shall require the file's
+internal `slug` to equal its filename stem (per [STG-03]) and shall otherwise
+report the disagreement — naming both the filename and the declared slug — and
+exit without modifying the file. Writes resolve their path from the route's
+`slug`, so a file loaded under a different name would be written back under the
+declared one on the next mutation, renaming the route silently.
+
+**[STG-08]** Where a command accepts a slug from the caller — a route slug
+([CLI-02], [CLI-35], [CLI-52]) or a group slug ([CLI-02], [CLI-51], [CLI-52])
+— the CLI shall check
+it against the slug pattern at the command boundary and report a message naming
+the rule. A route named in the command shall be resolved before its group
+argument is checked, so a missing route is reported as such.
+
 **[STG-06]** Pins shall be stored in a single YAML file at `~/.tack/pins.yaml`,
 a map keyed by absolute working-directory path. Each entry has the following
 fields:
@@ -315,8 +329,11 @@ created with its `deliverable` field set; the label is auto-derived from the
 URL using the recognition rules in [CLI-37]. When the URL does not match
 a recognized pattern, the URL itself is used as the label. `--link` is
 repeatable and attaches a link per invocation; each value is `"label,url"`
-split on the first comma (matching `tack link add`'s `<label> <url>` pair per
-[CLI-13]), and a value with no comma is rejected with a usage error. Links are
+(matching `tack link add`'s `<label> <url>` pair per [CLI-13]). The CLI shall
+split each value at the first comma whose suffix parses as an absolute URL, so
+that commas are permitted in the label (enumerations, clauses) and in the URL
+(query values such as `?ids=1,2`); a value with no such comma shall be rejected
+with a usage error naming the expected `"label,url"` form. Links are
 deduplicated on creation against the deliverable and one another, consistent
 with [CLI-13]. The CLI shall
 reject unknown flags with a usage error rather than silently ignoring them.
@@ -407,8 +424,10 @@ other field.
 
 **[CLI-15]** `tack rm <slug> [--force]` — When invoked, the CLI shall delete
 the route file at `~/.tack/routes/<slug>.yaml`. The CLI shall require
-`--force` to confirm deletion; without it, the CLI shall display a
-confirmation message and exit without deleting.
+`--force` to confirm deletion; without it, the CLI shall write the confirmation
+message to **stderr** (consistent with [CLI-41]) and exit **non-zero** without
+deleting. Nothing is written to stdout, so a caller redirecting it receives no
+output — which matches the outcome, since no route was deleted.
 
 **[CLI-16]** When any write command succeeds, the CLI shall display the updated
 state of the affected tack or route.
@@ -714,7 +733,8 @@ without writing.
 
 **[CLI-51]** `tack group <slug> [<group>] [--clear]` — When invoked with a
 `<group>` argument, the CLI shall set the route's `group` field ([RTE-04]) to
-that slug; the value is validated against the schema's slug pattern on write.
+that slug; the value is checked against the slug pattern at the command
+boundary per [STG-08].
 When `--clear` is passed, the CLI shall remove the `group` field. When invoked
 with neither, the CLI shall report the route's current group — printing it and
 exiting zero if a group is set, or reporting that none is set and exiting
