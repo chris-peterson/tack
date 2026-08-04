@@ -74,19 +74,19 @@ Repo database (1 YAML file, ~/.tack/repos.yaml)
 
 ### RTE — Route Schema
 
-**[RTE-01]** The route schema shall use YAML as the on-disk format.
+**[ROUTE-01]** The route schema shall use YAML as the on-disk format.
 
-**[RTE-02]** Each route shall be stored as a single file at
+**[ROUTE-02]** Each route shall be stored as a single file at
 `~/.tack/routes/<slug>.yaml`.
 
-**[RTE-03]** Each route shall contain the following required fields:
+**[ROUTE-03]** Each route shall contain the following required fields:
 - `id` (string) — a v4 UUID, generated once at creation time
 - `slug` (string) — unique identifier, lowercase, hyphenated
 - `created_at` (string) — ISO 8601 timestamp
 - `updated_at` (string) — ISO 8601 timestamp
 - `tacks` (array) — list of tack objects
 
-**[RTE-04]** Each route shall contain the following optional fields:
+**[ROUTE-04]** Each route shall contain the following optional fields:
 - `group` (string) — a grouping slug for associating related routes. Multiple
   routes may share the same group. Uses the same format as `slug` (lowercase,
   hyphenated). The field is purely organizational — the CLI does not enforce or
@@ -104,35 +104,35 @@ Repo database (1 YAML file, ~/.tack/repos.yaml)
   the moment a tack lands. The CLI stores and prints the markdown verbatim; it
   does not render or interpret it.
 
-**[RTE-05]** The `slug` field shall be unique across all route files in
+**[ROUTE-05]** The `slug` field shall be unique across all route files in
 `~/.tack/routes/`. When a slug matches an existing filename, the operation
 shall fail with an error.
 
-**[RTE-06]** The `updated_at` field shall be set to the current time whenever
+**[ROUTE-06]** The `updated_at` field shall be set to the current time whenever
 the route file is written, except when `tack import --replace` ([CLI-50])
 restores a route verbatim, which preserves the archived timestamp.
 
-**[RTE-07]** A route shall be valid with an empty `tacks` array.
+**[ROUTE-07]** A route shall be valid with an empty `tacks` array.
 
-**[RTE-08]** The `id` field shall be immutable after creation. It shall not
+**[ROUTE-08]** The `id` field shall be immutable after creation. It shall not
 change when the route is updated.
 
-**[RTE-09]** Each route shall contain the following optional field:
+**[ROUTE-09]** Each route shall contain the following optional field:
 - `sessions` (array) — Claude Code session references that touched this route
 
-**[RTE-10]** Each session entry shall contain the following required fields:
+**[ROUTE-10]** Each session entry shall contain the following required fields:
 - `id` (string) — the Claude Code session identifier
 - `started_at` (string) — ISO 8601 timestamp when the session first touched
   this route
 
-**[RTE-11]** Each session entry shall contain the following optional field:
+**[ROUTE-11]** Each session entry shall contain the following optional field:
 - `tacks` (array of strings) — IDs of tacks *within this route* that the
   session is driving, in touch order. The last entry is the session's current
   focus. Because the array lives inside the route file, the IDs are bare
   route-scoped `t<N>` values; a cross-route consumer (e.g. a fleet view that
   reads every route) addresses them as `<slug>/<tack-id>` per [CLI-21a]. This
   is the session→tack link: `sessions[]` already records session→route per
-  [RTE-09], and this field narrows it to the specific tack(s) a session is
+  [ROUTE-09], and this field narrows it to the specific tack(s) a session is
   working, so a reader keyed on the Claude session id can resolve which tack a
   live session is driving — not just which route.
 
@@ -253,35 +253,35 @@ route files may not exist locally).
 
 ### STG — Storage
 
-**[STG-01]** Route files shall be stored in `~/.tack/routes/`.
+**[STORE-01]** Route files shall be stored in `~/.tack/routes/`.
 
-**[STG-02]** The storage directory shall be created automatically on first use
+**[STORE-02]** The storage directory shall be created automatically on first use
 if it does not exist.
 
-**[STG-03]** Route filenames shall match the pattern `<slug>.yaml`.
+**[STORE-03]** Route filenames shall match the pattern `<slug>.yaml`.
 
-**[STG-04]** The JSON Schema at `schema/route.schema.json` shall be the
+**[STORE-04]** The JSON Schema at `schema/route.schema.json` shall be the
 canonical validation source for route files.
 
-**[STG-05]** When reading a route file, the CLI shall validate it against the
+**[STORE-05]** When reading a route file, the CLI shall validate it against the
 JSON Schema. If validation fails, the CLI shall report the errors and exit
 without modifying the file.
 
-**[STG-07]** When reading a route file, the CLI shall require the file's
-internal `slug` to equal its filename stem (per [STG-03]) and shall otherwise
+**[STORE-07]** When reading a route file, the CLI shall require the file's
+internal `slug` to equal its filename stem (per [STORE-03]) and shall otherwise
 report the disagreement — naming both the filename and the declared slug — and
 exit without modifying the file. Writes resolve their path from the route's
 `slug`, so a file loaded under a different name would be written back under the
 declared one on the next mutation, renaming the route silently.
 
-**[STG-08]** Where a command accepts a slug from the caller — a route slug
+**[STORE-08]** Where a command accepts a slug from the caller — a route slug
 ([CLI-02], [CLI-35], [CLI-52]) or a group slug ([CLI-02], [CLI-51], [CLI-52])
 — the CLI shall check
 it against the slug pattern at the command boundary and report a message naming
 the rule. A route named in the command shall be resolved before its group
 argument is checked, so a missing route is reported as such.
 
-**[STG-06]** Pins shall be stored in a single YAML file at `~/.tack/pins.yaml`,
+**[STORE-06]** Pins shall be stored in a single YAML file at `~/.tack/pins.yaml`,
 a map keyed by absolute working-directory path. Each entry has the following
 fields:
 - `slug` (string, required) — the pinned route's slug
@@ -306,8 +306,8 @@ UUID as `id`, an empty `tacks` array, and `created_at`/`updated_at` set to
 the current time. When `--group` is passed, the route's `group` shall be set
 to the given slug. When the `CLAUDE_CODE_SESSION_ID` environment variable is
 set (the CLI is running inside a Claude Code session), the CLI shall also
-record that session on the route per [RTE-09] — route-level, without binding a
-tack ([RTE-11] binding is reserved for [CLI-07] / [CLI-17], which know the tack).
+record that session on the route per [ROUTE-09] — route-level, without binding a
+tack ([ROUTE-11] binding is reserved for [CLI-07] / [CLI-17], which know the tack).
 Creating a route in a session is a declaration that the session is working it,
 so a fleet reader keyed on the session id attributes the session to the route
 with no separate `tack session` call. Outside a Claude session this is a no-op.
@@ -338,7 +338,7 @@ deduplicated on creation against the deliverable and one another, consistent
 with [CLI-13]. The CLI shall
 reject unknown flags with a usage error rather than silently ignoring them.
 When the `CLAUDE_CODE_SESSION_ID` environment variable is set, the CLI shall
-also record that session on the route per [RTE-09], route-level (as [CLI-02]
+also record that session on the route per [ROUTE-09], route-level (as [CLI-02]
 does for `tack init`).
 
 **[CLI-05]** `tack done <slug> <tack-id> [--date <ts>]` — When invoked, the CLI
@@ -367,7 +367,7 @@ error message shall guide the user to either drop the edge with
 to bypass the guard with [CLI-34] (`tack status set`) when the inconsistent
 state is intentional. When the `CLAUDE_CODE_SESSION_ID` environment variable
 is set (the CLI is running inside a Claude Code session), the CLI shall also
-bind that session to the started tack per [RTE-11] / [CLI-17] — starting a tack
+bind that session to the started tack per [ROUTE-11] / [CLI-17] — starting a tack
 in a session is the declaration that the session is driving it, so a fleet
 reader keyed on the Claude session id (e.g. beacon) can attribute the session
 to the tack with no separate `tack session --tack` call. Outside a Claude
@@ -417,7 +417,7 @@ the `deliverable` URL or in `links`), the CLI shall not add a duplicate.
 
 **[CLI-14]** `tack list` — When invoked, the CLI shall list all route files in
 `~/.tack/routes/` with their slug, number of tacks, and number of open tacks.
-Each entry shall also carry the route's `title` ([RTE-04]) when one is set, so
+Each entry shall also carry the route's `title` ([ROUTE-04]) when one is set, so
 the listing names the route as well as addressing it. The `--json` form
 ([CLI-18]) serializes the full route, so it carries `title` alongside every
 other field.
@@ -434,9 +434,9 @@ state of the affected tack or route.
 
 **[CLI-17]** `tack session <slug> <session-id> [--tack <tack-id>]` — When
 invoked, the CLI shall record the session ID in the route's `sessions` array
-per [RTE-09]. If the session ID already exists, it shall not duplicate. When
+per [ROUTE-09]. If the session ID already exists, it shall not duplicate. When
 `--tack <tack-id>` is passed, the CLI shall bind the session to that tack per
-[RTE-11]: the tack ID is appended to the session entry's `tacks` array (bare
+[ROUTE-11]: the tack ID is appended to the session entry's `tacks` array (bare
 `<N>` is normalized to `t<N>` per [TACK-08]). A tack already present in the
 array is moved to the end rather than duplicated, so the last entry is always
 the session's current focus and a pivot back to an earlier tack makes it
@@ -555,7 +555,7 @@ plugin root) and exit zero.
 
 **[CLI-30]** `tack pin <slug>` — When invoked, the CLI shall record the given
 slug as the active route for the current working directory in
-`~/.tack/pins.yaml` per [STG-06]. The CLI shall fail if no route file exists
+`~/.tack/pins.yaml` per [STORE-06]. The CLI shall fail if no route file exists
 for the given slug. When invoked without arguments (`tack pin`), the CLI
 shall display the current cwd's pin and exit zero if one exists, or report
 that no pin is set and exit non-zero.
@@ -587,7 +587,7 @@ to `pending`, or putting a tack into `blocked`).
 
 **[CLI-35]** `tack rename <old-slug> <new-slug>` — When invoked, the CLI
 shall rename the route file from `<old-slug>.yaml` to `<new-slug>.yaml` and
-update the `slug` field inside the file. The route's `id` ([RTE-08]) shall
+update the `slug` field inside the file. The route's `id` ([ROUTE-08]) shall
 be preserved. The CLI shall fail if `<new-slug>` already exists as a route,
 if `<old-slug>` does not exist, or if any other route's `depends_on`
 references `<old-slug>` (per [DEP-01]).
@@ -649,7 +649,7 @@ and exit non-zero; the unrecognized-command case shall name the offending
 command.
 
 **[CLI-39]** `tack pins [--json]` — When invoked, the CLI shall list every pin
-in `~/.tack/pins.yaml` ([STG-06]) with its directory, slug, and `pinned_at`
+in `~/.tack/pins.yaml` ([STORE-06]) with its directory, slug, and `pinned_at`
 timestamp, flagging entries whose route no longer exists (dangling) and
 entries whose route has no open tacks (idle). With `--json`, the CLI shall
 emit the structured pin list including the computed flags. The command shall
@@ -732,9 +732,9 @@ every `old id → new id` reassignment. `--dry-run` shall report the outcome
 without writing.
 
 **[CLI-51]** `tack group <slug> [<group>] [--clear]` — When invoked with a
-`<group>` argument, the CLI shall set the route's `group` field ([RTE-04]) to
+`<group>` argument, the CLI shall set the route's `group` field ([ROUTE-04]) to
 that slug; the value is checked against the slug pattern at the command
-boundary per [STG-08].
+boundary per [STORE-08].
 When `--clear` is passed, the CLI shall remove the `group` field. When invoked
 with neither, the CLI shall report the route's current group — printing it and
 exiting zero if a group is set, or reporting that none is set and exiting
@@ -754,7 +754,7 @@ metadata — `summary`, `status`, `done_at`, `deliverable`, `links`, `before`,
 `after` — and route-local `depends_on` (remapped to the new IDs) shall be
 preserved.
 
-**[CLI-52b]** Session records ([RTE-09]) from every source shall carry over to
+**[CLI-52b]** Session records ([ROUTE-09]) from every source shall carry over to
 the new route with their tack references remapped to the new IDs; a session
 recorded on more than one source shall be unified into a single entry taking the
 earliest `started_at`. A session tack reference with no surviving tack (which
@@ -764,7 +764,7 @@ shall be dropped rather than fail the merge.
 **[CLI-52c]** The new route's `created_at` shall default to the earliest source
 route's `created_at`, or the `--created-at <date>` value when given. The new
 route's group shall be the `--group <slug>` value, or the first source route's
-group otherwise. The `title` ([RTE-04]) shall be the first source route's title.
+group otherwise. The `title` ([ROUTE-04]) shall be the first source route's title.
 Every source `description` shall carry over, joined in source order by a
 markdown horizontal rule, since the merge deletes the source files and a body
 left behind would be unrecoverable.
@@ -775,7 +775,7 @@ dangling the reference, unless `--break-deps` is passed, which repoints those
 references at `<new-slug>`.
 
 **[CLI-53]** `tack title <slug> [<text>] [--clear]` — When invoked with a
-`<text>` argument, the CLI shall set the route's `title` field ([RTE-04]) to
+`<text>` argument, the CLI shall set the route's `title` field ([ROUTE-04]) to
 that text. When `--clear` is passed, the CLI shall remove the field. When
 invoked with neither, the CLI shall report the route's current title — printing
 it and exiting zero if one is set, or reporting that none is set and exiting
@@ -783,7 +783,7 @@ non-zero, mirroring `tack group` ([CLI-51]).
 
 **[CLI-54]** `tack describe <slug> [<text>] [--file <path>] [--clear]` — When
 invoked, the CLI shall set, clear, or report the route's `description` field
-([RTE-04]) following the same three-way shape as [CLI-53].
+([ROUTE-04]) following the same three-way shape as [CLI-53].
 
 **[CLI-54a]** A description is markdown and therefore multi-line, so the CLI
 shall accept the body from a file with `--file <path>`, or from standard input
@@ -814,7 +814,7 @@ to build context about current work.
 for the current working directory by running the following resolution
 procedure in order, stopping at the first confident match:
 
-1. **Pin** — Run `tack pin` (no slug) to read the cwd's pin per [STG-06]. If
+1. **Pin** — Run `tack pin` (no slug) to read the cwd's pin per [STORE-06]. If
    present and the referenced route exists with at least one open tack, the
    pinned route is active.
 2. **URL match** — When a PR/MR/issue URL is in scope (recently emitted by
@@ -853,11 +853,11 @@ about the same work item in the same session.
 pending `after` todo items per [TACK-04] before moving on.
 
 **[AGT-09]** When the agent begins operating on a route, it shall record the
-current Claude Code session ID in the route's `sessions` array per [RTE-09].
+current Claude Code session ID in the route's `sessions` array per [ROUTE-09].
 If the session ID already exists, it shall not duplicate. When the agent has
 resolved which tack the session is working — a tack matched per [AGT-11], the
 single open tack, or one the agent created for this session — it shall pass
-`--tack <tack-id>` to bind the session to that tack per [RTE-11], and re-bind
+`--tack <tack-id>` to bind the session to that tack per [ROUTE-11], and re-bind
 when the session's focus shifts to a different tack.
 
 **[AGT-11]** The agent shall establish the session→tack link as early as it
@@ -921,7 +921,7 @@ through a Bash tool call.
 the route for the current cwd by running [AGT-03] step 1 (pin for cwd, via
 `tack pin`) and step 3 (branch-slug route) — existence-only, without verifying
 the route's open-tack state and without prompting the user. When a route
-resolves, the hook shall record the current session on it per [RTE-09]
+resolves, the hook shall record the current session on it per [ROUTE-09]
 (route-level, no tack binding), so session→route attribution does not depend on
 the agent remembering to run `tack session`. When neither resolves, the hook
 shall emit a one-line nudge suggesting the user invoke the tack skill to
@@ -966,7 +966,7 @@ and SSH forms of one remote resolve to a single entry (e.g.
 **[REPO-04]** The `~/.tack/repos.yaml` file and the `~/.tack/` directory shall be
 created automatically on first write if they do not exist.
 
-**[REPO-05]** The repo database is internal derived state, like pins ([STG-06]):
+**[REPO-05]** The repo database is internal derived state, like pins ([STORE-06]):
 tack is its sole writer, so — unlike the route schema, which is the product —
 it is not governed by a published JSON Schema. A missing file shall be treated
 as an empty database.
@@ -985,29 +985,6 @@ is present, the CLI shall record nothing and shall not error.
 
 ---
 
-## Future Requirements
-
-**[FUT-01]** (→ BK) Where backup is enabled, the `~/.tack/` directory shall be
-a git repository. Route file changes shall be the only tracked content.
-
-**[FUT-02]** (→ BK) `tack backup init [<remote-url>]` — When invoked, the CLI
-shall initialize a git repository at `~/.tack/` if one does not exist. When a
-remote URL is provided, it shall be configured as the `origin` remote.
-
-**[FUT-03]** (→ BK) `tack backup status` — When invoked, the CLI shall display
-whether backup is enabled, the configured remote (if any), the last commit
-timestamp, and whether there are uncommitted changes.
-
-**[FUT-04]** (→ BK) Where backup is enabled, the CLI shall commit all route
-file changes after every write operation. The commit message shall include the
-command that triggered the write (e.g., "tack done api-auth t2").
-
-**[FUT-05]** (→ BK) Where a remote is configured, the CLI shall push to the
-remote after each commit. If the push fails, the CLI shall warn but not block
-the operation.
-
----
-
 ## Anti-Requirements
 
 The following are explicitly out of scope:
@@ -1018,7 +995,7 @@ The following are explicitly out of scope:
 - **No enforced workflows.** No prescribed state machines beyond the status
   enum. Users can move between statuses freely (except where dependencies
   constrain transitions per [DEP-03]).
-- **No server, sync, or cloud.** Local files only. (Backup to a git remote
-  per [FUT-01] is a planned exception — core operations never require network.)
+- **No server, sync, or cloud.** Local files only; core operations never
+  require network access.
 - **No cross-route dependency enforcement.** Route-level `depends_on` is
   informational only per [DEP-04].

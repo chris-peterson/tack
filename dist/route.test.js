@@ -1000,13 +1000,13 @@ describe("mergeRoutes", () => {
         data.created_at = createdAt;
         writeFileSync(path, yaml.stringify(data), "utf-8");
     }
-    it("rejects a non-conforming destination slug at the boundary (STG-08)", () => {
+    it("rejects a non-conforming destination slug at the boundary (STORE-08)", () => {
         route.init("mr-src");
         assert.throws(() => route.mergeRoutes("MergedRoute", ["mr-src"]), /Invalid slug: MergedRoute/);
         // The sources survive a refused merge.
         assert.equal(route.load("mr-src").slug, "mr-src");
     });
-    it("rejects a non-conforming --group at the boundary (STG-08)", () => {
+    it("rejects a non-conforming --group at the boundary (STORE-08)", () => {
         route.init("mr-src2");
         assert.throws(() => route.mergeRoutes("merged-ok", ["mr-src2"], { group: "Not A Group" }), /Invalid group: Not A Group/);
     });
