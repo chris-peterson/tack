@@ -1900,3 +1900,77 @@ describe("work_items and issues are one URL when matching (issue #33)", () => {
     );
   });
 });
+
+describe("derived route state", () => {
+  it("is active for a route with no tacks", () => {
+    const r = route.init("state-empty");
+    assert.equal(route.routeState(r), "active");
+  });
+
+  it("is active while any tack is open", () => {
+    route.init("state-open");
+    route.addTack("state-open", "one", { done: true });
+    route.addTack("state-open", "two");
+    assert.equal(route.routeState(route.load("state-open")), "active");
+  });
+
+  it("is done once every tack is done or dropped", () => {
+    route.init("state-closed");
+    route.addTack("state-closed", "one", { done: true });
+    route.addTack("state-closed", "two");
+    route.markDropped("state-closed", "t2");
+    assert.equal(route.routeState(route.load("state-closed")), "done");
+  });
+
+  it("reopens when a fresh tack lands on a finished route", () => {
+    route.init("state-reopen");
+    route.addTack("state-reopen", "one", { done: true });
+    assert.equal(route.routeState(route.load("state-reopen")), "done");
+    route.addTack("state-reopen", "two");
+    assert.equal(route.routeState(route.load("state-reopen")), "active");
+  });
+
+  it("stays out of the route file", () => {
+    route.init("state-unwritten");
+    route.addTack("state-unwritten", "one", { done: true });
+    assert.ok(!("state" in route.load("state-unwritten")));
+  });
+
+  it("is carried by list()", () => {
+    route.init("state-listed");
+    route.addTack("state-listed", "one", { done: true });
+    const entry = route.list().find((r) => r.slug === "state-listed");
+    assert.equal(entry?.state, "done");
+  });
+});
+
+describe("created_at floors to the earliest tack date", () => {
+  it("ratchets earlier when a backfilled tack predates the route", () => {
+    route.init("floor-back");
+    route.addTack("floor-back", "old work", { done: true, doneAt: "2020-03-04" });
+    assert.equal(route.load("floor-back").created_at, "2020-03-04T00:00:00.000Z");
+  });
+
+  it("widens a bare date to a date-time the schema accepts", () => {
+    route.init("floor-format");
+    route.addTack("floor-format", "old work", { done: true, doneAt: "2020-03-04" });
+    // A bare YYYY-MM-DD would fail the schema's date-time format on created_at,
+    // so reloading is the assertion: load() validates.
+    assert.ok(route.load("floor-format").created_at.includes("T"));
+  });
+
+  it("does not move forward when the earliest tack is removed", () => {
+    route.init("floor-monotonic");
+    route.addTack("floor-monotonic", "old", { done: true, doneAt: "2020-03-04" });
+    route.addTack("floor-monotonic", "newer", { done: true, doneAt: "2021-06-07" });
+    route.removeTack("floor-monotonic", "t1", { force: true });
+    assert.equal(route.load("floor-monotonic").created_at, "2020-03-04T00:00:00.000Z");
+  });
+
+  it("leaves created_at alone when every tack postdates it", () => {
+    const r = route.init("floor-noop");
+    const created = r.created_at;
+    route.addTack("floor-noop", "later", { done: true });
+    assert.equal(route.load("floor-noop").created_at, created);
+  });
+});

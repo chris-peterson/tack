@@ -8,6 +8,7 @@ import { parseArgs } from "node:util";
 import * as route from "./route.js";
 import * as repos from "./repos.js";
 import * as backup from "./backup.js";
+import * as reconcile from "./reconcile.js";
 import { TACK_STATUSES, type TackStatus } from "./types.js";
 import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind, formatPins, formatRepos, treeData } from "./display.js";
 import { ZSH_COMPLETION } from "./completions.js";
@@ -35,6 +36,7 @@ Usage:
   tack start <slug> <tack-id>
   tack done <slug> <tack-id> [--date <ts>]
   tack drop <slug> <tack-id>
+  tack reconcile [slug] [--dry-run]   Close tacks whose deliverable has merged (asks the forge)
   tack remove <slug> <tack-id> [--force]
   tack deliverable <slug> <tack-id> <url> [--label <text>] [--force]   (label auto-derived from url by default)
   tack deliverable rm <slug> <tack-id> [--to-link]   (clear the deliverable, or --to-link to demote it into links)
@@ -295,7 +297,14 @@ function run(): void {
         const displayRoute = allFlag
           ? r
           : { ...r, tacks: r.tacks.filter((t) => t.status !== "dropped") };
-        console.log(jsonFlag ? JSON.stringify(displayRoute, null, 2) : formatRoute(displayRoute));
+        // `state` rides on the JSON rendering only — it is derived from the
+        // tacks and the schema closes the route object, so writing it back
+        // would fail validation.
+        console.log(
+          jsonFlag
+            ? JSON.stringify({ ...displayRoute, state: route.routeState(r) }, null, 2)
+            : formatRoute(displayRoute),
+        );
       } else {
         const routes = route.list();
         console.log(jsonFlag ? JSON.stringify(routes, null, 2) : formatList(routes));
@@ -306,7 +315,8 @@ function run(): void {
     case "list": {
       const jsonFlag = rest.includes("--json");
       if (jsonFlag) {
-        console.log(JSON.stringify(route.loadAll(), null, 2));
+        const routes = route.loadAll().map((r) => ({ ...r, state: route.routeState(r) }));
+        console.log(JSON.stringify(routes, null, 2));
       } else {
         console.log(formatList(route.list()));
       }
@@ -459,6 +469,25 @@ function run(): void {
       if (!rest[0] || !rest[1]) usage();
       const tack = route.markDropped(rest[0], rest[1]);
       console.log(formatTack(tack));
+      break;
+    }
+
+    case "reconcile": {
+      const { values: recValues, positionals: recPositionals } = parseArgs({
+        args: rest,
+        options: { "dry-run": { type: "boolean" } },
+        allowPositionals: true,
+      });
+      const dryRun = Boolean(recValues["dry-run"]);
+      const closed = reconcile.reconcile({ slug: recPositionals[0], dryRun });
+      if (closed.length === 0) {
+        console.log("Nothing to close — no open tack has a merged deliverable.");
+        break;
+      }
+      const tag = dryRun ? "[dry-run] " : "";
+      for (const c of closed) {
+        console.log(`${tag}${c.slug}/${c.tackId} done [${c.mergedAt}]  ${c.summary}`);
+      }
       break;
     }
 

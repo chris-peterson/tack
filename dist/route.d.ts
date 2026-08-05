@@ -1,6 +1,7 @@
 import * as repos from "./repos.js";
 import type { Link, Route, Tack, TackStatus } from "./types.js";
 export declare function isOpen(t: Tack): boolean;
+export declare function routeState(route: Route): "active" | "done";
 export declare function assertValidSlug(slug: string, what?: string): void;
 export declare function loadAll(): Route[];
 export declare function normalizeTimestamp(input: string): string;
@@ -16,6 +17,7 @@ export declare function list(): {
     group?: string;
     total: number;
     open: number;
+    state: "active" | "done";
 }[];
 export declare function normalizeTackId(id: string): string;
 export declare function addTack(slug: string, summary: string, opts?: {
@@ -57,6 +59,7 @@ export declare function addBefore(slug: string, tackId: string, text: string): T
 export declare function addAfter(slug: string, tackId: string, text: string): Tack;
 export declare function completeTodo(slug: string, tackId: string, todoId: string): Tack;
 export declare function dropTodo(slug: string, tackId: string, todoId: string): Tack;
+export declare function isPrOrMrUrl(url: string): boolean;
 export declare function deriveDeliverableLabel(url: string): string;
 export declare function addLink(slug: string, tackId: string, label: string, url: string): Tack;
 export declare function removeLink(slug: string, tackId: string, url: string): Tack;

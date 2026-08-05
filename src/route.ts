@@ -15,6 +15,19 @@ export function isOpen(t: Tack): boolean {
   return t.status !== "done" && t.status !== "dropped";
 }
 
+// Whether a route is finished is a function of its tacks, never a field of its
+// own: it is done when it holds tacks and none of them are open, and adding a
+// fresh tack reopens it. Stored, the two would drift the moment a tack landed
+// without the route being touched.
+//
+// An empty route is active — "done" would claim completed work that never
+// existed. The word is `state` rather than `status` because a tack's `status`
+// is set by the caller and this one cannot be.
+export function routeState(route: Route): "active" | "done" {
+  if (route.tacks.length === 0) return "active";
+  return route.tacks.some(isOpen) ? "active" : "done";
+}
+
 // Mirrors the schema's slug pattern. Callers that accept a slug from the user
 // check it here so the failure names the rule, instead of surfacing as an ajv
 // pattern error from save() after the command already looked like it worked.
@@ -101,9 +114,36 @@ export function load(slug: string): Route {
   return loaded;
 }
 
+// A tack date may be a bare `YYYY-MM-DD` (accepted for backward compatibility),
+// but `created_at` is date-time in the schema, so widen before adopting one.
+function asDateTime(date: string): string {
+  return date.includes("T") ? date : `${date}T00:00:00.000Z`;
+}
+
+// A route's creation cannot postdate its own work. Routes built by a
+// consolidation pass stamp created_at = now() while the tacks backfilled into
+// them carry historical dates, which left routes whose earliest tack predates
+// their own creation by months.
+//
+// The floor only ratchets earlier. A full min/max recompute would shove
+// creation forward when the earliest tack is deleted, and a route's birth is
+// monotonic — it does not un-happen. `updated_at` stays touch-on-write for the
+// same reason in reverse: it has to bump on mutations that touch no tack date
+// at all (rename, regroup, a link added), which a max-of-children can't see.
+function floorCreatedAt(route: Route): void {
+  const earliest = route.tacks
+    .map((t) => t.done_at)
+    .filter((d): d is string => Boolean(d))
+    .sort()[0];
+  if (earliest && asDateTime(earliest) < route.created_at) {
+    route.created_at = asDateTime(earliest);
+  }
+}
+
 function save(route: Route): void {
   ensureDir();
   route.updated_at = now();
+  floorCreatedAt(route);
 
   const result = validate(route);
   if (!result.valid) {
@@ -152,9 +192,10 @@ export function init(slug: string, opts: { group?: string } = {}): Route {
   return route;
 }
 
-export function list(): { slug: string; title?: string; group?: string; total: number; open: number }[] {
+export function list(): { slug: string; title?: string; group?: string; total: number; open: number; state: "active" | "done" }[] {
   return loadAll().map((r) => ({
     slug: r.slug, title: r.title, group: r.group, total: r.tacks.length, open: r.tacks.filter(isOpen).length,
+    state: routeState(r),
   }));
 }
 
@@ -650,7 +691,7 @@ function parseChangeRefUrl(url: string): ChangeRef | null {
   return null;
 }
 
-function isPrOrMrUrl(url: string): boolean {
+export function isPrOrMrUrl(url: string): boolean {
   const ref = parseChangeRefUrl(url);
   return ref !== null && (ref.kind === "pr" || ref.kind === "mr");
 }

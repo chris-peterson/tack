@@ -1,0 +1,3 @@
+# dist/ is committed because bin/tack runs it, but it is compiler output — a
+# reviewer reads src/ and the forge should fold it away by default.
+dist/** linguist-generated=true

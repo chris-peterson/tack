@@ -1,4 +1,4 @@
-import { isOpen } from "./route.js";
+import { isOpen, routeState } from "./route.js";
 const STATUS_ICONS = {
     pending: " ",
     in_progress: ">",
@@ -28,6 +28,7 @@ export function formatRoute(route) {
     lines.push(`  id: ${route.id}`);
     if (route.group)
         lines.push(`  group: ${route.group}`);
+    lines.push(`  state: ${routeState(route)}`);
     lines.push(`  created: ${route.created_at}`);
     lines.push(`  updated: ${route.updated_at}`);
     if (route.depends_on?.length) {
@@ -387,7 +388,10 @@ export function formatList(routes) {
     for (const r of routes) {
         // The slug leads: it stays the key the reader types back into the CLI.
         const title = r.title ? `  ${r.title}` : "";
-        lines.push(`${r.slug}  (${r.open} open / ${r.total} total)${title}`);
+        // `0 open` already implies done, but only after the reader does the
+        // arithmetic against `total` — an empty route reads `0 open` too.
+        const done = r.state === "done" ? "  [done]" : "";
+        lines.push(`${r.slug}  (${r.open} open / ${r.total} total)${done}${title}`);
     }
     return lines.join("\n");
 }

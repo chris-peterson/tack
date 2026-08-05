@@ -97,5 +97,5 @@ Explicitly out of scope:
 - No time tracking
 - No git operations
 - No enforced workflows beyond dependency constraints
-- No server, sync, or cloud
+- No server, sync, or cloud — every command works offline except `tack reconcile`, which exists to reconcile tack state against the git forge (GitHub, GitLab)
 - No cross-route dependency enforcement
