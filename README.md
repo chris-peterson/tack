@@ -123,6 +123,23 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 | `tack install-cli [--dir <path>]` | Install `tack` wrapper on PATH + zsh completions (plugin install) |
 | `tack completions zsh` | Install zsh completion script |
 
+## Compatibility
+
+Anything that reads `~/.tack/routes/*.yaml` or shells out to `tack` is a first-class consumer, so `1.x` freezes what those consumers stand on:
+
+| Frozen for `1.x` | Free to change |
+|---|---|
+| The route schema — field names, types, formats | Human-readable output text and layout |
+| The CLI grammar — commands, subcommands, flags, positional order | Error and warning wording (the `tack:` prefix and non-zero exit stay) |
+| Exit codes | `~/.tack/pins.yaml` and `~/.tack/repos.yaml`, the CLI's own bookkeeping |
+| `--json` output shapes | The Claude Code plugin's hook nudges and skill prose |
+
+Frozen means additive-only: new optional fields, commands, flags, and `--json` keys arrive in minor releases, so tolerate keys you don't recognize. Removing or renaming anything above, or refusing input an earlier `1.x` accepted, waits for 2.0.
+
+Compatibility runs one way. A release reads what earlier ones wrote, but the schema rejects fields it doesn't know, so downgrading after a newer release has written a field into your routes leaves them unreadable until you upgrade again.
+
+Full contract: the COMPAT requirements in [`spec/v1/SPEC.md`](spec/v1/SPEC.md).
+
 ## Design Principles
 
 - **The schema is the product.** The CLI is a convenience wrapper. Any tool that reads/writes conforming YAML is a first-class citizen.

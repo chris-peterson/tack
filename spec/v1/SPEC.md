@@ -104,6 +104,15 @@ Repo database (1 YAML file, ~/.tack/repos.yaml)
   the moment a tack lands. The CLI stores and prints the markdown verbatim; it
   does not render or interpret it.
 
+**[ROUTE-12]** A slug — a route's ([ROUTE-03]) or a group's ([ROUTE-04]) —
+shall match `^[a-z0-9][a-z0-9-]*[a-z0-9]$`: lowercase alphanumerics and
+hyphens, beginning and ending alphanumeric. The pattern is anchored at both
+ends by two separate character classes, so it admits nothing shorter than two
+characters; the minimum is a consequence of that shape rather than a rule of
+its own, and relaxing it is additive under [COMPAT-02]. The pattern lives in
+`schema/route.schema.json` ([STORE-04]) and is checked at the command boundary
+([STORE-08]).
+
 **[ROUTE-05]** The `slug` field shall be unique across all route files in
 `~/.tack/routes/`. When a slug matches an existing filename, the operation
 shall fail with an error.
@@ -273,6 +282,13 @@ report the disagreement — naming both the filename and the declared slug — a
 exit without modifying the file. Writes resolve their path from the route's
 `slug`, so a file loaded under a different name would be written back under the
 declared one on the next mutation, renaming the route silently.
+
+**[STORE-09]** Where a command reads every route file rather than one named
+route — a listing, a cross-route search, an export — it shall apply [STORE-05]
+and [STORE-07] to each file and fail on the first that does not pass, rather
+than skipping it and reporting the rest. A skipped route is an invisible route:
+the output looks complete, and the work recorded in the unreadable file is
+missing from it with nothing on screen to say so.
 
 **[STORE-08]** Where a command accepts a slug from the caller — a route slug
 ([CLI-02], [CLI-35], [CLI-52]) or a group slug ([CLI-02], [CLI-51], [CLI-52])
@@ -1006,6 +1022,75 @@ the CLI shall read that directory's `origin` remote (a read-only git query)
 and, when one is present, upsert the corresponding repo ([REPO-02]) and add the
 absolute working-directory path to `locals` if absent. When no `origin` remote
 is present, the CLI shall record nothing and shall not error.
+
+---
+
+### COMPAT — Compatibility
+
+The schema is the product ([Overview]), which makes tack's consumers scripts,
+agents, and tools that read the YAML or drive the CLI — none of which are in
+this repo and none of which can be updated in step with it. This section states
+what a `1.x` release lets them build on, and what it does not.
+
+**[COMPAT-01]** The following surfaces are frozen for the `1.x` series and
+shall change only additively ([COMPAT-02]):
+
+- the route schema — the field names, types, and value formats given by ROUTE,
+  TACK, DEL, TODO, DEP, and LINK, as enforced by `schema/route.schema.json`
+  ([STORE-04]);
+- where those files live — `~/.tack/routes/<slug>.yaml` ([STORE-01],
+  [STORE-03]);
+- the CLI grammar — command and subcommand names, flag names, and positional
+  argument order, as recorded in `spec/v1/cli-usage.txt` ([COMPAT-05]);
+- exit codes — zero on success and non-zero on failure, plus any specific code
+  a requirement names;
+- the shape of `--json` output wherever a command accepts the flag: key names,
+  nesting, and value types.
+
+**[COMPAT-02]** An additive change adds a surface without altering one that
+exists: a new optional schema field, a new command or subcommand, a new flag, a
+new key in a `--json` object, or a validation rule that accepts input the
+previous release refused. Additive changes ship in a minor release, and a
+consumer shall tolerate schema fields and `--json` keys it does not recognize.
+
+The CLI is not such a consumer of its own files: `schema/route.schema.json`
+closes every object (`additionalProperties: false`), so a route file carrying a
+field added by a later `1.x` is refused by an earlier one ([STORE-05]).
+Compatibility runs one way — a release reads what its predecessors wrote, not
+what its successors will. The export archive behaves the same way, refusing a
+`schemaVersion` above the one it knows ([CLI-50]).
+
+**[COMPAT-03]** The following are not frozen and may change in any release:
+
+- human-readable output — the text and layout of every rendering that isn't
+  `--json`;
+- the wording of errors and warnings. [CLI-55] freezes the `tack:` prefix and
+  the non-zero exit; the sentence after the prefix is not part of the contract,
+  and neither is any other message's phrasing;
+- the on-disk layout of `~/.tack/pins.yaml` ([STORE-06]) and `~/.tack/repos.yaml`
+  ([REPO-01]). Both are the CLI's own bookkeeping, reached through the commands
+  that own them (`tack pin`, `tack pins`, `tack repo`); neither is governed by a
+  published JSON Schema ([REPO-05]), and reading or writing either file directly
+  is outside the contract;
+- the plugin surface — hook nudge text and the skill's prose ([AGT], [HOOK]).
+  It is Claude-Code-specific and reasons rather than stores; the CLI it drives
+  is the frozen part.
+
+**[COMPAT-04]** The following require a major release: removing or renaming a
+schema field, command, subcommand, or flag; changing the type or meaning of an
+existing field; making an optional field required; changing what an exit code
+means; removing or renaming a `--json` key; and tightening validation so input
+a `1.x` release accepted is refused.
+
+**[COMPAT-05]** `spec/v1/cli-usage.txt` shall hold the grammar frozen by
+[COMPAT-01] as `tack --help` emits it ([CLI-38]), and the test suite shall fail
+on any difference between the two. Re-recording the snapshot is therefore the
+act of declaring a grammar change intended, and the change's kind under
+[COMPAT-02] or [COMPAT-04] decides the version bump it needs.
+
+**[COMPAT-06]** A `1.x` release shall read any route file ([COMPAT-01]) and
+import any export archive ([CLI-49]) written by an earlier `1.x` release,
+without a migration step.
 
 ---
 

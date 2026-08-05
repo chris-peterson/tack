@@ -71,6 +71,23 @@ Route (1 YAML file per route)
 | AGT | Claude Code agent integration (skill responsibilities) |
 | HOOK | Hook responsibilities (nudges, freshness checks) |
 | REPO | Repo database (name→remote index, captured as work is observed) |
+| COMPAT | What a `1.x` release freezes, and what it leaves free to change |
+
+## Compatibility
+
+A tack consumer — a script, an agent, a dashboard reading the YAML — lives
+outside this repo and can't be updated in step with it. `1.x` freezes four
+surfaces for them: the route schema, the CLI grammar, exit codes, and `--json`
+output shapes. Those grow by addition only; anything that removes, renames, or
+narrows them waits for a major.
+
+Left free to move: human-readable output, error wording, the CLI's own
+bookkeeping files (`~/.tack/pins.yaml`, `~/.tack/repos.yaml`), and the Claude
+Code plugin's prose.
+
+The full contract — including which changes are additive, and the one-way
+direction of file compatibility — is the COMPAT category in
+[spec/v1/SPEC.md](https://github.com/chris-peterson/tack/blob/main/spec/v1/SPEC.md).
 
 ## Anti-Requirements
 
