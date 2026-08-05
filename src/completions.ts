@@ -1,4 +1,8 @@
-export const ZSH_COMPLETION = `#compdef tack
+// Annotated `string` rather than left to inference: without it, TypeScript
+// gives the constant a literal type and emits this whole script into
+// `dist/completions.d.ts` as one line, so every completion edit lands as a
+// thousand-column diff nobody can read.
+export const ZSH_COMPLETION: string = `#compdef tack
 
 _tack_routes() {
   local tack_dir="\${TACK_HOME:-$HOME/.tack}/routes"
@@ -190,6 +194,7 @@ _tack() {
     'start:Start working on a tack'
     'done:Mark a tack as done'
     'drop:Drop a tack (mark as dropped, keep in file)'
+    'reconcile:Close tacks whose deliverable has merged'
     'remove:Delete a tack from a route'
     'edit:Edit a tack summary'
     'merge:Merge a tack into another'
@@ -292,6 +297,13 @@ _tack() {
       case "$CURRENT" in
         3) _tack_routes ;;
         4) _tack_tack_ids "\${words[3]}" ;;
+      esac
+      ;;
+    reconcile)
+      # tack reconcile [slug] [--dry-run]
+      case "$CURRENT" in
+        3) _tack_routes; _arguments '--dry-run[Report what would close without writing]' ;;
+        *) _arguments '--dry-run[Report what would close without writing]' ;;
       esac
       ;;
     remove)

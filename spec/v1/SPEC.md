@@ -113,6 +113,26 @@ its own, and relaxing it is additive under [COMPAT-02]. The pattern lives in
 `schema/route.schema.json` ([STORE-04]) and is checked at the command boundary
 ([STORE-08]).
 
+**[ROUTE-13]** A route's completeness shall be derived from its tacks and shall
+not be stored: a route is `done` when it holds at least one tack and none of
+them carries a `status` of anything but `done` or `dropped` ([TACK-01]), and
+`active` otherwise. Adding an open tack to a finished route returns it to
+`active`. A route with no tacks is `active` — `done` would assert completed work
+that never existed. The derived value is named `state` rather than `status`
+because a tack's `status` is set by the caller and this one cannot be; it
+appears in the route and listing renderings ([CLI-03], [CLI-14]) and never in
+the route file, which the schema closes against unknown fields ([STORE-04]).
+
+**[ROUTE-14]** `created_at` shall be no later than the earliest `done_at` among
+the route's tacks: on each write, a route whose earliest tack date precedes its
+`created_at` shall adopt that date, widened to a date-time when the tack
+recorded a bare `YYYY-MM-DD` ([TACK-03]). The floor ratchets earlier only.
+Recomputing it in both directions would move a route's creation forward when its
+earliest tack is deleted, and a route's creation does not un-happen. `updated_at`
+stays touch-on-write for the mirror-image reason: it has to bump on mutations
+that touch no tack date at all — a rename, a regroup, a link added — which a
+maximum over child dates cannot observe.
+
 **[ROUTE-05]** The `slug` field shall be unique across all route files in
 `~/.tack/routes/`. When a slug matches an existing filename, the operation
 shall fail with an error.
@@ -834,6 +854,27 @@ arguments shall additionally point at `tack --help` ([CLI-38]). Setting the
 `TACK_DEBUG` environment variable shall restore the stack, which a message
 cannot substitute for when the throw is a defect rather than a refusal.
 
+**[CLI-56]** `tack reconcile [slug] [--dry-run]` — When invoked, the CLI shall
+ask the git forge (GitHub, GitLab) whether each candidate tack's deliverable
+has merged and set the
+merged ones to `done` ([CLI-05]), reporting each one it closed. A candidate is
+an open tack whose deliverable URL is a pull or merge request ([CLI-37]); a tack
+with no deliverable, or one pointing at an issue, epic, milestone, or commit, is
+never queried, since none of those merge. Without a slug the sweep covers every
+route. `--dry-run` reports the same set without writing.
+
+**[CLI-56a]** The `done_at` recorded shall be the merge timestamp the forge
+reports, not the time of the sweep — reconcile is a catch-up, so stamping the
+present would date the work to whenever someone remembered to run it.
+
+**[CLI-56b]** `tack reconcile` is the only command that requires network
+access, and it shall reach the forge through the forge's own CLI (`gh`, `glab`)
+rather than a built-in HTTP client, so it inherits the caller's existing
+authentication and never handles a credential. A missing forge CLI, an
+unreadable change request, or a URL from a forge it has no reader for shall fail
+the command naming the URL ([CLI-55]) rather than being passed over — a silently
+skipped tack is indistinguishable from one that hasn't merged.
+
 ---
 
 ### AGT — Agent Integration
@@ -1104,7 +1145,10 @@ The following are explicitly out of scope:
 - **No enforced workflows.** No prescribed state machines beyond the status
   enum. Users can move between statuses freely (except where dependencies
   constrain transitions per [DEP-03]).
-- **No server, sync, or cloud.** Local files only; core operations never
-  require network access.
+- **No server, sync, or cloud.** Local files are the only store, and every
+  command that reads or writes them works offline. The single exception is
+  `tack reconcile` ([CLI-56]), whose entire job is asking a forge a question
+  the local files cannot answer — the exception is one command wide by design,
+  so nothing else grows a network dependency by drifting into it.
 - **No cross-route dependency enforcement.** Route-level `depends_on` is
   informational only per [DEP-04].

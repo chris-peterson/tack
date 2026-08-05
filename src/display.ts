@@ -1,5 +1,5 @@
 import type { Route, Tack, TodoItem } from "./types.js";
-import { isOpen, type FindMatch, type PinEntry } from "./route.js";
+import { isOpen, routeState, type FindMatch, type PinEntry } from "./route.js";
 import type { RepoMatch } from "./repos.js";
 
 const STATUS_ICONS: Record<string, string> = {
@@ -33,6 +33,7 @@ export function formatRoute(route: Route): string {
   if (route.title) lines.push(`  title: ${route.title}`);
   lines.push(`  id: ${route.id}`);
   if (route.group) lines.push(`  group: ${route.group}`);
+  lines.push(`  state: ${routeState(route)}`);
   lines.push(`  created: ${route.created_at}`);
   lines.push(`  updated: ${route.updated_at}`);
 
@@ -414,7 +415,7 @@ export function formatFind(matches: FindMatch[]): string {
   return lines.join("\n");
 }
 
-export function formatList(routes: { slug: string; title?: string; group?: string; total: number; open: number }[]): string {
+export function formatList(routes: { slug: string; title?: string; group?: string; total: number; open: number; state?: "active" | "done" }[]): string {
   if (routes.length === 0) {
     return "No routes found.";
   }
@@ -423,7 +424,10 @@ export function formatList(routes: { slug: string; title?: string; group?: strin
   for (const r of routes) {
     // The slug leads: it stays the key the reader types back into the CLI.
     const title = r.title ? `  ${r.title}` : "";
-    lines.push(`${r.slug}  (${r.open} open / ${r.total} total)${title}`);
+    // `0 open` already implies done, but only after the reader does the
+    // arithmetic against `total` — an empty route reads `0 open` too.
+    const done = r.state === "done" ? "  [done]" : "";
+    lines.push(`${r.slug}  (${r.open} open / ${r.total} total)${done}${title}`);
   }
   return lines.join("\n");
 }

@@ -104,6 +104,7 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 | `tack start <slug> <tack-id>` | Start a tack (checks dependencies) |
 | `tack done <slug> <tack-id>` | Complete a tack |
 | `tack drop <slug> <tack-id>` | Mark tack as dropped (preserved for history) |
+| `tack reconcile [slug] [--dry-run]` | Close every open tack whose deliverable has merged, stamped with the merge time — the one command that reaches out to the git forge (GitHub, GitLab), via your `gh` / `glab` login |
 | `tack remove <slug> <tack-id> [--force]` | Delete a tack (use `--force` to strip dependent refs) |
 | `tack move <src-slug>/<tack-id> <dst-slug> [--include-dependents]` | Move a tack to another route, preserving metadata |
 | `tack merge-routes <new-slug> <src-slug>... [--group <slug>] [--created-at <date>] [--break-deps]` | Fold whole routes into one new route; destination t-IDs land in chronological order |

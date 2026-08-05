@@ -25,6 +25,7 @@ export declare function formatList(routes: {
     group?: string;
     total: number;
     open: number;
+    state?: "active" | "done";
 }[]): string;
 export declare function formatPins(pins: PinEntry[]): string;
 export declare function formatRepos(repos: RepoMatch[]): string;
