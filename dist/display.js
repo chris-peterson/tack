@@ -14,15 +14,24 @@ function formatTodoItem(item) {
     const doneAt = item.done_at ? ` [${item.done_at}]` : "";
     return `[${icon}] ${item.id}: ${item.text}${doneAt}`;
 }
-export function formatTack(tack) {
+export function formatTack(tack, opts = {}) {
     const icon = statusIcon(tack.status);
     const doneAt = tack.done_at ? ` [${tack.done_at}]` : "";
-    const lines = [`[${icon}] ${tack.id}: ${tack.summary}${doneAt}`, ...formatTackDetails(tack, "    ")];
+    const id = opts.url ? osc8(tack.id, opts.url) : tack.id;
+    const lines = [`[${icon}] ${id}: ${tack.summary}${doneAt}`, ...formatTackDetails(tack, "    ")];
     return lines.join("\n");
 }
-export function formatRoute(route) {
+// OSC 8: `ESC ] 8 ;; <url> ST <label> ESC ] 8 ;; ST`. A terminal that doesn't
+// implement it drops the sequence and shows the label, but plenty of older ones
+// print the raw escape instead — which is why the caller decides whether to
+// pass a base at all, rather than this deciding for itself.
+function osc8(label, url) {
+    return `]8;;${url}\\${label}]8;;\\`;
+}
+export function formatRoute(route, opts = {}) {
     const lines = [];
-    lines.push(`# ${route.slug}`);
+    const routeUrl = opts.linkBase ? `${opts.linkBase}/route/${route.slug}` : null;
+    lines.push(`# ${routeUrl ? osc8(route.slug, routeUrl) : route.slug}`);
     if (route.title)
         lines.push(`  title: ${route.title}`);
     lines.push(`  id: ${route.id}`);
@@ -61,7 +70,9 @@ export function formatRoute(route) {
     else {
         lines.push("");
         for (const tack of route.tacks) {
-            lines.push(formatTack(tack));
+            // A tack is an anchor inside its route document, so a followed link lands
+            // on the tack with the rest of the route around it.
+            lines.push(formatTack(tack, routeUrl ? { url: `${routeUrl}#${tack.id}` } : {}));
         }
     }
     return lines.join("\n");

@@ -1,8 +1,12 @@
 import type { Route, Tack } from "./types.js";
 import { type FindMatch, type PinEntry } from "./route.js";
 import type { RepoMatch } from "./repos.js";
-export declare function formatTack(tack: Tack): string;
-export declare function formatRoute(route: Route): string;
+export declare function formatTack(tack: Tack, opts?: {
+    url?: string;
+}): string;
+export declare function formatRoute(route: Route, opts?: {
+    linkBase?: string | null;
+}): string;
 /**
  * The structured data behind `formatTree`, for `tack tree --json`. The shape
  * mirrors the navigation depth: all routes (no path), one route (slug), one

@@ -71,6 +71,7 @@ Route (1 YAML file per route)
 | AGT | Claude Code agent integration (skill responsibilities) |
 | HOOK | Hook responsibilities (nudges, freshness checks) |
 | REPO | Repo database (name→remote index, captured as work is observed) |
+| SERVE | Loopback document server and the terminal hyperlinks into it |
 | COMPAT | What a `1.x` release freezes, and what it leaves free to change |
 
 ## Compatibility
@@ -97,5 +98,5 @@ Explicitly out of scope:
 - No time tracking
 - No git operations
 - No enforced workflows beyond dependency constraints
-- No server, sync, or cloud — every command works offline except `tack reconcile`, which exists to reconcile tack state against the git forge (GitHub, GitLab)
+- No sync, no cloud, no non-loopback bind — the two commands that leave the local files are `tack reconcile`, which asks the git forge (GitHub, GitLab) what merged, and `tack serve`, which renders those files to `127.0.0.1`
 - No cross-route dependency enforcement

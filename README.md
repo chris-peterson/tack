@@ -121,6 +121,8 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 | `tack unpin` | Clear the pin for the current directory |
 | `tack pins [--json]` | List every pin with its directory, slug, and timestamp (flags `[dangling]`/`[idle]`) |
 | `tack pins prune` | Remove pins whose route or directory no longer exists |
+| `tack serve [--port <n>]` | Serve route documents at `http://127.0.0.1:8788/` — index, one route, one group; re-read from disk on every request |
+| `tack serve install\|uninstall\|status` | Manage an opt-in supervised server (launchd on macOS, systemd on Linux) |
 | `tack install-cli [--dir <path>]` | Install `tack` wrapper on PATH + zsh completions (plugin install) |
 | `tack completions zsh` | Install zsh completion script |
 

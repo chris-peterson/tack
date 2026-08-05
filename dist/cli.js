@@ -8,6 +8,8 @@ import * as route from "./route.js";
 import * as repos from "./repos.js";
 import * as backup from "./backup.js";
 import * as reconcile from "./reconcile.js";
+import * as serve from "./serve.js";
+import * as service from "./service.js";
 import { TACK_STATUSES } from "./types.js";
 import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind, formatPins, formatRepos, treeData } from "./display.js";
 import { ZSH_COMPLETION } from "./completions.js";
@@ -34,7 +36,9 @@ Usage:
   tack start <slug> <tack-id>
   tack done <slug> <tack-id> [--date <ts>]
   tack drop <slug> <tack-id>
-  tack reconcile [slug] [--dry-run]   Close tacks whose deliverable has merged (asks the forge)
+  tack reconcile [slug] [--dry-run]   Close tacks whose deliverable has merged (asks the git forge)
+  tack serve [--port <n>]            Serve route documents on 127.0.0.1 (Ctrl-C to stop)
+  tack serve install|uninstall|status [--port <n>]   Manage the supervised server
   tack remove <slug> <tack-id> [--force]
   tack deliverable <slug> <tack-id> <url> [--label <text>] [--force]   (label auto-derived from url by default)
   tack deliverable rm <slug> <tack-id> [--to-link]   (clear the deliverable, or --to-link to demote it into links)
@@ -287,7 +291,7 @@ function run() {
                 // would fail validation.
                 console.log(jsonFlag
                     ? JSON.stringify({ ...displayRoute, state: route.routeState(r) }, null, 2)
-                    : formatRoute(displayRoute));
+                    : formatRoute(displayRoute, { linkBase: serve.hyperlinkBase() }));
             }
             else {
                 const routes = route.list();
@@ -441,6 +445,35 @@ function run() {
                 usage();
             const tack = route.markDropped(rest[0], rest[1]);
             console.log(formatTack(tack));
+            break;
+        }
+        case "serve": {
+            const { values: serveValues, positionals: servePositionals } = parseArgs({
+                args: rest,
+                options: { port: { type: "string" } },
+                allowPositionals: true,
+            });
+            const port = serveValues.port ? parseInt(serveValues.port, 10) : serve.DEFAULT_PORT;
+            if (Number.isNaN(port)) {
+                groupError("serve", `--port expects a number (got '${serveValues.port}')`);
+            }
+            const sub = servePositionals[0];
+            if (sub === "install") {
+                service.install(port);
+            }
+            else if (sub === "uninstall") {
+                service.uninstall();
+            }
+            else if (sub === "status") {
+                service.status(port);
+            }
+            else if (sub) {
+                groupError("serve", expectedOneOf(["install", "uninstall", "status"], sub));
+            }
+            else {
+                serve.serve(port);
+                console.log(`tack serve → http://127.0.0.1:${port}/  (Ctrl-C to stop)`);
+            }
             break;
         }
         case "reconcile": {

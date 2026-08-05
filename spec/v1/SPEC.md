@@ -1066,6 +1066,71 @@ is present, the CLI shall record nothing and shall not error.
 
 ---
 
+### SERVE — Document Server
+
+`tack status` prints a route into a terminal that can render a clickable link,
+and beacon already joins a slice of tack into its fleet view with nowhere to
+send a reader who wants the whole route. SERVE is that destination: a read-only
+projection of the same files the CLI reads, on the same machine.
+
+**[SERVE-01]** `tack serve [--port <n>]` shall run an HTTP server bound to
+`127.0.0.1` on a default port of 8788, in the foreground until interrupted. The
+bind address is not configurable: these documents are one process reading
+another user's private work-tracking files away from being a disclosure, and a
+`--host` flag is the shape that mistake takes.
+
+**[SERVE-02]** The server shall render three documents: an index of every route
+at `/`, one route at `/route/<slug>`, and every route of a group at
+`/group/<slug>`. A tack shall be an anchor within its route document
+(`/route/<slug>#<tack-id>`) rather than a document of its own, so following a
+link to a tack lands in the context of its route.
+
+**[SERVE-03]** The server shall hold no state of its own: every request re-reads
+`~/.tack/routes/` ([STORE-01]) so a document and the CLI cannot disagree. An
+edit to a route file shall be visible on the next request without a restart.
+
+**[SERVE-04]** A request for a slug or group that does not exist shall return
+404 with a message naming it, never an empty document. A route file that fails
+validation shall return 500 reporting the failure ([STORE-09]) — the documents
+inherit the CLI's refusal to render work it could not read.
+
+**[SERVE-05]** The server shall accept only `GET`, and only when the request's
+`Host` header names loopback. A hostname that resolves to `127.0.0.1` is
+otherwise enough for a page in the user's browser to read these documents, and
+the check has to already be in place when the first mutating route lands beside
+the read-only ones.
+
+**[SERVE-06]** Every value interpolated into a document comes from a
+hand-editable file and shall be HTML-escaped. A URL shall additionally be
+rendered as a link only when its scheme is `http` or `https`, since escaping
+alone leaves a `javascript:` href live.
+
+**[SERVE-07]** The server shall add no runtime dependency beyond the Node
+standard library, and shall inline its own CSS. A document server that needs a
+build step is a document server that stops working after an upgrade.
+
+**[SERVE-08]** `tack serve install|uninstall|status [--port <n>]` shall manage
+an opt-in supervised server — a launchd user agent on macOS, a systemd user
+unit on Linux — that restarts on its own and starts at login. The unit shall
+invoke the wrapper installed on `PATH` ([CLI-19a]) rather than a versioned
+plugin path, which a plugin upgrade would leave pointing at a directory that no
+longer exists. On a platform with neither supervisor, `install` shall print the
+manual `tack serve` invocation instead of failing.
+
+**[SERVE-09]** `tack status` shall render the route slug and each tack id as
+OSC 8 hyperlinks to the corresponding documents when stdout is a terminal known
+to support them, and as unchanged plain text otherwise — including whenever
+stdout is not a TTY, so piped and captured output stays clean.
+`TACK_HYPERLINKS` shall force the choice either way and `TACK_SERVE_PORT` shall
+point the links at a server running on another port.
+
+**[SERVE-10]** The links shall be emitted without checking whether a server is
+listening. A liveness probe would cost a round trip on every `tack status` to
+pre-answer a question the browser answers when the link is followed; a link to
+a server that is down fails at click time, which is the cheaper failure.
+
+---
+
 ### COMPAT — Compatibility
 
 The schema is the product ([Overview]), which makes tack's consumers scripts,
@@ -1145,10 +1210,12 @@ The following are explicitly out of scope:
 - **No enforced workflows.** No prescribed state machines beyond the status
   enum. Users can move between statuses freely (except where dependencies
   constrain transitions per [DEP-03]).
-- **No server, sync, or cloud.** Local files are the only store, and every
-  command that reads or writes them works offline. The single exception is
-  `tack reconcile` ([CLI-56]), whose entire job is asking a forge a question
-  the local files cannot answer — the exception is one command wide by design,
-  so nothing else grows a network dependency by drifting into it.
+- **No sync, no cloud, no non-loopback bind.** Local files are the only store.
+  Two commands are allowed out of that shell and no more: `tack reconcile`
+  ([CLI-56]) asks a forge a question the local files cannot answer, and
+  `tack serve` ([SERVE-01]) projects those same files to `127.0.0.1` for the
+  reader sitting at the machine. Neither ships work anywhere, and both are one
+  command wide by design, so nothing else grows a network dependency by
+  drifting into it.
 - **No cross-route dependency enforcement.** Route-level `depends_on` is
   informational only per [DEP-04].

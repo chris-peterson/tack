@@ -195,6 +195,7 @@ _tack() {
     'done:Mark a tack as done'
     'drop:Drop a tack (mark as dropped, keep in file)'
     'reconcile:Close tacks whose deliverable has merged'
+    'serve:Serve route documents on 127.0.0.1'
     'remove:Delete a tack from a route'
     'edit:Edit a tack summary'
     'merge:Merge a tack into another'
@@ -297,6 +298,13 @@ _tack() {
       case "$CURRENT" in
         3) _tack_routes ;;
         4) _tack_tack_ids "\${words[3]}" ;;
+      esac
+      ;;
+    serve)
+      # tack serve [install|uninstall|status] [--port <n>]
+      case "$CURRENT" in
+        3) local -a subcmds; subcmds=('install:Install the supervised server' 'uninstall:Remove it' 'status:Report installed and running state'); _describe 'subcommand' subcmds; _arguments '--port[Port to bind]:port:' ;;
+        *) _arguments '--port[Port to bind]:port:' ;;
       esac
       ;;
     reconcile)
