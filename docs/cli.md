@@ -509,6 +509,115 @@ Remove a link from a tack by URL. Fails if no link with that URL exists.
 tack link rm auth-rewrite t1 https://slack.com/archives/C123/p456
 ```
 
+## Reconcile
+
+### `tack reconcile [slug] [--dry-run]`
+
+Ask the git forge which deliverables have merged and close the tacks holding
+them. Without a slug the sweep covers every route.
+
+This is the only tack command that touches a network. It reaches GitHub and
+GitLab through `gh` and `glab`, so it uses the login those already have and
+never sees a credential of yours. A tack is only queried when it is open and
+its deliverable is a pull or merge request — issues, epics, milestones, and
+commits don't merge, so they are left alone.
+
+The recorded `done_at` is the forge's merge timestamp, not the moment you ran
+the sweep, so catching up a week later still dates the work correctly.
+
+```bash
+tack reconcile                 # every route
+tack reconcile auth-rewrite    # one route
+tack reconcile --dry-run       # report what would close, write nothing
+```
+
+A missing `gh`/`glab`, an unreadable change request, or a URL from a forge tack
+can't read fails the command naming the URL. Skipping quietly would be
+indistinguishable from "nothing merged".
+
+## Documents
+
+### `tack serve [--port <n>]`
+
+Serve your routes as web documents on `http://127.0.0.1:8788/`, in the
+foreground until you stop it. Three views: an index of every route, one route
+at `/route/<slug>`, and a whole group at `/group/<slug>`. A tack is an anchor
+inside its route document, so `/route/auth-rewrite#t3` lands on t3 with the
+rest of the route around it.
+
+The server holds nothing. Every request re-reads `~/.tack/routes/`, so a
+document can never disagree with `tack status`, and an edit shows up on
+reload with no restart. It binds loopback only and serves `GET` only — these
+are your private work notes, and the bind address is deliberately not
+configurable.
+
+```bash
+tack serve
+tack serve --port 9001
+```
+
+Every path serves two representations of the same thing, picked by `Accept`:
+the document for a browser, and JSON in the same shape as `tack list --json`
+for anything reading it programmatically. HTML is the default, so a bare `*/*`
+gets the page; errors follow the same negotiation, so a JSON client never has
+to parse an HTML error.
+
+```bash
+curl -H 'accept: application/json' http://127.0.0.1:8788/route/auth-rewrite
+curl -H 'accept: application/json' http://127.0.0.1:8788/group/platform
+```
+
+A route's description is stored as markdown, and the document renders it. Raw
+HTML in the source is escaped rather than passed through, and links are limited
+to `http`/`https` — a description isn't always something you typed by hand
+(`tack describe --file -` takes an issue body straight off a forge), and this
+page can write.
+
+A group document doesn't anchor tacks in place: several routes share it and
+each numbers from `t1`, so every tack there links back to its own route
+document, where the anchor means one thing.
+
+A route document carries a folded-shut editor for the route's title and
+description — the two fields that are prose rather than tracked state. Saving
+posts back to the server and goes through the same code path as `tack title`
+and `tack describe`, so the page can't record anything the CLI would refuse.
+Emptying a field clears it. Everything else stays read-only: tacks, statuses,
+and deliverables are the CLI's to change.
+
+Writes are refused when the request carries an `Origin` that isn't loopback,
+which is what stops a page on another site from posting to your server behind
+your back.
+
+In a terminal that supports OSC 8 hyperlinks (iTerm2, WezTerm, kitty, ghostty,
+VS Code, GNOME Terminal), `tack status` renders the route slug and each tack id
+as links into these documents. Piped or redirected output stays plain text.
+Set `TACK_HYPERLINKS=0` to turn the links off, `1` to force them on, and
+`TACK_SERVE_PORT` to point them at a server on another port.
+
+Links are emitted without checking whether the server is up — a liveness probe
+on every `tack status` would cost a round trip to pre-answer what the browser
+reports for free when you click.
+
+### `tack serve install|uninstall|status [--port <n>]`
+
+Keep the server running without a terminal parked on it: `install` writes and
+loads a launchd user agent on macOS or a systemd user unit on Linux, both
+restarting on their own and starting at login. `status` reports which
+supervisor is present, whether the unit is installed, and whether it's loaded.
+
+Run `tack install-cli` first. The unit invokes `~/.local/bin/tack`, not the
+versioned plugin path, so upgrading the plugin doesn't leave the unit pointing
+at a directory that no longer exists.
+
+```bash
+tack serve install
+tack serve status
+tack serve uninstall
+```
+
+On a platform with neither supervisor, `install` prints the manual `tack serve`
+invocation instead of failing.
+
 ## Pinning
 
 A pin marks a route as active for a working directory. The tack skill reads
