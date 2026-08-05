@@ -101,9 +101,13 @@ describe("serve documents", () => {
             assert.equal(status, 403);
         });
     });
-    it("refuses a method other than GET", async () => {
+    it("refuses a method it has no route for", async () => {
         await withServer(async (base) => {
-            assert.equal((await fetch(`${base}/`, { method: "POST" })).status, 405);
+            // POST is routed now, but only at the edit path — anywhere else it is a
+            // missing document, not a rejected method.
+            assert.equal((await fetch(`${base}/`, { method: "POST" })).status, 404);
+            assert.equal((await fetch(`${base}/`, { method: "DELETE" })).status, 405);
+            assert.equal((await fetch(`${base}/route/x`, { method: "PUT" })).status, 405);
         });
     });
     it("escapes route content rather than rendering it as markup", async () => {
@@ -197,6 +201,97 @@ describe("content negotiation", () => {
             assert.match(html.headers.get("content-type") ?? "", /text\/html/);
             const json = await fetch(`${base}/route/both`, { headers: { accept: "application/json" } });
             assert.match(json.headers.get("content-type") ?? "", /application\/json/);
+        });
+    });
+});
+describe("editing a route from the page", () => {
+    async function post(base, slug, body, headers = {}) {
+        return fetch(`${base}/route/${slug}/edit`, {
+            method: "POST",
+            redirect: "manual",
+            headers: { "content-type": "application/x-www-form-urlencoded", ...headers },
+            body,
+        });
+    }
+    it("sets a title and redirects back to the document", async () => {
+        route.init("ed-title");
+        await withServer(async (base) => {
+            const res = await post(base, "ed-title", "title=Renamed+from+the+page");
+            assert.equal(res.status, 303);
+            assert.equal(res.headers.get("location"), "/route/ed-title");
+            assert.equal(route.load("ed-title").title, "Renamed from the page");
+        });
+    });
+    it("sets a description, normalizing the CRLF a browser sends", async () => {
+        route.init("ed-desc");
+        await withServer(async (base) => {
+            await post(base, "ed-desc", "description=" + encodeURIComponent("one\r\ntwo\r\n"));
+            assert.equal(route.load("ed-desc").description, "one\ntwo");
+        });
+    });
+    it("clears the field when it comes back empty", async () => {
+        route.init("ed-clear");
+        route.setTitle("ed-clear", "Doomed");
+        route.setDescription("ed-clear", "Also doomed");
+        await withServer(async (base) => {
+            await post(base, "ed-clear", "title=&description=");
+            const r = route.load("ed-clear");
+            assert.equal(r.title, undefined);
+            assert.equal(r.description, undefined);
+        });
+    });
+    it("leaves a field alone when the form omits it", async () => {
+        route.init("ed-partial");
+        route.setTitle("ed-partial", "Kept");
+        await withServer(async (base) => {
+            await post(base, "ed-partial", "description=new+prose");
+            const r = route.load("ed-partial");
+            assert.equal(r.title, "Kept");
+            assert.equal(r.description, "new prose");
+        });
+    });
+    it("refuses a write carrying a foreign Origin", async () => {
+        route.init("ed-csrf");
+        route.setTitle("ed-csrf", "Untouched");
+        await withServer(async (base) => {
+            const res = await post(base, "ed-csrf", "title=Hijacked", { origin: "https://evil.example.com" });
+            assert.equal(res.status, 403);
+            assert.equal(route.load("ed-csrf").title, "Untouched");
+        });
+    });
+    it("accepts a write from the page's own origin", async () => {
+        route.init("ed-same");
+        await withServer(async (base) => {
+            const res = await post(base, "ed-same", "title=Fine", { origin: base });
+            assert.equal(res.status, 303);
+            assert.equal(route.load("ed-same").title, "Fine");
+        });
+    });
+    it("404s a POST at a path that accepts none", async () => {
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/route/whatever`, { method: "POST", redirect: "manual" });
+            assert.equal(res.status, 404);
+        });
+    });
+    it("404s an edit to a route that does not exist", async () => {
+        await withServer(async (base) => {
+            assert.equal((await post(base, "ghost", "title=x")).status, 404);
+        });
+    });
+    it("answers a JSON client with the updated route instead of a redirect", async () => {
+        route.init("ed-json");
+        await withServer(async (base) => {
+            const res = await post(base, "ed-json", "title=Via+API", { accept: "application/json" });
+            assert.equal(res.status, 200);
+            const body = (await res.json());
+            assert.equal(body.title, "Via API");
+        });
+    });
+    it("offers the form on a route document but not in a group view", async () => {
+        route.init("ed-form", { group: "formteam" });
+        await withServer(async (base) => {
+            assert.match(await (await fetch(`${base}/route/ed-form`)).text(), /action="\/route\/ed-form\/edit"/);
+            assert.doesNotMatch(await (await fetch(`${base}/group/formteam`)).text(), /<form/);
         });
     });
 });

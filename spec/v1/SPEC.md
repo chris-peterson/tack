@@ -1106,11 +1106,28 @@ A second URL tree for the machine-readable form would make one route
 addressable two ways, and the spelling that ends up in a consumer's config is
 then not necessarily the one that stays maintained.
 
-**[SERVE-05]** The server shall accept only `GET`, and only when the request's
-`Host` header names loopback. A hostname that resolves to `127.0.0.1` is
-otherwise enough for a page in the user's browser to read these documents, and
-the check has to already be in place when the first mutating route lands beside
-the read-only ones.
+**[SERVE-05]** Every request shall be refused unless its `Host` header names
+loopback: a hostname that resolves to `127.0.0.1` is otherwise enough for a
+page in the user's browser to reach these documents. The server shall accept
+`GET` everywhere and `POST` only at the edit path ([SERVE-12]); any other
+method is refused.
+
+**[SERVE-12]** `POST /route/<slug>/edit` shall set or clear a route's `title`
+and `description` ([ROUTE-04]) from a form body, through the same write path
+the CLI uses ([CLI-53], [CLI-54]) so the page cannot record what the CLI would
+refuse. A field absent from the body is left unchanged; a field present and
+empty is cleared, matching `--clear` — a reader who empties the box means the
+field has no value, and a separate control for that is a control nobody finds.
+The response is a 303 back to the document, so reloading the result is a `GET`
+rather than a resubmission, or the updated route as JSON when the client
+negotiated JSON ([SERVE-11]).
+
+**[SERVE-13]** A write shall additionally be refused when the request carries
+an `Origin` that is not loopback. [SERVE-05]'s `Host` check does not cover it:
+a cross-site form can `POST` to a loopback server without ever reading the
+response, so a write has to prove same-origin, which the `Origin` header is
+what browsers attach for. A request with no `Origin` is not a browser
+navigation and shall be allowed.
 
 **[SERVE-06]** Every value interpolated into a document comes from a
 hand-editable file and shall be HTML-escaped. A URL shall additionally be

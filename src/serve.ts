@@ -92,6 +92,23 @@ h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em;
 .empty { color: var(--muted); font-style: italic; }
 footer { max-width: 52rem; margin: 3rem auto 0; color: var(--muted); font-size: .8rem;
          border-top: 1px solid var(--line); padding-top: 1rem; }
+details.edit { margin: 0 0 1.5rem; }
+details.edit summary { cursor: pointer; color: var(--muted); font-size: .85rem; }
+details.edit form { display: flex; flex-direction: column; gap: .75rem; margin-top: .85rem;
+                    background: var(--card); border: 1px solid var(--line);
+                    border-radius: 10px; padding: 1rem; }
+details.edit label { display: flex; flex-direction: column; gap: .3rem; font-size: .8rem;
+                     text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+details.edit input, details.edit textarea {
+  font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: .5rem .6rem; text-transform: none; letter-spacing: normal;
+}
+details.edit textarea { resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                        font-size: .85rem; }
+details.edit button { align-self: flex-start; font: inherit; cursor: pointer; padding: .4rem 1.1rem;
+                      border-radius: 6px; border: 1px solid var(--accent);
+                      background: var(--accent); color: #fff; }
+details.edit .hint { font-size: .78rem; color: var(--muted); }
 `;
 
 function page(title: string, body: string): string {
@@ -127,7 +144,26 @@ function tackCard(t: Tack): string {
 </div>`;
 }
 
-export function renderRoute(r: Route, opts: { crumb?: boolean } = {}): string {
+// A plain form, posting to the server, with no script behind it: the page has
+// to keep working when the CSP is strict and when JavaScript is off, and a
+// fetch()-driven editor would buy nothing here that a 303 doesn't.
+//
+// Folded shut by default (`<details>`) because reading is what these documents
+// are for; the editor is a thing you go looking for.
+function editForm(r: Route): string {
+  return `<details class="edit"><summary>Edit title and description</summary>
+  <form method="post" action="/route/${esc(r.slug)}/edit">
+    <label>Title<input name="title" value="${esc(r.title ?? "")}" placeholder="(none)"></label>
+    <label>Description<textarea name="description" rows="6" placeholder="Markdown, stored verbatim">${esc(
+      r.description ?? "",
+    )}</textarea></label>
+    <button type="submit">Save</button>
+    <span class="hint">Empty a field to clear it.</span>
+  </form>
+</details>`;
+}
+
+export function renderRoute(r: Route, opts: { crumb?: boolean; editable?: boolean } = {}): string {
   const state = route.routeState(r);
   const open = r.tacks.filter(route.isOpen).length;
   const head = `<div class="row"><h1>${esc(r.title ?? r.slug)}</h1>
@@ -148,6 +184,7 @@ export function renderRoute(r: Route, opts: { crumb?: boolean } = {}): string {
 
   return `${opts.crumb === false ? "" : `<div class="crumb"><a href="/">all routes</a></div>`}
 ${head}${r.description ? `<div class="desc">${esc(r.description)}</div>` : ""}${deps}
+${opts.editable === false ? "" : editForm(r)}
 <h2>Tacks</h2>${tacks}`;
 }
 
@@ -185,9 +222,46 @@ export function renderIndex(routes: Route[]): string {
 }
 
 export function renderGroup(group: string, routes: Route[]): string {
-  const body = routes.map((r) => renderRoute(r, { crumb: false })).join('<hr style="border:0">');
+  // No editor in the group view: the form posts to one route, and repeating it
+  // per route in a combined document invites saving the wrong one.
+  const body = routes
+    .map((r) => renderRoute(r, { crumb: false, editable: false }))
+    .join('<hr style="border:0">');
   return `<div class="crumb"><a href="/">all routes</a></div><h1>${esc(group)}</h1>
     <p class="sub">${routes.length} routes</p>${body}`;
+}
+
+// A cross-site form can POST to a loopback server without reading the
+// response, so the Host check that guards reads is not enough for a write:
+// same-origin is what has to be proven. Browsers attach Origin to a POST, so a
+// present-and-foreign Origin is a rejection. An absent one is a non-browser
+// client (curl, a script), which was never subject to CSRF in the first place.
+function sameOrigin(req: IncomingMessage): boolean {
+  const origin = req.headers.origin;
+  if (!origin) return true;
+  try {
+    const host = new URL(origin).hostname;
+    return host === "127.0.0.1" || host === "localhost" || host === "::1";
+  } catch {
+    return false;
+  }
+}
+
+function readBody(req: IncomingMessage, limit = 1_000_000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk;
+      // A description is prose, not a payload; anything past a megabyte is a
+      // mistake or an attempt to exhaust the process.
+      if (body.length > limit) {
+        req.destroy();
+        reject(new Error("body too large"));
+      }
+    });
+    req.on("end", () => resolve(body));
+    req.on("error", reject);
+  });
 }
 
 // A rebound hostname resolving to 127.0.0.1 lets a page in the user's browser
@@ -250,9 +324,18 @@ export function handle(req: IncomingMessage, res: ServerResponse): void {
       : send(res, status, page("tack", `<h1>${status}</h1><p>${esc(message)}</p>`));
 
   if (!loopbackHost(req)) return fail(403, "Host must be loopback.");
-  if (req.method !== "GET") return fail(405, `${req.method} not allowed; these documents are read-only.`);
 
   const path = decodeURIComponent((req.url ?? "/").split("?")[0]);
+
+  if (req.method === "POST") {
+    const editMatch = path.match(/^\/route\/([^/]+)\/edit\/?$/);
+    if (!editMatch) return fail(404, `Nothing accepts a POST at ${path}.`);
+    if (!sameOrigin(req)) return fail(403, "Cross-origin write refused.");
+    void edit(req, res, editMatch[1], json, fail);
+    return;
+  }
+
+  if (req.method !== "GET") return fail(405, `${req.method} not allowed.`);
 
   // Read on every request rather than caching: the CLI writes these files
   // behind the server's back, and a stale document that disagrees with
@@ -287,6 +370,47 @@ export function handle(req: IncomingMessage, res: ServerResponse): void {
   }
 
   fail(404, `No document at ${path}.`);
+}
+
+// The one write path. It goes through the same `route.setTitle` /
+// `setDescription` the CLI calls, so the page cannot record something the CLI
+// would have refused — validation, the `updated_at` bump, and the `created_at`
+// floor all still happen in `save()`.
+//
+// An empty field clears, mirroring the CLI's `--clear`: a reader who empties
+// the box means "there is no title", and a second control to express that
+// would be a control nobody finds.
+async function edit(
+  req: IncomingMessage,
+  res: ServerResponse,
+  slug: string,
+  json: boolean,
+  fail: (status: number, message: string) => void,
+): Promise<void> {
+  let form: URLSearchParams;
+  try {
+    form = new URLSearchParams(await readBody(req));
+  } catch (e) {
+    return fail(413, (e as Error).message);
+  }
+
+  try {
+    if (form.has("title")) {
+      const title = form.get("title")!.trim();
+      title ? route.setTitle(slug, title) : route.clearTitle(slug);
+    }
+    if (form.has("description")) {
+      const description = form.get("description")!.replace(/\r\n/g, "\n").replace(/\n+$/, "");
+      description ? route.setDescription(slug, description) : route.clearDescription(slug);
+    }
+  } catch (e) {
+    return fail(404, (e as Error).message);
+  }
+
+  if (json) return sendJson(res, 200, routeJson(route.load(slug)));
+  // 303 so a reload of the resulting page is a GET, not a resubmission.
+  res.writeHead(303, { location: `/route/${encodeURIComponent(slug)}` });
+  res.end();
 }
 
 export function serve(port = DEFAULT_PORT): Server {

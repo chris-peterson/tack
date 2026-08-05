@@ -567,6 +567,17 @@ curl -H 'accept: application/json' http://127.0.0.1:8788/route/auth-rewrite
 curl -H 'accept: application/json' http://127.0.0.1:8788/group/platform
 ```
 
+A route document carries a folded-shut editor for the route's title and
+description — the two fields that are prose rather than tracked state. Saving
+posts back to the server and goes through the same code path as `tack title`
+and `tack describe`, so the page can't record anything the CLI would refuse.
+Emptying a field clears it. Everything else stays read-only: tacks, statuses,
+and deliverables are the CLI's to change.
+
+Writes are refused when the request carries an `Origin` that isn't loopback,
+which is what stops a page on another site from posting to your server behind
+your back.
+
 In a terminal that supports OSC 8 hyperlinks (iTerm2, WezTerm, kitty, ghostty,
 VS Code, GNOME Terminal), `tack status` renders the route slug and each tack id
 as links into these documents. Piped or redirected output stays plain text.
