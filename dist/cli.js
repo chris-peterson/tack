@@ -343,16 +343,19 @@ function run() {
             const deliverable = deliverableUrl
                 ? { label: route.deriveDeliverableLabel(deliverableUrl), url: deliverableUrl }
                 : undefined;
-            // Each --link is "label,url" — split on the first comma so URLs (which
-            // never start a value) keep any later commas, mirroring `link add`'s
-            // positional <label> <url> pair.
+            // Each --link is "label,url", and commas occur on both sides: labels carry
+            // them in enumerations and clauses, URLs in query values (?ids=1,2). So
+            // split at the first comma whose suffix parses as a URL rather than at a
+            // fixed one — the label keeps its commas, and so does the URL.
             const links = values.link?.map((spec) => {
-                const comma = spec.indexOf(",");
-                if (comma < 0) {
-                    console.error(`Invalid --link "${spec}": expected "label,url".`);
-                    process.exit(1);
+                for (let i = spec.indexOf(","); i >= 0; i = spec.indexOf(",", i + 1)) {
+                    const url = spec.slice(i + 1);
+                    if (URL.canParse(url))
+                        return { label: spec.slice(0, i), url };
                 }
-                return { label: spec.slice(0, comma), url: spec.slice(comma + 1) };
+                console.error(`Invalid --link "${spec}": expected "label,url" where url is absolute ` +
+                    `(e.g. "docs,https://example.com/x").`);
+                process.exit(1);
             });
             const tack = route.addTack(slug, summary, {
                 dependsOn,
@@ -864,7 +867,10 @@ function run() {
                 usage();
             const force = rest.includes("--force");
             if (!force) {
-                console.log(`Delete route ${rest[0]}? Pass --force to confirm.`);
+                // The refusal is not route data, so it goes to stderr with the other
+                // group-scoped errors ([CLI-41]) — a caller redirecting stdout gets no
+                // output at all, which is accurate: nothing was deleted.
+                console.error(`Delete route ${rest[0]}? Pass --force to confirm.`);
                 process.exit(1);
             }
             route.remove(rest[0]);

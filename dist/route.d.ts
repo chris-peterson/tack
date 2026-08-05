@@ -1,6 +1,7 @@
 import * as repos from "./repos.js";
 import type { Link, Route, Tack, TackStatus } from "./types.js";
 export declare function isOpen(t: Tack): boolean;
+export declare function assertValidSlug(slug: string, what?: string): void;
 export declare function loadAll(): Route[];
 export declare function normalizeTimestamp(input: string): string;
 export declare function load(slug: string): Route;

@@ -702,3 +702,73 @@ describe("the CLI grammar matches its checked-in snapshot", () => {
         assert.equal(r.stdout, lines.join("\n"), "CLI usage drifted from spec/v1/cli-usage.txt — run `just usage-snapshot` if the change is intended");
     });
 });
+describe("tack add --link splits label from url (issue #28)", () => {
+    it("keeps a comma inside the label", () => {
+        runFail(["init", "link-comma"]);
+        const label = "Refine session replay (N+1 example, terminal frame)";
+        const r = runFail([
+            "add", "link-comma", "x",
+            "--link", `${label},https://github.com/chris-peterson/tack/commit/54d175d`,
+        ]);
+        assert.equal(r.status, 0);
+        const json = JSON.parse(runFail(["list", "--json"]).stdout);
+        const link = json.find((x) => x.slug === "link-comma")?.tacks[0].links?.[0];
+        assert.equal(link?.label, label);
+        assert.equal(link?.url, "https://github.com/chris-peterson/tack/commit/54d175d");
+    });
+    it("keeps a comma inside the url", () => {
+        runFail(["init", "link-url-comma"]);
+        const url = "https://example.com/issues?ids=1,2,3";
+        const r = runFail(["add", "link-url-comma", "x", "--link", `report,${url}`]);
+        assert.equal(r.status, 0);
+        const json = JSON.parse(runFail(["list", "--json"]).stdout);
+        const link = json.find((x) => x.slug === "link-url-comma")?.tacks[0].links?.[0];
+        assert.equal(link?.label, "report");
+        assert.equal(link?.url, url);
+    });
+    it("keeps commas on both sides at once", () => {
+        runFail(["init", "link-both"]);
+        const label = "a, b, c";
+        const url = "https://example.com/q?ids=4,5";
+        assert.equal(runFail(["add", "link-both", "x", "--link", `${label},${url}`]).status, 0);
+        const json = JSON.parse(runFail(["list", "--json"]).stdout);
+        const link = json.find((x) => x.slug === "link-both")?.tacks[0].links?.[0];
+        assert.equal(link?.label, label);
+        assert.equal(link?.url, url);
+    });
+    it("names the label/url split when no suffix is a url", () => {
+        runFail(["init", "link-bad"]);
+        const r = runFail(["add", "link-bad", "x", "--link", "label,not-a-url"]);
+        assert.equal(r.status, 1);
+        assert.match(r.stderr, /expected "label,url" where url is absolute/);
+    });
+    it("does not lose the other links on the same invocation", () => {
+        runFail(["init", "link-atomic"]);
+        const r = runFail([
+            "add", "link-atomic", "x",
+            "--link", "good,https://example.com/a",
+            "--link", "with, comma,https://example.com/b",
+        ]);
+        assert.equal(r.status, 0);
+        const json = JSON.parse(runFail(["list", "--json"]).stdout);
+        const links = json.find((x) => x.slug === "link-atomic")?.tacks[0].links ?? [];
+        assert.deepEqual(links.map((l) => l.url), [
+            "https://example.com/a",
+            "https://example.com/b",
+        ]);
+    });
+});
+describe("tack rm refuses without --force", () => {
+    it("puts the refusal on stderr and leaves stdout empty", () => {
+        runFail(["init", "rm-refuse"]);
+        const r = runCapture(["rm", "rm-refuse"]);
+        assert.equal(r.status, 1);
+        assert.equal(r.stdout, "");
+        assert.match(r.stderr, /Delete route rm-refuse\? Pass --force to confirm\./);
+    });
+    it("leaves the route in place", () => {
+        runFail(["init", "rm-intact"]);
+        runCapture(["rm", "rm-intact"]);
+        assert.equal(runFail(["status", "rm-intact"]).status, 0);
+    });
+});

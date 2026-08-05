@@ -1,6 +1,6 @@
 import { describe, it, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 let route;
@@ -291,7 +291,9 @@ describe("setGroup / clearGroup", () => {
     });
     it("rejects a group slug that violates the schema pattern", () => {
         route.init("group-bad");
-        assert.throws(() => route.setGroup("group-bad", "Not A Slug"), /validation failed/i);
+        // Names the rule at the boundary; before, this surfaced as an ajv pattern
+        // error from save() after the command looked like it had worked.
+        assert.throws(() => route.setGroup("group-bad", "Not A Slug"), /Invalid group: Not A Slug/);
     });
     it("throws for a missing route", () => {
         assert.throws(() => route.setGroup("group-ghost", "x"), /not found/i);
@@ -998,6 +1000,16 @@ describe("mergeRoutes", () => {
         data.created_at = createdAt;
         writeFileSync(path, yaml.stringify(data), "utf-8");
     }
+    it("rejects a non-conforming destination slug at the boundary (STG-08)", () => {
+        route.init("mr-src");
+        assert.throws(() => route.mergeRoutes("MergedRoute", ["mr-src"]), /Invalid slug: MergedRoute/);
+        // The sources survive a refused merge.
+        assert.equal(route.load("mr-src").slug, "mr-src");
+    });
+    it("rejects a non-conforming --group at the boundary (STG-08)", () => {
+        route.init("mr-src2");
+        assert.throws(() => route.mergeRoutes("merged-ok", ["mr-src2"], { group: "Not A Group" }), /Invalid group: Not A Group/);
+    });
     it("folds all sources into a new route and deletes the sources", () => {
         route.init("mr-a");
         route.addTack("mr-a", "A1");
@@ -1413,5 +1425,45 @@ describe("findByRepoKey (CLI-23a)", () => {
             deliverable: { label: "PR", url: "https://github.com/acme/widget/pull/1" },
         });
         assert.deepEqual(route.findByRepoKey("github.com/acme/nonesuch"), []);
+    });
+});
+describe("slug validation at the command boundary", () => {
+    it("init rejects a non-conforming slug by naming the rule", () => {
+        assert.throws(() => route.init("MyRoute"), /Invalid slug: MyRoute \(lowercase letters, digits, and inner hyphens only\)/);
+    });
+    it("init rejects before creating the file", () => {
+        assert.throws(() => route.init("MyRoute"));
+        assert.throws(() => route.load("MyRoute"), /Route not found/);
+    });
+    it("init rejects a non-conforming group", () => {
+        assert.throws(() => route.init("ok-slug", { group: "Not A Group" }), /Invalid group/);
+    });
+    it("rename rejects a non-conforming new slug", () => {
+        route.init("old-slug");
+        assert.throws(() => route.rename("old-slug", "New_Slug"), /Invalid slug/);
+        assert.equal(route.load("old-slug").slug, "old-slug");
+    });
+    it("setGroup reports a missing route before checking the group's shape", () => {
+        assert.throws(() => route.setGroup("no-such-route", "Bad Group"), /not found/i);
+    });
+    it("accepts a conforming slug with inner hyphens", () => {
+        assert.equal(route.init("a-b-c9").slug, "a-b-c9");
+    });
+});
+describe("filename and internal slug must agree", () => {
+    it("load refuses a route file whose slug disagrees with its filename", () => {
+        route.init("real-slug");
+        const routes = join(tmp, "routes");
+        renameSync(join(routes, "real-slug.yaml"), join(routes, "other-name.yaml"));
+        assert.throws(() => route.load("other-name"), /declares slug 'real-slug' — rename the file to real-slug\.yaml, or set slug: other-name inside it/);
+    });
+    it("the mismatch would otherwise rewrite the route under the other name", () => {
+        route.init("real-slug");
+        const routes = join(tmp, "routes");
+        renameSync(join(routes, "real-slug.yaml"), join(routes, "other-name.yaml"));
+        // Without the check, load("other-name") + any mutation would save() to
+        // real-slug.yaml, leaving two files and a route the user can't address.
+        assert.throws(() => route.addTack("other-name", "work"));
+        assert.ok(!existsSync(join(routes, "real-slug.yaml")));
     });
 });

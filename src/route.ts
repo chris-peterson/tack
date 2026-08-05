@@ -15,6 +15,18 @@ export function isOpen(t: Tack): boolean {
   return t.status !== "done" && t.status !== "dropped";
 }
 
+// Mirrors the schema's slug pattern. Callers that accept a slug from the user
+// check it here so the failure names the rule, instead of surfacing as an ajv
+// pattern error from save() after the command already looked like it worked.
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
+
+export function assertValidSlug(slug: string, what = "slug"): void {
+  if (SLUG_PATTERN.test(slug)) return;
+  throw new Error(
+    `Invalid ${what}: ${slug} (lowercase letters, digits, and inner hyphens only)`,
+  );
+}
+
 export function loadAll(): Route[] {
   ensureDir();
   const files = readdirSync(TACK_DIR).filter((f: string) => f.endsWith(".yaml"));
@@ -74,7 +86,19 @@ export function load(slug: string): Route {
     throw new Error(`Invalid route file ${slug}.yaml:\n${result.errors.join("\n")}`);
   }
 
-  return data as Route;
+  // The filename is how a route is addressed; save() writes back to
+  // routePath(route.slug). A file whose internal slug disagrees would load here
+  // and then be written to the other name on the next mutation, renaming the
+  // route with nothing said.
+  const loaded = data as Route;
+  if (loaded.slug !== slug) {
+    throw new Error(
+      `Route file ${slug}.yaml declares slug '${loaded.slug}' — rename the file ` +
+        `to ${loaded.slug}.yaml, or set slug: ${slug} inside it`,
+    );
+  }
+
+  return loaded;
 }
 
 function save(route: Route): void {
@@ -105,6 +129,8 @@ export function routeExists(slug: string): boolean {
 }
 
 export function init(slug: string, opts: { group?: string } = {}): Route {
+  assertValidSlug(slug);
+  if (opts.group) assertValidSlug(opts.group, "group");
   ensureDir();
   const path = routePath(slug);
   if (existsSync(path)) {
@@ -399,6 +425,7 @@ export function removeDependency(
 }
 
 export function rename(oldSlug: string, newSlug: string): Route {
+  assertValidSlug(newSlug);
   if (oldSlug === newSlug) {
     throw new Error(`Old and new slug are the same: ${oldSlug}`);
   }
@@ -439,10 +466,11 @@ export function rename(oldSlug: string, newSlug: string): Route {
 }
 
 export function setGroup(slug: string, group: string): Route {
+  // load() first: a missing route is a fact about the argument the caller named,
+  // and reporting it takes precedence over the group's shape.
   const route = load(slug);
+  assertValidSlug(group, "group");
   route.group = group;
-  // save() validates against the schema, so an invalid group slug surfaces
-  // the pattern error rather than writing a malformed route file.
   save(route);
   return route;
 }
@@ -1050,6 +1078,10 @@ export function mergeRoutes(
   if (srcSlugs.length === 0) {
     throw new Error("merge-routes requires at least one source route");
   }
+  // The destination is created from these arguments, so they get the same
+  // boundary check as init's ([STG-08]) rather than reaching save().
+  assertValidSlug(newSlug);
+  if (opts.group) assertValidSlug(opts.group, "group");
   const srcSet = new Set<string>();
   for (const s of srcSlugs) {
     if (srcSet.has(s)) throw new Error(`Duplicate source route: ${s}`);

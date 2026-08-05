@@ -216,7 +216,8 @@ reader's job.
 
 ### `tack rm <slug> [--force]`
 
-Delete a route. Requires `--force` to confirm.
+Delete a route. Requires `--force` to confirm — without it the confirmation goes
+to stderr and the command exits non-zero, having deleted nothing.
 
 ```bash
 tack rm auth-rewrite --force
@@ -234,7 +235,7 @@ Add a tack to a route.
 | `--done` | Create the tack already marked done (for backfilling merged work) |
 | `--date <ts>` | When used with `--done`, set `done_at` to this `YYYY-MM-DD` or ISO 8601 date-time instead of "now" |
 | `--deliverable <url>` | Set the deliverable URL on creation. The label is auto-derived from the URL (`repo#N` for GitHub PRs/issues, `repo!N` for GitLab MRs, `repo@<sha7>` for commits). For a custom label, use `tack deliverable` after creation. |
-| `--link "label,url"` | Attach a non-deliverable link on creation, mirroring `tack link add`'s `<label> <url>` pair. Repeatable — each flag adds one link. Combine with `--deliverable`. |
+| `--link "label,url"` | Attach a non-deliverable link on creation, mirroring `tack link add`'s `<label> <url>` pair. Repeatable — each flag adds one link. Combine with `--deliverable`. The split lands at the first comma whose remainder is an absolute URL, so commas are fine in the label (`"a, b,https://x"`) and in the URL (`"report,https://x?ids=1,2"`). |
 
 Unknown flags fail with a usage error rather than being silently ignored.
 
