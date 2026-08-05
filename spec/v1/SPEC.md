@@ -1094,6 +1094,18 @@ edit to a route file shall be visible on the next request without a restart.
 validation shall return 500 reporting the failure ([STORE-09]) — the documents
 inherit the CLI's refusal to render work it could not read.
 
+**[SERVE-11]** Each path in [SERVE-02] shall serve two representations of the
+same thing, chosen by the request's `Accept` header: the HTML document, and
+JSON in the shape the CLI's own `--json` emits ([CLI-14]), including the
+derived `state` ([ROUTE-13]). HTML shall be the default, so a request carrying
+no preference or only `*/*` gets the document; quality values decide when both
+are named. Error responses shall follow the same negotiation, so a client
+asking for JSON is never handed an HTML error page to parse.
+
+A second URL tree for the machine-readable form would make one route
+addressable two ways, and the spelling that ends up in a consumer's config is
+then not necessarily the one that stays maintained.
+
 **[SERVE-05]** The server shall accept only `GET`, and only when the request's
 `Host` header names loopback. A hostname that resolves to `127.0.0.1` is
 otherwise enough for a page in the user's browser to read these documents, and

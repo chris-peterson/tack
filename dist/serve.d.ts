@@ -7,5 +7,6 @@ export declare function renderRoute(r: Route, opts?: {
 }): string;
 export declare function renderIndex(routes: Route[]): string;
 export declare function renderGroup(group: string, routes: Route[]): string;
+export declare function prefersJson(accept: string | undefined): boolean;
 export declare function handle(req: IncomingMessage, res: ServerResponse): void;
 export declare function serve(port?: number): Server;

@@ -145,3 +145,58 @@ describe("hyperlink detection", () => {
         assert.equal(serve.hyperlinkBase({ TACK_HYPERLINKS: "1", TACK_SERVE_PORT: "9001" }, false), "http://127.0.0.1:9001");
     });
 });
+describe("content negotiation", () => {
+    it("defaults to the document for a bare */* (curl, most fetch defaults)", () => {
+        assert.equal(serve.prefersJson("*/*"), false);
+        assert.equal(serve.prefersJson(undefined), false);
+    });
+    it("defaults to the document for a browser's Accept", () => {
+        assert.equal(serve.prefersJson("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"), false);
+    });
+    it("switches on an explicit JSON preference", () => {
+        assert.equal(serve.prefersJson("application/json"), true);
+        assert.equal(serve.prefersJson("application/*"), true);
+    });
+    it("reads quality values rather than order", () => {
+        assert.equal(serve.prefersJson("text/html;q=0.8, application/json"), true);
+        assert.equal(serve.prefersJson("application/json;q=0.5, text/html"), false);
+    });
+    it("serves a route as JSON matching the CLI's --json shape", async () => {
+        route.init("neg", { group: "ai" });
+        route.addTack("neg", "work");
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/route/neg`, { headers: { accept: "application/json" } });
+            assert.equal(res.headers.get("content-type"), "application/json; charset=utf-8");
+            const body = (await res.json());
+            assert.equal(body.slug, "neg");
+            assert.equal(body.state, "active");
+            assert.equal(body.tacks.length, 1);
+        });
+    });
+    it("serves the index and a group as JSON arrays", async () => {
+        route.init("j1", { group: "team" });
+        route.init("j2", { group: "team" });
+        await withServer(async (base) => {
+            const all = (await (await fetch(`${base}/`, { headers: { accept: "application/json" } })).json());
+            assert.equal(all.length, 2);
+            const group = (await (await fetch(`${base}/group/team`, { headers: { accept: "application/json" } })).json());
+            assert.equal(group.length, 2);
+        });
+    });
+    it("reports a 404 as JSON when JSON was asked for", async () => {
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/route/nope`, { headers: { accept: "application/json" } });
+            assert.equal(res.status, 404);
+            assert.deepEqual(await res.json(), { error: "No route nope." });
+        });
+    });
+    it("serves the same URL both ways", async () => {
+        route.init("both");
+        await withServer(async (base) => {
+            const html = await fetch(`${base}/route/both`);
+            assert.match(html.headers.get("content-type") ?? "", /text\/html/);
+            const json = await fetch(`${base}/route/both`, { headers: { accept: "application/json" } });
+            assert.match(json.headers.get("content-type") ?? "", /application\/json/);
+        });
+    });
+});

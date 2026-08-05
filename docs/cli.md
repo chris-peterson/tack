@@ -556,6 +556,17 @@ tack serve
 tack serve --port 9001
 ```
 
+Every path serves two representations of the same thing, picked by `Accept`:
+the document for a browser, and JSON in the same shape as `tack list --json`
+for anything reading it programmatically. HTML is the default, so a bare `*/*`
+gets the page; errors follow the same negotiation, so a JSON client never has
+to parse an HTML error.
+
+```bash
+curl -H 'accept: application/json' http://127.0.0.1:8788/route/auth-rewrite
+curl -H 'accept: application/json' http://127.0.0.1:8788/group/platform
+```
+
 In a terminal that supports OSC 8 hyperlinks (iTerm2, WezTerm, kitty, ghostty,
 VS Code, GNOME Terminal), `tack status` renders the route slug and each tack id
 as links into these documents. Piped or redirected output stays plain text.

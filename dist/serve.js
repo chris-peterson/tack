@@ -185,11 +185,50 @@ function send(res, status, html) {
     res.writeHead(status, { "content-type": "text/html; charset=utf-8" });
     res.end(html);
 }
+function sendJson(res, status, body) {
+    res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify(body, null, 2));
+}
+// One URL per thing, two representations: the document a person reads and the
+// JSON a program parses. A separate `/api` tree would make the same route
+// addressable two ways, and then one of the two spellings ends up in someone's
+// bookmark or dashboard config while the other is the one that gets maintained.
+//
+// HTML is the default: a bare `*/*` (curl, most fetch defaults) gets the
+// document, and only an explicit preference for JSON switches. Quality values
+// decide when both are named, so `text/html;q=0.8, application/json` is a JSON
+// request even though HTML is listed first.
+export function prefersJson(accept) {
+    if (!accept)
+        return false;
+    const q = (type, wildcard) => {
+        for (const part of accept.split(",")) {
+            const [mime, ...params] = part.trim().split(";");
+            if (mime.trim() !== type && mime.trim() !== wildcard)
+                continue;
+            const qp = params.map((p) => p.trim()).find((p) => p.startsWith("q="));
+            return qp ? parseFloat(qp.slice(2)) || 0 : 1;
+        }
+        // Absent, not merely low-priority: `*/*` must not count as asking for JSON.
+        return -1;
+    };
+    return q("application/json", "application/*") > q("text/html", "text/*");
+}
+// The JSON representation matches what the CLI's own `--json` emits, down to
+// the derived `state` key, so a consumer can move between `tack list --json`
+// and this server without reshaping anything.
+function routeJson(r) {
+    return { ...r, state: route.routeState(r) };
+}
 export function handle(req, res) {
+    const json = prefersJson(req.headers.accept);
+    const fail = (status, message) => json
+        ? sendJson(res, status, { error: message })
+        : send(res, status, page("tack", `<h1>${status}</h1><p>${esc(message)}</p>`));
     if (!loopbackHost(req))
-        return send(res, 403, page("tack", "<h1>403</h1>"));
+        return fail(403, "Host must be loopback.");
     if (req.method !== "GET")
-        return send(res, 405, page("tack", "<h1>405</h1>"));
+        return fail(405, `${req.method} not allowed; these documents are read-only.`);
     const path = decodeURIComponent((req.url ?? "/").split("?")[0]);
     // Read on every request rather than caching: the CLI writes these files
     // behind the server's back, and a stale document that disagrees with
@@ -199,26 +238,30 @@ export function handle(req, res) {
         routes = route.loadAll();
     }
     catch (e) {
-        return send(res, 500, page("tack", `<h1>500</h1><p>${esc(e.message)}</p>`));
+        return fail(500, e.message);
     }
-    if (path === "/")
-        return send(res, 200, page("tack", renderIndex(routes)));
+    if (path === "/") {
+        return json
+            ? sendJson(res, 200, routes.map(routeJson))
+            : send(res, 200, page("tack", renderIndex(routes)));
+    }
     const routeMatch = path.match(/^\/route\/([^/]+)\/?$/);
     if (routeMatch) {
         const r = routes.find((x) => x.slug === routeMatch[1]);
         if (!r)
-            return send(res, 404, page("tack", `<h1>404</h1><p>No route ${esc(routeMatch[1])}.</p>`));
-        return send(res, 200, page(r.slug, renderRoute(r)));
+            return fail(404, `No route ${routeMatch[1]}.`);
+        return json ? sendJson(res, 200, routeJson(r)) : send(res, 200, page(r.slug, renderRoute(r)));
     }
     const groupMatch = path.match(/^\/group\/([^/]+)\/?$/);
     if (groupMatch) {
         const inGroup = routes.filter((x) => x.group === groupMatch[1]);
-        if (!inGroup.length) {
-            return send(res, 404, page("tack", `<h1>404</h1><p>No group ${esc(groupMatch[1])}.</p>`));
-        }
-        return send(res, 200, page(groupMatch[1], renderGroup(groupMatch[1], inGroup)));
+        if (!inGroup.length)
+            return fail(404, `No group ${groupMatch[1]}.`);
+        return json
+            ? sendJson(res, 200, inGroup.map(routeJson))
+            : send(res, 200, page(groupMatch[1], renderGroup(groupMatch[1], inGroup)));
     }
-    send(res, 404, page("tack", "<h1>404</h1>"));
+    fail(404, `No document at ${path}.`);
 }
 export function serve(port = DEFAULT_PORT) {
     return createServer(handle).listen(port, "127.0.0.1");
