@@ -567,6 +567,16 @@ curl -H 'accept: application/json' http://127.0.0.1:8788/route/auth-rewrite
 curl -H 'accept: application/json' http://127.0.0.1:8788/group/platform
 ```
 
+A route's description is stored as markdown, and the document renders it. Raw
+HTML in the source is escaped rather than passed through, and links are limited
+to `http`/`https` — a description isn't always something you typed by hand
+(`tack describe --file -` takes an issue body straight off a forge), and this
+page can write.
+
+A group document doesn't anchor tacks in place: several routes share it and
+each numbers from `t1`, so every tack there links back to its own route
+document, where the anchor means one thing.
+
 A route document carries a folded-shut editor for the route's title and
 description — the two fields that are prose rather than tracked state. Saving
 posts back to the server and goes through the same code path as `tack title`

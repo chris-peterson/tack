@@ -5,6 +5,7 @@ export declare function hyperlinkBase(env?: NodeJS.ProcessEnv, isTty?: boolean):
 export declare function renderRoute(r: Route, opts?: {
     crumb?: boolean;
     editable?: boolean;
+    linkTacks?: boolean;
 }): string;
 export declare function renderIndex(routes: Route[]): string;
 export declare function renderGroup(group: string, routes: Route[]): string;

@@ -1085,6 +1085,12 @@ at `/`, one route at `/route/<slug>`, and every route of a group at
 (`/route/<slug>#<tack-id>`) rather than a document of its own, so following a
 link to a tack lands in the context of its route.
 
+**[SERVE-02a]** A group document combines routes that each number their tacks
+from `t1`, so it shall not anchor them in place — every tack and every route
+name in it shall instead link to that route's own document, where the anchor is
+unambiguous. Anchoring in place would emit one id several times and send every
+link to whichever route rendered first.
+
 **[SERVE-03]** The server shall hold no state of its own: every request re-reads
 `~/.tack/routes/` ([STORE-01]) so a document and the CLI cannot disagree. An
 edit to a route file shall be visible on the next request without a restart.
@@ -1134,9 +1140,30 @@ hand-editable file and shall be HTML-escaped. A URL shall additionally be
 rendered as a link only when its scheme is `http` or `https`, since escaping
 alone leaves a `javascript:` href live.
 
-**[SERVE-07]** The server shall add no runtime dependency beyond the Node
-standard library, and shall inline its own CSS. A document server that needs a
-build step is a document server that stops working after an upgrade.
+**[SERVE-14]** A route's `description` is markdown ([ROUTE-04]), and the
+document shall render it as such rather than showing its source — the CLI
+printing it verbatim is right for a terminal, but a browser displaying literal
+`**bold**` is an unrendered document. The editor ([SERVE-12]) shall keep
+showing the source.
+
+The renderer shall escape raw HTML in the source rather than passing it
+through, and shall refuse link schemes other than `http(s)` — the same standard
+[SERVE-06] holds the rest of the document to. A description is not always text
+the user typed: `tack describe --file -` takes a body straight off a forge, and
+[SERVE-12] means script running in this page would be script that can write.
+
+**[SERVE-07]** The server shall inline its own CSS and shall require no build
+step: a document server that needs one is a document server that stops working
+after an upgrade. Anything else it needs shall be loaded when a document is
+rendered, never at import, so a CLI invocation never evaluates a library only
+the server uses.
+
+The server ships in the same package as the CLI. Splitting it out would keep
+the CLI's installed footprint smaller, at the cost of a second thing to version
+and release and a skew window where `tack status` emits links to documents the
+installed server does not serve. The cost of carrying it is disk at install
+time; the leanness that matters for a CLI is startup, which the deferred load
+already protects.
 
 **[SERVE-08]** `tack serve install|uninstall|status [--port <n>]` shall manage
 an opt-in supervised server — a launchd user agent on macOS, a systemd user

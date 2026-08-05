@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
+import { createRequire } from "node:module";
 import * as route from "./route.js";
 import type { Route, Tack, TodoItem } from "./types.js";
 
@@ -52,6 +53,32 @@ function link(label: string, url: string): string {
   return href ? `<a href="${href}">${esc(label)}</a>` : esc(`${label} (${url})`);
 }
 
+// A description is stored as markdown ([ROUTE-04]). The terminal prints it
+// verbatim, which is right there — but a browser showing literal `**bold**` is
+// an unrendered document.
+//
+// markdown-it rather than a hand-rolled subset, and rather than marked, for the
+// defaults: raw HTML in the source is escaped instead of passed through, and
+// `javascript:`/`data:` links are refused. That matters because a description
+// is not always something the user typed — `tack describe --file -` is
+// documented as taking an issue body straight off a forge — and this page can
+// now POST edits from its own origin, so script running in it would be script
+// with write access.
+//
+// Loaded on first render rather than at import: `cli.ts` pulls this module in
+// for `hyperlinkBase()` on every invocation, and no plain CLI command should
+// pay to parse a markdown engine it will not use.
+let md: { render(src: string): string } | null = null;
+
+function markdown(src: string): string {
+  if (!md) {
+    const require = createRequire(import.meta.url);
+    const MarkdownIt = require("markdown-it");
+    md = new MarkdownIt({ linkify: true, typographer: false }) as { render(src: string): string };
+  }
+  return md.render(src);
+}
+
 const STYLE = `
 :root {
   color-scheme: light dark;
@@ -77,12 +104,37 @@ h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em;
      color: var(--muted); margin: 2.25rem 0 .75rem; font-weight: 600; }
 .crumb { font-size: .85rem; color: var(--muted); margin-bottom: 1.5rem; }
 .sub { color: var(--muted); margin: 0 0 1.5rem; }
-.desc { margin: 0 0 1.5rem; white-space: pre-wrap; }
+.desc { margin: 0 0 1.5rem; }
+.desc > :first-child { margin-top: 0; }
+.desc > :last-child { margin-bottom: 0; }
+.desc p { margin: 0 0 .85rem; }
+.desc h1, .desc h2, .desc h3, .desc h4, .desc h5, .desc h6 {
+  /* Headings inside a description are the author's, not the page's — they must
+     not inherit the uppercase section-label styling of the document's own h2. */
+  margin: 1.5rem 0 .5rem; text-transform: none; letter-spacing: normal;
+  color: var(--fg); font-weight: 600;
+}
+.desc h1 { font-size: 1.25rem; }
+.desc h2 { font-size: 1.1rem; }
+.desc h3, .desc h4, .desc h5, .desc h6 { font-size: 1rem; }
+.desc blockquote { margin: 0 0 .85rem; padding-left: .9rem;
+                   border-left: 3px solid var(--line); color: var(--muted); }
+.desc table { border-collapse: collapse; margin: 0 0 .85rem; font-size: .9rem; }
+.desc th, .desc td { border: 1px solid var(--line); padding: .3rem .6rem; text-align: left; }
+.desc hr { border: 0; border-top: 1px solid var(--line); margin: 1.25rem 0; }
+.desc ul, .desc ol { margin: 0 0 .85rem; padding-left: 1.4rem; }
+.desc code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .88em;
+             background: var(--card); border: 1px solid var(--line);
+             border-radius: 4px; padding: .05rem .3rem; }
+.desc pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+            padding: .8rem 1rem; overflow-x: auto; margin: 0 0 .85rem; }
+.desc pre code { background: none; border: 0; padding: 0; font-size: .85rem; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
         padding: .85rem 1rem; margin-bottom: .5rem; }
 .card.done { opacity: .72; }
 .tid { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8rem;
        color: var(--muted); margin-right: .5rem; }
+a.tid:hover { color: var(--accent); }
 .pill { display: inline-block; font-size: .72rem; padding: .1rem .5rem; border-radius: 999px;
         border: 1px solid var(--line); color: var(--muted); margin-left: .5rem; vertical-align: 1px; }
 .pill.done { color: var(--done); border-color: currentColor; }
@@ -129,15 +181,23 @@ function todoList(items: TodoItem[] | undefined, label: string): string {
   return `<div class="meta">${label}<ul>${rows}</ul></div>`;
 }
 
-function tackCard(t: Tack): string {
+// In a route document a tack is an anchor you can link *to*; in a group
+// document it has to be a link *out*, because several routes render into one
+// page and every one of them would otherwise claim `id="t1"`. Linking to the
+// route's own anchor gives each tack one canonical address either way.
+function tackCard(t: Tack, opts: { href?: string } = {}): string {
   const done = t.status === "done";
   const meta: string[] = [];
   if (t.deliverable) meta.push(`deliverable: ${link(t.deliverable.label, t.deliverable.url)}`);
   if (t.depends_on?.length) meta.push(`depends on ${esc(t.depends_on.join(", "))}`);
   for (const l of t.links ?? []) meta.push(link(l.label, l.url));
 
-  return `<div class="card${done ? " done" : ""}" id="${esc(t.id)}">
-  <div class="row"><div><span class="tid">${esc(t.id)}</span>${esc(t.summary)}</div>
+  const id = opts.href
+    ? `<a class="tid" href="${opts.href}">${esc(t.id)}</a>`
+    : `<span class="tid">${esc(t.id)}</span>`;
+
+  return `<div class="card${done ? " done" : ""}"${opts.href ? "" : ` id="${esc(t.id)}"`}>
+  <div class="row"><div>${id}${esc(t.summary)}</div>
   <span class="pill${done ? " done" : ""}">${esc(t.status)}</span></div>
   ${meta.length ? `<div class="meta">${meta.join(" &middot; ")}</div>` : ""}
   ${todoList(t.before, "before")}${todoList(t.after, "after")}
@@ -163,10 +223,16 @@ function editForm(r: Route): string {
 </details>`;
 }
 
-export function renderRoute(r: Route, opts: { crumb?: boolean; editable?: boolean } = {}): string {
+export function renderRoute(
+  r: Route,
+  opts: { crumb?: boolean; editable?: boolean; linkTacks?: boolean } = {},
+): string {
   const state = route.routeState(r);
   const open = r.tacks.filter(route.isOpen).length;
-  const head = `<div class="row"><h1>${esc(r.title ?? r.slug)}</h1>
+  const name = opts.linkTacks
+    ? `<a href="/route/${esc(r.slug)}">${esc(r.title ?? r.slug)}</a>`
+    : esc(r.title ?? r.slug);
+  const head = `<div class="row"><h1>${name}</h1>
     <span class="pill${state === "done" ? " done" : ""}">${state}</span></div>
     <p class="sub">${esc(r.slug)} &middot; ${open} open / ${r.tacks.length} total${
       r.group ? ` &middot; <a href="/group/${esc(r.group)}">${esc(r.group)}</a>` : ""
@@ -179,11 +245,15 @@ export function renderRoute(r: Route, opts: { crumb?: boolean; editable?: boolea
     : "";
 
   const tacks = r.tacks.length
-    ? r.tacks.map(tackCard).join("")
+    ? r.tacks
+        .map((t) =>
+          tackCard(t, opts.linkTacks ? { href: `/route/${esc(r.slug)}#${esc(t.id)}` } : {}),
+        )
+        .join("")
     : `<p class="empty">No tacks yet.</p>`;
 
   return `${opts.crumb === false ? "" : `<div class="crumb"><a href="/">all routes</a></div>`}
-${head}${r.description ? `<div class="desc">${esc(r.description)}</div>` : ""}${deps}
+${head}${r.description ? `<div class="desc">${markdown(r.description)}</div>` : ""}${deps}
 ${opts.editable === false ? "" : editForm(r)}
 <h2>Tacks</h2>${tacks}`;
 }
@@ -225,7 +295,7 @@ export function renderGroup(group: string, routes: Route[]): string {
   // No editor in the group view: the form posts to one route, and repeating it
   // per route in a combined document invites saving the wrong one.
   const body = routes
-    .map((r) => renderRoute(r, { crumb: false, editable: false }))
+    .map((r) => renderRoute(r, { crumb: false, editable: false, linkTacks: true }))
     .join('<hr style="border:0">');
   return `<div class="crumb"><a href="/">all routes</a></div><h1>${esc(group)}</h1>
     <p class="sub">${routes.length} routes</p>${body}`;

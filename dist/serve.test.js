@@ -295,3 +295,107 @@ describe("editing a route from the page", () => {
         });
     });
 });
+describe("description markdown", () => {
+    async function descHtml(base, slug) {
+        const body = await (await fetch(`${base}/route/${slug}`)).text();
+        return body.match(/<div class="desc">([\s\S]*?)<\/div>/)?.[1] ?? "";
+    }
+    it("renders bold, italic, and inline code", async () => {
+        route.init("md-inline");
+        route.setDescription("md-inline", "**bold** and *italic* and `code`");
+        await withServer(async (base) => {
+            const html = await descHtml(base, "md-inline");
+            assert.match(html, /<strong>bold<\/strong>/);
+            assert.match(html, /<em>italic<\/em>/);
+            assert.match(html, /<code>code<\/code>/);
+        });
+    });
+    it("renders headings, lists, and fenced code", async () => {
+        route.init("md-block");
+        route.setDescription("md-block", "## Plan\n\n- one\n- two\n\n1. first\n\n```\nliteral\n```");
+        await withServer(async (base) => {
+            const html = await descHtml(base, "md-block");
+            assert.match(html, /<h2>Plan<\/h2>/);
+            assert.match(html, /<li>one<\/li>/);
+            assert.match(html, /<ol>[\s\S]*<li>first<\/li>/);
+            assert.match(html, /<pre><code>literal\n<\/code><\/pre>/);
+        });
+    });
+    it("renders a link, and only for http(s)", async () => {
+        route.init("md-link");
+        route.setDescription("md-link", "[docs](https://example.com/x) and [bad](javascript:alert(1))");
+        await withServer(async (base) => {
+            const html = await descHtml(base, "md-link");
+            assert.match(html, /<a href="https:\/\/example\.com\/x">docs<\/a>/);
+            assert.doesNotMatch(html, /href="javascript:/);
+        });
+    });
+    it("refuses a data: link too", async () => {
+        route.init("md-data");
+        route.setDescription("md-data", "[x](data:text/html,<script>alert(1)</script>)");
+        await withServer(async (base) => {
+            assert.doesNotMatch(await descHtml(base, "md-data"), /href="data:/);
+        });
+    });
+    it("escapes rather than passes through raw HTML in the source", async () => {
+        route.init("md-xss");
+        route.setDescription("md-xss", "<img src=x onerror=alert(1)> **still bold**");
+        await withServer(async (base) => {
+            const html = await descHtml(base, "md-xss");
+            assert.doesNotMatch(html, /<img/);
+            assert.match(html, /&lt;img/);
+            assert.match(html, /<strong>still bold<\/strong>/);
+        });
+    });
+    it("keeps paragraphs separate", async () => {
+        route.init("md-para");
+        route.setDescription("md-para", "first para\n\nsecond para");
+        await withServer(async (base) => {
+            const html = await descHtml(base, "md-para");
+            assert.match(html, /<p>first para<\/p>/);
+            assert.match(html, /<p>second para<\/p>/);
+        });
+    });
+    it("leaves the editor showing the source, not the rendering", async () => {
+        route.init("md-source");
+        route.setDescription("md-source", "**bold**");
+        await withServer(async (base) => {
+            const body = await (await fetch(`${base}/route/md-source`)).text();
+            assert.match(body, /<textarea[^>]*>\*\*bold\*\*<\/textarea>/);
+        });
+    });
+});
+describe("group documents link out to each tack", () => {
+    it("points every tack at its own route's anchor", async () => {
+        route.init("ga", { group: "linked" });
+        route.addTack("ga", "one");
+        route.init("gb", { group: "linked" });
+        route.addTack("gb", "two");
+        await withServer(async (base) => {
+            const body = await (await fetch(`${base}/group/linked`)).text();
+            assert.match(body, /href="\/route\/ga#t1"/);
+            assert.match(body, /href="\/route\/gb#t1"/);
+            assert.match(body, /href="\/route\/ga"/);
+        });
+    });
+    // Several routes render into one group document, and each numbers its tacks
+    // from t1 — so anchoring them in place would emit the same id repeatedly and
+    // a link to #t1 would land on whichever came first.
+    it("emits no duplicate anchors across the routes it combines", async () => {
+        route.init("da", { group: "dup" });
+        route.addTack("da", "one");
+        route.init("db", { group: "dup" });
+        route.addTack("db", "also one");
+        await withServer(async (base) => {
+            const body = await (await fetch(`${base}/group/dup`)).text();
+            assert.equal(body.match(/id="t1"/g), null);
+        });
+    });
+    it("still anchors tacks in a single route document", async () => {
+        route.init("anchored");
+        route.addTack("anchored", "work");
+        await withServer(async (base) => {
+            assert.match(await (await fetch(`${base}/route/anchored`)).text(), /id="t1"/);
+        });
+    });
+});
