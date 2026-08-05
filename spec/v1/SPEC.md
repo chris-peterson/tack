@@ -72,7 +72,7 @@ Repo database (1 YAML file, ~/.tack/repos.yaml)
 
 ## Requirements
 
-### RTE — Route Schema
+### ROUTE — Route Schema
 
 **[ROUTE-01]** The route schema shall use YAML as the on-disk format.
 
@@ -251,7 +251,7 @@ route files may not exist locally).
 
 ---
 
-### STG — Storage
+### STORE — Storage
 
 **[STORE-01]** Route files shall be stored in `~/.tack/routes/`.
 
@@ -809,6 +809,14 @@ stored verbatim except for trailing newlines, which shall be stripped so a piped
 file and an equivalent inline argument produce the same stored value. A body that
 is empty once stripped shall fail rather than store an empty description, since
 that reads as a truncated pipe and `--clear` already removes the field.
+
+**[CLI-55]** Failures not reported at the call site — a route or tack that does
+not exist, a schema rule the write would break, an unrecognized flag — shall
+reach the caller as a single `tack: <message>` line on stderr with a non-zero
+exit, not as an interpreter stack trace. A failure raised while parsing
+arguments shall additionally point at `tack --help` ([CLI-38]). Setting the
+`TACK_DEBUG` environment variable shall restore the stack, which a message
+cannot substitute for when the throw is a defect rather than a refusal.
 
 ---
 

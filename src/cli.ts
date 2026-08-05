@@ -218,6 +218,22 @@ function readVersion(): string {
 }
 
 
+// Everything the CLI throws is an ordinary caller condition — an unknown flag,
+// a slug that doesn't exist, a schema rule the write would break — so the
+// message is the whole of what the caller can act on. Set TACK_DEBUG to get the
+// stack back when the throw is a genuine bug rather than a refusal.
+function fail(e: unknown): never {
+  const err = e as NodeJS.ErrnoException;
+  if (process.env.TACK_DEBUG) {
+    console.error(err?.stack ?? String(e));
+  } else {
+    console.error(`tack: ${err?.message ?? String(e)}`);
+    // parseArgs names the offending flag but not where to look it up.
+    if (err?.code?.startsWith("ERR_PARSE_ARGS_")) console.error("Run `tack --help` for usage.");
+  }
+  process.exit(1);
+}
+
 function run(): void {
   const args = process.argv.slice(2);
 
@@ -1004,4 +1020,8 @@ function run(): void {
   }
 }
 
-run();
+try {
+  run();
+} catch (e) {
+  fail(e);
+}

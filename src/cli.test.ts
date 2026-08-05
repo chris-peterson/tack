@@ -870,6 +870,34 @@ describe("tack add --link splits label from url (issue #28)", () => {
   });
 });
 
+describe("top-level error handler", () => {
+  it("reports a missing route as a message, not a stack trace", () => {
+    const r = runCapture(["status", "no-such-route"]);
+    assert.equal(r.status, 1);
+    assert.equal(r.stdout, "");
+    assert.match(r.stderr, /^tack: Route not found: no-such-route$/m);
+    assert.doesNotMatch(r.stderr, /\n\s+at /);
+  });
+
+  it("reports an unknown flag and points at --help", () => {
+    const r = runCapture(["done", "some-route", "t1", "--nope"]);
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /^tack: Unknown option '--nope'/m);
+    assert.match(r.stderr, /Run `tack --help` for usage\./);
+    assert.doesNotMatch(r.stderr, /\n\s+at /);
+  });
+
+  it("restores the stack under TACK_DEBUG", () => {
+    const r = spawnSync("node", [cli, "status", "no-such-route"], {
+      env: { ...env, TACK_DEBUG: "1" },
+      encoding: "utf-8",
+    });
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /Error: Route not found: no-such-route/);
+    assert.match(r.stderr, /\n\s+at /);
+  });
+});
+
 describe("tack rm refuses without --force", () => {
   it("puts the refusal on stderr and leaves stdout empty", () => {
     runFail(["init", "rm-refuse"]);
