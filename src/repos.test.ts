@@ -228,3 +228,28 @@ describe("removeRepo (CLI-46)", () => {
     assert.throws(() => repos.removeRepo("alpha"), /matches 2 repos/);
   });
 });
+
+describe("repoKeyFromForgeUrl and the GitLab work-item paths (issue #33)", () => {
+  it("derives the same repo key from work_items as from issues", () => {
+    assert.equal(
+      repos.repoKeyFromForgeUrl("https://gitlab.example.com/group/repo/-/work_items/9"),
+      repos.repoKeyFromForgeUrl("https://gitlab.example.com/group/repo/-/issues/9"),
+    );
+  });
+
+  // Both can be group-scoped, where the captured segment is a group rather than
+  // a repo; recording that would put a non-repo entry in the database.
+  it("derives no repo key from a group epic", () => {
+    assert.equal(
+      repos.repoKeyFromForgeUrl("https://gitlab.example.com/groups/mygroup/-/epics/5"),
+      null,
+    );
+  });
+
+  it("derives no repo key from a milestone", () => {
+    assert.equal(
+      repos.repoKeyFromForgeUrl("https://gitlab.example.com/group/repo/-/milestones/3"),
+      null,
+    );
+  });
+});

@@ -417,6 +417,15 @@ describe("deriveDeliverableLabel", () => {
     it("parses GitLab issue URLs", () => {
         assert.equal(route.deriveDeliverableLabel("https://gitlab.example.com/group/repo/-/issues/12"), "repo#12");
     });
+    it("parses GitLab work_items URLs identically to issues (issue #33)", () => {
+        assert.equal(route.deriveDeliverableLabel("https://gitlab.example.com/group/repo/-/work_items/12"), "repo#12");
+    });
+    it("parses GitLab epic URLs with GitLab's & reference sigil", () => {
+        assert.equal(route.deriveDeliverableLabel("https://gitlab.example.com/groups/mygroup/-/epics/5"), "mygroup&5");
+    });
+    it("parses GitLab milestone URLs with GitLab's % reference sigil", () => {
+        assert.equal(route.deriveDeliverableLabel("https://gitlab.example.com/group/repo/-/milestones/3"), "repo%3");
+    });
     it("parses GitHub commit URLs to repo@sha7", () => {
         assert.equal(route.deriveDeliverableLabel("https://github.com/owner/repo/commit/44cf536abc1234567890"), "repo@44cf536");
     });
@@ -1465,5 +1474,43 @@ describe("filename and internal slug must agree", () => {
         // real-slug.yaml, leaving two files and a route the user can't address.
         assert.throws(() => route.addTack("other-name", "work"));
         assert.ok(!existsSync(join(routes, "real-slug.yaml")));
+    });
+});
+describe("work_items and issues are one URL when matching (issue #33)", () => {
+    it("find matches a work_items URL against a stored issues URL", () => {
+        route.init("wi-find");
+        route.addTack("wi-find", "work");
+        route.addLink("wi-find", "t1", "issue", "https://gitlab.example.com/g/p/-/issues/9");
+        const hits = route.find("https://gitlab.example.com/g/p/-/work_items/9");
+        assert.equal(hits.length, 1);
+        assert.equal(hits[0].slug, "wi-find");
+    });
+    it("find matches an issues URL against a stored work_items URL", () => {
+        route.init("wi-find-rev");
+        route.addTack("wi-find-rev", "work");
+        route.addLink("wi-find-rev", "t1", "issue", "https://gitlab.example.com/g/p/-/work_items/9");
+        assert.equal(route.find("https://gitlab.example.com/g/p/-/issues/9").length, 1);
+    });
+    it("does not collapse different issue numbers", () => {
+        route.init("wi-distinct");
+        route.addTack("wi-distinct", "work");
+        route.addLink("wi-distinct", "t1", "issue", "https://gitlab.example.com/g/p/-/issues/9");
+        assert.equal(route.find("https://gitlab.example.com/g/p/-/work_items/10").length, 0);
+    });
+    it("does not collapse across projects", () => {
+        route.init("wi-proj");
+        route.addTack("wi-proj", "work");
+        route.addLink("wi-proj", "t1", "issue", "https://gitlab.example.com/g/p/-/issues/9");
+        assert.equal(route.find("https://gitlab.example.com/g/other/-/work_items/9").length, 0);
+    });
+    it("stores the URL exactly as given", () => {
+        route.init("wi-verbatim");
+        route.addTack("wi-verbatim", "work");
+        const url = "https://gitlab.example.com/g/p/-/work_items/9";
+        route.addLink("wi-verbatim", "t1", "issue", url);
+        assert.equal(route.load("wi-verbatim").tacks[0].links?.[0].url, url);
+    });
+    it("leaves GitHub URLs untouched", () => {
+        assert.equal(route.canonicalizeUrl("https://github.com/o/r/issues/9"), "https://github.com/o/r/issues/9");
     });
 });

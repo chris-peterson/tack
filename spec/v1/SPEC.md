@@ -496,9 +496,12 @@ in_progress, `[x]` done, `[!]` blocked, `[-]` dropped. Todo items shall use
 **[CLI-23]** `tack find --url <url> [--json]` — When invoked with `--url`, the
 CLI shall search all routes for tacks whose deliverable URL or link URLs match
 the given URL, and display each match as a tree: route slug, tack summary, and
-the matching deliverable or link. When `--json` is passed, the CLI shall output
-the results as JSON. If no matches are found, the CLI shall report that no tacks
-reference the given URL.
+the matching deliverable or link. Matching is exact, except that a GitLab
+`/-/work_items/<n>` URL and the `/-/issues/<n>` URL for the same project and
+number shall match each other ([CLI-37]) — one issue, two paths. Canonicalization
+applies to the comparison only; URLs are stored as given. When `--json` is
+passed, the CLI shall output the results as JSON. If no matches are found, the
+CLI shall report that no tacks reference the given URL.
 
 **[CLI-23a]** `tack find --path [<dir>] [--json]` — When invoked with `--path`,
 the CLI shall resolve the given directory (default the current working
@@ -624,11 +627,23 @@ source route.
 **[CLI-37]** The PR/MR/issue URL recognition used for deliverable
 auto-derivation and label extraction ([CLI-04], [CLI-08], [CLI-13]) shall support
 two forges: GitHub (`https://github.com/<owner>/<repo>/pull/<n>` and
-`/issues/<n>`) and GitLab (`https://gitlab.<host>/<group>/<repo>/-/merge_requests/<n>`
-and `/-/issues/<n>`). The derived label is `<repo>#<n>` for a PR or issue and
-`<repo>!<n>` for an MR. URLs from other forges are recorded verbatim as links
-or labels but are not classified as PR/MR/issue. The hook scanners ([HOOK-02],
-[HOOK-03]) recognize the same two forges.
+`/issues/<n>`) and GitLab (`https://gitlab.<host>/<group>/<repo>/-/merge_requests/<n>`,
+`/-/issues/<n>`, and `/-/work_items/<n>`). The derived label is `<repo>#<n>` for
+a PR or issue and `<repo>!<n>` for an MR. GitLab serves one issue from both
+`/-/issues/<n>` and `/-/work_items/<n>`; the CLI shall recognize both and derive
+the same label and `issue` kind from each. URLs from other forges are recorded
+verbatim as links or labels but are not classified as PR/MR/issue. The hook
+scanners ([HOOK-02], [HOOK-03]) recognize the same two forges.
+
+**[CLI-37b]** GitLab epic (`https://gitlab.<host>/groups/<group>/-/epics/<n>`)
+and milestone (`/-/milestones/<n>`) URLs shall additionally be recognized for
+label derivation ([CLI-04], [CLI-08]), producing `<group>&<n>` and `<repo>%<n>`
+respectively — GitLab's own reference syntax. Neither is a change request: they
+shall not be promoted to a deliverable on `tack done` ([CLI-05]). Both shall be
+surfaced by the hook scanners ([HOOK-02], [HOOK-03]), which nudge the agent to
+record them as links ([AGT-06]). Neither shall contribute an entry to the repo
+database ([REPO-06]): both can be group-scoped, where the path carries a group
+rather than a repo.
 
 **[CLI-37a]** Commit URLs — `https://github.com/<owner>/<repo>/commit/<sha>` and
 `https://gitlab.<host>/<group>/<repo>/-/commit/<sha>` — are additionally
@@ -705,7 +720,8 @@ re-run. It backfills the database for routes recorded before capture existed.
 **[CLI-48]** Duplicate-URL warning — When a URL is attached as a deliverable
 (`tack add --deliverable`, `tack deliverable`) or a link (`tack link add`),
 the CLI shall check whether the same URL already appears as a deliverable or
-link on any other tack (the same exact-URL match as `tack find`, [CLI-23]), and
+link on any other tack (the same match rule as `tack find`, [CLI-23], so the two
+GitLab issue paths warn against each other), and
 if so shall print a warning to stderr that names the existing route(s) and tack
 id(s) with a `warning: url already on ` prefix. The tack being mutated is
 excluded, so re-attaching a URL already present on that same tack does not
