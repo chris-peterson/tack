@@ -1079,7 +1079,7 @@ export function mergeRoutes(
     throw new Error("merge-routes requires at least one source route");
   }
   // The destination is created from these arguments, so they get the same
-  // boundary check as init's ([STG-08]) rather than reaching save().
+  // boundary check as init's ([STORE-08]) rather than reaching save().
   assertValidSlug(newSlug);
   if (opts.group) assertValidSlug(opts.group, "group");
   const srcSet = new Set<string>();

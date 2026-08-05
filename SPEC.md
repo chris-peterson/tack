@@ -60,13 +60,13 @@ Route (1 YAML file per route)
 
 | Category | Description |
 |---|---|
-| RTE | Route schema structure and constraints |
+| ROUTE | Route schema structure and constraints |
 | TACK | Tack fields, statuses, and ID sequencing |
 | DEL | Deliverable (single change request per tack) |
 | TODO | Todo items (before/after arrays with IDs) |
 | DEP | Dependency tracking and enforcement |
 | LINK | Link structure (label + url) |
-| STG | Storage location, directory creation, validation, cwd pointer file |
+| STORE | Storage location, directory creation, validation, cwd pointer file |
 | CLI | CLI commands and output behavior |
 | AGT | Claude Code agent integration (skill responsibilities) |
 | HOOK | Hook responsibilities (nudges, freshness checks) |

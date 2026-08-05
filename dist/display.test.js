@@ -82,7 +82,7 @@ describe("formatRoute", () => {
         const out = formatRoute(route);
         assert.ok(out.includes("[>] t1: Build it"));
     });
-    it("shows the title alongside the slug, not in place of it (RTE-04)", () => {
+    it("shows the title alongside the slug, not in place of it (ROUTE-04)", () => {
         const route = {
             id: "uuid",
             slug: "auth-rewrite",
