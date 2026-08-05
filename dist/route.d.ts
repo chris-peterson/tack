@@ -86,6 +86,7 @@ export interface FindMatch {
     label: string;
     url: string;
 }
+export declare function canonicalizeUrl(url: string): string;
 export declare function find(url: string): FindMatch[];
 export declare function findByRepoKey(key: string): FindMatch[];
 export declare function findCollisions(url: string, exclude: {

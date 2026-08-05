@@ -146,6 +146,16 @@ tool output or user prompts. When you see one:
      one (e.g. an unrecognized forge URL, or you want prose).
    - Other URLs (issues, docs, threads) → `tack link add <slug> <tack-id>
      "<label>" "<url>"`
+   - **Epics and milestones are links, never deliverables.** A deliverable is
+     the change request a tack produces; an epic or milestone is a container
+     the work sits inside, so several tacks can share one and none of them
+     *is* it. Labels derive as `<group>&<n>` and `<repo>%<n>`, GitLab's own
+     reference syntax.
+   - GitLab serves the same issue from `/-/issues/<n>` and `/-/work_items/<n>`.
+     Both are recognized and derive the same `<repo>#<n>` label. They are
+     stored as written, so recording one form when the other is already
+     attached leaves two links pointing at one issue — prefer whichever form
+     the route already uses.
 
    Before calling `tack deliverable`, verify the tack ID with `tack tree
    <slug>` (or read the YAML). `tack deliverable` refuses to overwrite an

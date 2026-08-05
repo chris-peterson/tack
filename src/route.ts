@@ -602,10 +602,11 @@ export function dropTodo(slug: string, tackId: string, todoId: string): Tack {
   return tack;
 }
 
-type ChangeRefKind = "pr" | "mr" | "issue" | "commit";
+type ChangeRefKind = "pr" | "mr" | "issue" | "commit" | "epic" | "milestone";
 interface ChangeRef {
   repo: string;
-  // PR/MR/issue number, or the abbreviated (7-char) sha for a commit.
+  // PR/MR/issue/epic/milestone number, or the abbreviated (7-char) sha for a
+  // commit.
   ref: string;
   kind: ChangeRefKind;
 }
@@ -623,11 +624,22 @@ function parseChangeRefUrl(url: string): ChangeRef | null {
   if (ghCommit) {
     return { repo: ghCommit[1], ref: ghCommit[2].slice(0, 7), kind: "commit" };
   }
+  // `work_items` is GitLab's newer path for the same issue `/-/issues/<n>`
+  // serves, so it derives the same ref. Epics live under /groups/<group>/-/,
+  // which puts the group where a project name sits in the other forms — the
+  // captured name is the group, which is what an epic belongs to.
   const gl = url.match(
-    /^https:\/\/gitlab\.[^/]*\/.*?\/([^/]+)\/-\/(merge_requests|issues)\/(\d+)/,
+    /^https:\/\/gitlab\.[^/]*\/.*?\/([^/]+)\/-\/(merge_requests|issues|work_items|epics|milestones)\/(\d+)/,
   );
   if (gl) {
-    return { repo: gl[1], ref: gl[3], kind: gl[2] === "merge_requests" ? "mr" : "issue" };
+    const kinds: Record<string, ChangeRefKind> = {
+      merge_requests: "mr",
+      issues: "issue",
+      work_items: "issue",
+      epics: "epic",
+      milestones: "milestone",
+    };
+    return { repo: gl[1], ref: gl[3], kind: kinds[gl[2]] };
   }
   const glCommit = url.match(
     /^https:\/\/gitlab\.[^/]*\/.*?\/([^/]+)\/-\/commit\/([0-9a-f]+)/i,
@@ -645,11 +657,14 @@ function isPrOrMrUrl(url: string): boolean {
 
 // Canonical forge notation attaches a kind-specific sigil to the repo:
 // `repo#42` for a PR/issue, `repo!99` for an MR, `repo@<sha7>` for a commit.
+// Epics and milestones reuse GitLab's own reference syntax, `&` and `%`.
 const CHANGE_REF_SIGIL: Record<ChangeRefKind, string> = {
   pr: "#",
   issue: "#",
   mr: "!",
   commit: "@",
+  epic: "&",
+  milestone: "%",
 };
 
 export function deriveDeliverableLabel(url: string): string {
@@ -819,8 +834,20 @@ function findBy(accepts: (url: string) => boolean): FindMatch[] {
   return matches;
 }
 
+// GitLab serves one issue from two paths, so two recordings of the same issue
+// are not string-equal. Canonicalize the newer form onto the older one for
+// comparison only — stored URLs stay exactly as the caller gave them, since
+// that is the link the user actually followed.
+export function canonicalizeUrl(url: string): string {
+  return url.replace(
+    /^(https:\/\/gitlab\.[^/]*\/.*?\/-\/)work_items(\/\d+)/,
+    "$1issues$2",
+  );
+}
+
 export function find(url: string): FindMatch[] {
-  return findBy((u) => u === url);
+  const target = canonicalizeUrl(url);
+  return findBy((u) => canonicalizeUrl(u) === target);
 }
 
 // CLI-23a: return every tack whose deliverable or link URL belongs to the given

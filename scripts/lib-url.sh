@@ -3,8 +3,10 @@
 # hooks/capture-urls.sh), which source this by relative path.
 # Source this; don't execute it.
 
-# The pattern both hooks use to spot a GitHub PR/issue or GitLab MR/issue URL.
-URL_PATTERN='https://(github\.com/[^/]+/[^/]+/(pull|issues)|gitlab\.[^[:space:]]*/-/(merge_requests|issues))/[0-9]+'
+# The pattern both hooks use to spot a GitHub PR/issue or GitLab MR/issue/
+# epic/milestone URL. GitLab serves issues from both /-/issues/<n> and the newer
+# /-/work_items/<n>; both are live, so both are matched.
+URL_PATTERN='https://(github\.com/[^/]+/[^/]+/(pull|issues)|gitlab\.[^[:space:]]*/-/(merge_requests|issues|work_items|epics|milestones))/[0-9]+'
 
 # url_nudges <text> <source-label>
 #

@@ -60,8 +60,13 @@ export function repoKeyFromForgeUrl(url: string): string | null {
   );
   if (gh) return `${gh[1]}/${gh[2]}/${gh[3].replace(/\.git$/, "")}`;
 
+  // `work_items` is the same project-scoped issue as `issues`, so it yields the
+  // same repo key. Epics and milestones are deliberately absent: both can be
+  // group-scoped (`/groups/<group>/-/…`), where the path segment that would be
+  // captured is a group rather than a repo — recording that as a repo would put
+  // a non-repo entry in the database.
   const gl = url.match(
-    /^https:\/\/(gitlab\.[^/]+)\/(.+?)\/-\/(?:merge_requests|issues|commit)\//i,
+    /^https:\/\/(gitlab\.[^/]+)\/(.+?)\/-\/(?:merge_requests|issues|work_items|commit)\//i,
   );
   if (gl) return `${gl[1]}/${gl[2].replace(/\.git$/, "")}`;
 
