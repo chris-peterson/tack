@@ -609,6 +609,12 @@ Run `tack install-cli` first. The unit invokes `~/.local/bin/tack`, not the
 versioned plugin path, so upgrading the plugin doesn't leave the unit pointing
 at a directory that no longer exists.
 
+A supervisor starts the unit outside any shell, so it inherits no PATH —
+launchd gives an agent `/usr/bin:/bin:/usr/sbin:/sbin`, which reaches neither
+`/opt/homebrew/bin` nor an nvm version directory. The unit therefore carries a
+copy of the PATH from the shell that ran `install`. That copy is a snapshot: move
+node and re-run `tack serve install` to refresh it.
+
 ```bash
 tack serve install
 tack serve status

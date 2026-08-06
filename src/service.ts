@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
-import { join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 
 // A supervised `tack serve`, so the documents are up whenever a link is
 // clicked. Opt-in: bare `tack serve` in the foreground stays the default, and
@@ -16,6 +16,30 @@ export type Supervisor = "launchd" | "systemd" | "none";
 // a directory that no longer exists.
 export function wrapperPath(): string {
   return join(homedir(), ".local", "bin", "tack");
+}
+
+// A supervisor starts the unit outside any shell, so it inherits none of the
+// user's PATH: launchd sets no PATH at all (the agent gets
+// /usr/bin:/bin:/usr/sbin:/sbin) and a systemd user unit gets a similarly bare
+// one. Neither reaches wherever node lives — /opt/homebrew/bin, an nvm version
+// dir — so the wrapper's `exec node` exits 127 and KeepAlive/Restart respawns
+// it forever, which reads as "loaded, serving nothing". The unit carries the
+// PATH from the shell that installed it, which by construction can reach node;
+// re-run `tack serve install` after moving node to refresh the snapshot. The
+// running node's own directory comes last, so an install invoked by absolute
+// path works even with node on no PATH at all, while a shell PATH entry still
+// wins — process.execPath resolves symlinks, so it names a version-specific
+// directory (/opt/homebrew/Cellar/node/26.5.0/bin) that the next node upgrade
+// removes, where the /opt/homebrew/bin the shell offers survives it.
+export function servicePath(): string {
+  const seen = new Set<string>();
+  const dirs: string[] = [];
+  for (const dir of [...(process.env.PATH ?? "").split(delimiter), dirname(process.execPath)]) {
+    if (!dir || seen.has(dir)) continue;
+    seen.add(dir);
+    dirs.push(dir);
+  }
+  return dirs.join(delimiter);
 }
 
 function plistPath(): string {
@@ -53,9 +77,24 @@ function run(cmd: string, args: string[]): { ok: boolean; err: string } {
   }
 }
 
-export function renderPlist(wrapper: string, port: number, log: string, errLog: string): string {
+// launchctl rejects a malformed plist outright, and PATH is the one value here
+// the user could have put an `&` or a `<` into.
+function xml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+export function renderPlist(
+  wrapper: string,
+  port: number,
+  log: string,
+  errLog: string,
+  path: string,
+): string {
   const args = [wrapper, "serve", "--port", String(port)]
-    .map((a) => `        <string>${a}</string>`)
+    .map((a) => `        <string>${xml(a)}</string>`)
     .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -67,25 +106,34 @@ export function renderPlist(wrapper: string, port: number, log: string, errLog: 
     <array>
 ${args}
     </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>${xml(path)}</string>
+    </dict>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>${log}</string>
+    <string>${xml(log)}</string>
     <key>StandardErrorPath</key>
-    <string>${errLog}</string>
+    <string>${xml(errLog)}</string>
 </dict>
 </plist>
 `;
 }
 
-export function renderUnit(wrapper: string, port: number): string {
+export function renderUnit(wrapper: string, port: number, path: string): string {
+  // systemd reads `%` as the start of a specifier, and splits an unquoted value
+  // on whitespace.
+  const env = path.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/%/g, "%%");
   return `[Unit]
 Description=tack route documents (serve)
 After=default.target
 
 [Service]
+Environment="PATH=${env}"
 ExecStart=${wrapper} serve --port ${port}
 Restart=always
 RestartSec=2
@@ -118,7 +166,13 @@ export function install(port: number): void {
     mkdirSync(join(homedir(), "Library", "LaunchAgents"), { recursive: true });
     writeFileSync(
       plistPath(),
-      renderPlist(wrapper, port, join(logDir, "serve.log"), join(logDir, "serve.err.log")),
+      renderPlist(
+        wrapper,
+        port,
+        join(logDir, "serve.log"),
+        join(logDir, "serve.err.log"),
+        servicePath(),
+      ),
     );
     run("launchctl", ["unload", plistPath()]);
     const loaded = run("launchctl", ["load", plistPath()]);
@@ -128,7 +182,7 @@ export function install(port: number): void {
   }
 
   mkdirSync(join(homedir(), ".config", "systemd", "user"), { recursive: true });
-  writeFileSync(unitPath(), renderUnit(wrapper, port));
+  writeFileSync(unitPath(), renderUnit(wrapper, port, servicePath()));
   run("systemctl", ["--user", "daemon-reload"]);
   const enabled = run("systemctl", ["--user", "enable", "--now", "tack-serve.service"]);
   if (!enabled.ok) throw new Error(`systemctl enable failed: ${enabled.err}`);
