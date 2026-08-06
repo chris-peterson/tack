@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.0.0
+
+1.0 makes the version number a promise. The schema and the CLI were always the product — anything that reads `~/.tack/routes/*.yaml` or shells out to `tack` is a first-class consumer — but nothing said which of those surfaces a consumer could build on. Now something does, and the release that declares it also ships the two features a stable major shouldn't have to precede.
+
+### The compatibility contract
+
+- **`1.x` freezes four surfaces: the route schema, the CLI grammar, exit codes, and `--json` output shapes.** They grow by addition only — new optional fields, commands, flags, and keys arrive in minor releases, so a consumer should tolerate keys it doesn't recognize. Removing or renaming anything in that set, changing what a field means, or refusing input an earlier `1.x` accepted waits for 2.0. Deliberately left free to move: human-readable output, error wording, `~/.tack/pins.yaml` and `~/.tack/repos.yaml` (the CLI's own bookkeeping, reached through `tack pin` / `tack pins` / `tack repo`), and the Claude Code plugin's prose. The full contract is the COMPAT requirements in `spec/v1/SPEC.md`, summarized in the README.
+- **Compatibility runs one way.** A release reads what earlier ones wrote, but the route schema rejects fields it doesn't know — so downgrading after a newer release has written a new field into your routes leaves them unreadable until you upgrade again. Worth knowing before you run two versions against one `~/.tack`.
+
+### Added
+
+- **`tack serve` renders your routes as web documents on `http://127.0.0.1:8788/`.** tack recorded far more than it ever showed: titles, descriptions, groups, dependencies, sessions, and per-tack deliverables, todos, and links, all reachable only through `tack status` in a terminal. Three views now — an index, one route at `/route/<slug>`, a whole group at `/group/<slug>` — with a tack as an anchor inside its route so a link lands in context. The server holds nothing: every request re-reads `~/.tack/routes/`, so a document can't disagree with the CLI and an edit shows on reload. Descriptions render as markdown rather than showing their source. Each path also serves JSON in the same shape as `tack list --json` when you ask for it with `Accept: application/json`, which makes a dashboard a first-class reader instead of something that shells out. A route's title and description are editable from the page; everything else stays the CLI's to change. `tack serve install` manages a launchd agent or systemd user unit for people who want it always up.
+- **`tack status` links into those documents.** In a terminal that supports OSC 8 hyperlinks — iTerm2, WezTerm, kitty, ghostty, VS Code, GNOME Terminal — the route slug and each tack id become clickable. Piped or redirected output stays plain text, so captured output is unchanged. `TACK_HYPERLINKS=0`/`1` forces the choice and `TACK_SERVE_PORT` points the links at a server on another port.
+- **`tack reconcile` closes the tacks whose deliverables have merged.** A merged PR used to leave its tack open until someone noticed and typed `tack done`. This asks the forge and closes what landed, stamping `done_at` with the *merge* timestamp rather than the time of the sweep, so catching up a week later still dates the work correctly. Only open tacks whose deliverable is a pull or merge request are queried — issues, epics, milestones, and commits don't merge. `--dry-run` reports without writing. It is the only command that touches a network, and it reaches GitHub and GitLab through `gh` and `glab`, so it uses the login those already have and never handles a credential of yours.
+- **A route reports a derived `state`.** `done` when it holds tacks and none is open, `active` otherwise, reopening the moment a fresh tack lands. It is computed on the way out and never stored, so it can't drift from the tacks it summarizes. `tack list` marks finished routes and the `--json` forms carry the key.
+- **GitLab `work_items`, epics, and milestones are recognized** (issue #33). GitLab serves issues from `/-/work_items/<n>` as well as `/-/issues/<n>`, and only the latter matched — so a URL printed from a self-hosted GitLab produced no nudge and no record, indistinguishable from no URL at all. Epics and milestones label as `<group>&<n>` and `<repo>%<n>`, GitLab's own reference syntax, and attach as links rather than deliverables since neither is a change request. `tack find` treats the two issue paths as the same issue, so one issue reachable at two URLs no longer reads as two unrelated references.
+
+### Changed
+
+- **Failures print a message instead of a stack trace.** `tack status no-such-route` used to answer with five frames of interpreter internals, and an unrecognized flag looked like a crash rather than a typo. Every failure the CLI doesn't handle at the call site now reaches you as a single `tack: <message>` line on stderr with a non-zero exit, and an argument-parsing failure adds a pointer to `tack --help`. Set `TACK_DEBUG` to get the stack back when a throw is a real defect. If you parse tack's stderr, this changes what you'll read.
+- **A route's `created_at` can no longer postdate its own work.** Routes created during a consolidation pass stamped `now()` while the tacks backfilled into them carried historical dates, which left routes whose earliest tack predated their own creation by months. `created_at` now floors to the earliest tack date on write. It only ratchets earlier — deleting the earliest tack doesn't push creation forward, because a route's birth doesn't un-happen. Existing routes are corrected on their next write.
+- **One unreadable route file now fails the whole listing.** A command that reads every route — a listing, a cross-route search, an export — stops at the first file that fails validation or whose filename disagrees with its internal `slug`, rather than skipping it and reporting the rest. A skipped route is an invisible route: the output looks complete while the work recorded in that file is silently missing.
+- **Slugs are checked when you type them, not when the file is written.** `tack init`, `rename`, `group`, and `merge-routes` validate at the command boundary and report the rule by name, instead of failing later inside `save()` after the command already looked like it worked.
+
+### Fixed
+
+- **A comma in a `--link` label no longer corrupts the URL** (issue #28). `tack add --link "a, b,https://x"` split at the first comma and aborted the add; the split now lands at the first comma whose remainder parses as a URL, so commas are fine in the label and in the URL.
+- **`tack rm` without `--force` puts its refusal on stderr** and exits non-zero with stdout empty, so a scripted caller that captures stdout sees nothing rather than a confirmation prompt it can't answer.
+- **A route file whose internal `slug` disagrees with its filename is refused.** Writes resolve their path from the `slug`, so a file loaded under one name would have been written back under the other on the next mutation — silently renaming the route.
+- **The docs site shows its hero image and a sidebar you can navigate.** The homepage art had 404'd since the build tooling changed; the sidebar listed four flat links with no way into a page.
+
+### Also in this release
+
+CI now gates what 1.0 freezes: the committed `dist/`, a CLI grammar snapshot compared against `tack --help`, schema conformance for every published example, shellcheck over the hook scripts, and generated-artifact drift. Spec categories were renamed `RTE`→`ROUTE` and `STG`→`STORE`, and the deferred `FUT` set was dropped as out of scope rather than carried. The test suite went 296 → 410.
+
 ## 0.29.0
 
 ### Added
