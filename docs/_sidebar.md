@@ -12,6 +12,8 @@
   - [Deliverable](/cli?id=deliverable)
   - [Todos](/cli?id=todos)
   - [Links](/cli?id=links)
+  - [Reconcile](/cli?id=reconcile)
+  - [Documents](/cli?id=documents)
   - [Pinning](/cli?id=pinning)
   - [Backup](/cli?id=backup)
 - [Examples & Visualizations](/examples)
