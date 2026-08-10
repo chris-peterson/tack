@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`scripts/shipyard` works on a machine that hasn't run it before.** It reset its cached checkout to `origin/v1`, a remote-tracking branch that stopped existing when shipyard began publishing `v1` as a tag: the first run cloned and worked, and every run after it failed with `fatal: ambiguous argument 'origin/v1'`. A cache created before that switch kept resolving the stale ref instead, pinning the build tooling to whatever commit it still pointed at. Both cases now reset to the fetched ref, which resolves a tag and a branch alike.
+
+### Changed
+
+- **The docs site's hero image comes from `assets/`, not a second copy under `docs/`.** Only `docs/` is published, which is why the art was duplicated there; the build now copies the plugin's `assets/` into the published tree and fails if a page references a file that tree doesn't carry. Deleting `assets/hero.svg` is a red build instead of a blank homepage.
+
 ## 1.0.0
 
 1.0 makes the version number a promise. The schema and the CLI were always the product — anything that reads `~/.tack/routes/*.yaml` or shells out to `tack` is a first-class consumer — but nothing said which of those surfaces a consumer could build on. Now something does, and the release that declares it also ships the two features a stable major shouldn't have to precede.
