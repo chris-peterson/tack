@@ -2,10 +2,10 @@
 name: tack
 description: >
   Track AI-assisted development work with the `tack` route tracker, spanning
-  session boundaries. This skill should be used at session start to answer
-  "what am I working on?" and load context on current work, and when the user
-  refers to tack routes, tacks, or recording a PR/MR deliverable against
-  tracked work.
+  session boundaries. This skill should be used to answer "what am I working
+  on?" and load context on current work, and when the user refers to tack
+  routes, tacks, or recording a PR/MR deliverable against tracked work.
+  Opening and closing a session belong to the start and end skills.
 argument-hint: "[command]"
 ---
 

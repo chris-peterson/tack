@@ -3,9 +3,9 @@
 Tracking status of the requirements declared in [`spec/v1/SPEC.md`](spec/v1/SPEC.md).
 Updated after each `/sextant:spec-status` or `/sextant:spec-sync` run.
 
-**Last audit:** 2026-08-05
+**Last audit:** 2026-08-14
 **Spec version:** v1
-**Coverage:** 164 / 164 source-verified normative behaviors (100%) — 0 Partial, 0 Missing, 0 Contradicts
+**Coverage:** 190 / 190 source-verified normative behaviors (100%) — 0 Partial, 0 Missing, 0 Contradicts
 
 This `/sextant:spec-sync` pass captured one drift item: the new
 `tack merge-routes` command (issue #8) shipped without a requirement. Added as
@@ -22,19 +22,32 @@ Source-verified count moves 122 → 127.
 |--------|------:|--------|-------|
 | ROUTE-01..14 (routes) | 14 | All Covered | `src/types.ts`, `schema/route.schema.json`, `src/route.ts`; ROUTE-04 optional fields now include `title`/`description` (`Route` in `src/types.ts`, rendered by `formatRoute` in `src/display.ts`); includes ROUTE-09/ROUTE-10 sessions and ROUTE-11 session→tack binding (`Session.tacks`); ROUTE-12 states the slug pattern enforced by `schema/route.schema.json` and `assertValidSlug` (`src/route.ts`); ROUTE-13 derived route state (`routeState` in `src/route.ts`, surfaced by `formatRoute`/`formatList` in `src/display.ts` and the `--json` paths in `src/cli.ts`, never written to the file); ROUTE-14 `created_at` floor (`floorCreatedAt`, applied in `save`) |
 | TACK-01..08 (tacks) | 8 | All Covered | `src/route.ts`; TACK-08 bare-id resolution (`normalizeTackId`) |
-| DEL-01..02 (deliverables) | 2 | All Covered | `src/types.ts`, `src/route.ts` |
+| DELIVER-01..02 (deliverables) | 2 | All Covered | `src/types.ts`, `src/route.ts` |
 | TODO-01..05 (todos) | 5 | All Covered | `src/route.ts`; TODO-01 reworded to shall form |
-| DEP-01..04 (dependencies) | 4 | All Covered | `src/route.ts` |
-| LINK-01 (links) | 1 | Covered | `src/types.ts` |
+| DEPENDS-01..04 (dependencies) | 4 | All Covered | `src/route.ts` |
+| LINKS-01 (links) | 1 | Covered | `src/types.ts` |
 | STORE-01..09 (storage) | 9 | All Covered | `src/route.ts`; STORE-06 pins file (`~/.tack/pins.yaml`); STORE-07 filename↔`slug` agreement enforced in `load`; STORE-08 boundary slug checks (`assertValidSlug`, called from `init`, `rename`, `setGroup`, `mergeRoutes`), tests in `src/route.test.ts`; STORE-09 read-everything commands fail on the first unreadable file rather than skipping it (`loadAll` reads every route through `load`) |
 | CLI-01..56 (commands; +CLI-08a, CLI-19a, CLI-21a..d, CLI-23a..b, CLI-36a..d, CLI-37a..b, CLI-52a..d, CLI-54a, CLI-56a..b) | 77 | All Covered | CLI-53/CLI-54/CLI-54a (`tack title` and `tack describe` show/set/clear, plus `describe`'s `--file <path>` / `--file -` body input, trailing-newline stripping, and the empty-body refusal — `title`/`describe` dispatch and `readDescriptionBody` in `src/cli.ts`, `setTitle`/`clearTitle`/`setDescription`/`clearDescription` in `src/route.ts`, tests in `src/cli.test.ts`/`src/route.test.ts`); CLI-14 carries the route `title` in the text listing (`list` in `src/route.ts`, `formatList` in `src/display.ts`), while the `--json` form serializes the full route (`loadAll` in `src/route.ts`); CLI-52c title/description carry-over on merge (`mergeRoutes` in `src/route.ts`); CLI-23a/CLI-23b (`tack find --path` path lookup and the exactly-one `--url`/`--path` selector guard — `repoKeyForCwd` in `src/repos.ts`, `findByRepoKey` in `src/route.ts`, `find` dispatch in `src/cli.ts`, tests in `src/route.test.ts`/`src/cli.test.ts`); CLI-52 (`tack merge-routes`, whole-route consolidation with chronological destination IDs, metadata/`depends_on`/session preservation, `created_at`/group defaults, external route-dep guard — `mergeRoutes` in `src/route.ts`, `merge-routes` dispatch in `src/cli.ts`, tests in `src/route.test.ts`); CLI-51 (`tack group` show/set/clear, `src/cli.ts` group case + `setGroup`/`clearGroup` in `src/route.ts`); also includes CLI-02/CLI-04 (`init`/`add` record the current session route-level via `recordSessionIfPresent`, `src/cli.ts`; CLI-04 also takes repeatable `--link "label,url"`, deduped in `addTack`), CLI-08a (`deliverable rm` clears or `--to-link`-demotes the deliverable, `src/route.ts` `removeDeliverable` + `src/cli.ts` dispatch, tests in `src/route.test.ts`/`src/cli.test.ts`), CLI-17/CLI-18 (session + `--tack` binding / `--json`), CLI-19a (`install-cli`), CLI-30..36 (pin/unpin, depends add/rm, status set, rename, move), CLI-37 (forge note) + CLI-37a (commit-URL label derivation), CLI-38 (`--help`/`-h`/`help` + usage exit semantics, incl. subcommand-level `--help`/`-h`, `src/cli.ts`), CLI-39/CLI-40 (`tack pins` list + prune, `src/route.ts` `listPins`/`prunePins`), CLI-41 (group-scoped subcommand errors on stderr, `src/cli.ts` `groupError`, `src/cli.test.ts`), CLI-42..47 (`tack repo` lookup/list/alias/prune/rebuild/rm, `src/repos.ts` + `src/cli.ts`), CLI-48 (duplicate-URL warning on attach, `src/route.ts` `findCollisions`, `src/cli.ts` `warnUrlCollision`, `src/cli.test.ts`), CLI-49/CLI-50 (`export` to stdout by default with `--out-file`/`--compress`, `import` detecting gzip-vs-plain by content, schema versioning + identity-dedup merge, `src/backup.ts` + `src/cli.ts`, `src/cli.test.ts`); CLI-04 `--link` splits at the first comma whose suffix parses as a URL (commas allowed in label and URL), CLI-15 `rm` refusal on stderr with a non-zero exit, CLI-51 group checked at the boundary per STORE-08 — all three reworded, no new IDs; CLI-37b GitLab `work_items`/epics/milestones recognition (`parseChangeRefUrl` in `src/route.ts`, `scripts/lib-url.sh`); CLI-55 top-level error handler (`fail` in `src/cli.ts`, `TACK_DEBUG` restores the stack, tests in `src/cli.test.ts`); CLI-56/CLI-56a/CLI-56b `tack reconcile` — candidate selection, forge merge-timestamp `done_at`, and the gh/glab-only network path (`reconcile`/`mergeState` in `src/reconcile.ts`, `reconcile` dispatch in `src/cli.ts`, 8 tests in `src/reconcile.test.ts` driving an injected probe) |
-| AGT-01..11 (agent) | 11 | All Covered | AGT-02 reworded to drop "without blocking"; AGT-10 (auto-pin on confident resolution); AGT-11 (early session→tack binding via `tack find`, existing-vs-emerging derivation) covered in `skills/tack/SKILL.md` |
-| HOOK-01..05 (hooks) | 5 | All Covered | HOOK-02/HOOK-03 gate the URL reminder on `tack find` (already-tracked URLs stay silent; untracked ones nudge to create the mapping), shared in `scripts/lib-url.sh`; HOOK-04 records the session route-level when a route resolves; HOOK-05 permits the hook's deterministic reads (`tack find`) and the route-level session write while keeping URL→tack mapping with the agent |
+| AGENT-01..11 (agent) | 11 | All Covered | AGENT-02 reworded to drop "without blocking"; AGENT-10 (auto-pin on confident resolution); AGENT-11 (early session→tack binding via `tack find`, existing-vs-emerging derivation) covered in `skills/tack/SKILL.md` |
+| SESSION-01..10 (open and close) | 10 | All Covered | `skills/start/SKILL.md` (SESSION-01..05: the gate, slug derivation via `skills/start/scripts/parse-start-args.py`, fresh-base branch cut, and the no-`tack session` rule) and `skills/end/SKILL.md` (SESSION-06..09: the non-sequencing boundary, the step-5 output table, the dead-end bookkeeping); SESSION-10 stated in both — neither skill writes an external session label |
+| BRIEF-01..04 (linked artifact) | 4 | All Covered | `skills/start/SKILL.md` ("Read the linked artifact in full"): whole-thread fetch, the fragment-anchors-a-position rule, and stating back what the thread settled |
+| DURABILITY-01..04 (the floor) | 4 | All Covered | `skills/end/SKILL.md` step 2: the three levels, the ask-never-block rule, the draft-flag stall, and the dead-end exemption |
+| FALLBACK-01..05 (absent companions) | 5 | All Covered | FALLBACK-01/02 in `skills/end/SKILL.md` preamble (read the skill listing; name raw `gh`/`glab`/`git` when no forge skill resolves), FALLBACK-03 in its step 4 + footer rule, FALLBACK-04 in `skills/start/SKILL.md`'s handoff rule (incl. the `tack.handoff` override); FALLBACK-05 both skills state which step was dropped rather than skipping silently |
+| HOOK-01..06 (hooks; +HOOK-04a..b) | 8 | All Covered | HOOK-02/HOOK-03 gate the URL reminder on `tack find` (already-tracked URLs stay silent; untracked ones nudge to create the mapping), shared in `scripts/lib-url.sh`; HOOK-04 records the session route-level when a route resolves, HOOK-04a retries every prompt until bound (`.bound` marker in `hooks/session-nudge.sh`) so a route created mid-turn by `start` is still attributed, HOOK-04b debounces only the nudge text (`.nudged` marker) and suppresses it on a prompt that already opens a session or outside a git repo; HOOK-05 permits the hook's deterministic reads (`tack find`) and the route-level session write while keeping URL→tack mapping with the agent; HOOK-06 the change-request-description handoff prompt (`hooks/landing-nudge.sh`) |
 | REPO-01..07 (repo db) | 7 | All Covered | `~/.tack/repos.yaml` repo database (`src/repos.ts`): REPO-02 remote normalization, REPO-06 capture from deliverable/link URLs, REPO-07 capture from `init`/`pin` cwd origin; tests in `src/repos.test.ts`, `src/cli.test.ts` |
 | SERVE-01..14 (document server; +SERVE-02a) | 15 | All Covered | `src/serve.ts` (`serve`, `handle`, `renderIndex`/`renderRoute`/`renderGroup`, `prefersJson`, `loopbackHost`, `sameOrigin`, `markdown`, `hyperlinkBase`) and `src/service.ts` (`install`/`uninstall`/`status`, `renderPlist`/`renderUnit`); SERVE-02a group documents link out rather than anchoring in place; SERVE-09 OSC 8 links rendered by `formatRoute`/`formatTack` in `src/display.ts` from the base `src/cli.ts` resolves; SERVE-12/SERVE-13 the edit form and its `Origin` check; 28 tests in `src/serve.test.ts`, 5 in `src/service.test.ts`. SERVE-08's launchd/systemd load-unload round trip is exercised by hand, not by the suite |
 | COMPAT-01..06 (compatibility) | 6 | All Covered | The contract itself is prose in `spec/v1/SPEC.md`, summarized in `SPEC.md` and `README.md`; the parts with a gate: COMPAT-02's closed schema (`additionalProperties: false` throughout `schema/route.schema.json`), COMPAT-05's grammar snapshot (`spec/v1/cli-usage.txt` vs `tack --help`, asserted in `src/cli.test.ts`), COMPAT-06's archive version guard (`SCHEMA_VERSION` in `src/backup.ts`, refusal tested in `src/cli.test.ts`). COMPAT-01/03/04 are declarations a reviewer applies, with no code path to point at |
 
 ## Audit history
+
+### 2026-08-14 — Coverage refresh (spec-status)
+
++26 IDs, coverage 164 → 190, all Covered, no needs-decision rows.
+Four new categories for the promoted start/end skills — SESSION-01..10, BRIEF-01..04,
+DURABILITY-01..04, FALLBACK-01..05 — plus HOOK-04a/04b (resolution retries until bound;
+only the nudge text debounces) and HOOK-06 (the change-request-description
+handoff prompt). FALLBACK-05 landed in the same pass — both skills now name the step
+they dropped when an optional companion is absent.
 
 ### 2026-08-05 — Coverage refresh (spec-status)
 
@@ -117,9 +130,9 @@ shipping code (the user's "source wins" call) plus one skill completion:
 - **CLI-51 (`tack group`) drift → spec.** The shipping `tack group <slug>
   [<group>] [--clear]` show/set/clear-group command had no requirement; added as
   CLI-51 (`src/cli.ts` group case, `setGroup`/`clearGroup` in `src/route.ts`).
-- **AGT-04 skill gap.** `skills/tack/SKILL.md` resolution step 5 pinned a
+- **AGENT-04 skill gap.** `skills/tack/SKILL.md` resolution step 5 pinned a
   not-yet-created slug on the "start a new route" pick; it now runs `tack init`
-  + first `tack add` before pinning, per AGT-04.
+  + first `tack add` before pinning, per AGENT-04.
 
 Two doc corrections outside the count: the public root `SPEC.md` category table
 carried the pre-2026-07-08 prefixes (`RT`/`TK`/…) and omitted REPO — refreshed
@@ -209,13 +222,13 @@ being silently ignored by manually-parsed ones. No new ID; count holds at 104.
 
 ### 2026-06-15 — 0.18.0 (session→tack link)
 
-+2 IDs (ROUTE-11, AGT-11). **ROUTE-11** adds the optional `tacks` array to each session
++2 IDs (ROUTE-11, AGENT-11). **ROUTE-11** adds the optional `tacks` array to each session
 entry — the bare route-scoped tack IDs a session is driving, in touch order
 (last = current focus). This narrows the existing session→route record (ROUTE-09)
 to the specific tack(s) a session works, so a fleet view keyed on the Claude
 session id can resolve which tack a live session is on. **CLI-17** gains
 `--tack <tack-id>`, which appends the tack to the session entry (move-to-end on
-re-bind, validated against the route). **AGT-11** has the skill establish the
+re-bind, validated against the route). **AGENT-11** has the skill establish the
 link as early as possible: a work-tracker URL in scope at session start is run
 through `tack find`; a match binds the session to the existing tack, no match
 means emerging work (create + bind). Existing-vs-emerging is derived from the
@@ -256,17 +269,17 @@ by counting decompositions as part of their parent.
 Reconciled STATUS.md against the current spec inventory (87 normative + 5
 deferred). Rebuilt the category table to include requirements added since the
 prior audit: the HOOK category (HOOK-01..05), CLI-30..36, CLI-17/CLI-18, CLI-19a,
-AGT-10, STORE-06, and ROUTE-09/ROUTE-10.
+AGENT-10, STORE-06, and ROUTE-09/ROUTE-10.
 
 Took the spec-alignment direction on the two gaps and brought both to
 **Covered** without touching code:
 
-- **[AGT-02]** Reworded to drop the unenforceable "without blocking the user
+- **[AGENT-02]** Reworded to drop the unenforceable "without blocking the user
   prompt" clause; it now states the skill loads all active routes when a
   session begins. (A `SessionStart`-hook prefetch remains deferred feature
   work, not a spec guarantee.)
 - **[HOOK-04]** Reworded to match `hooks/session-nudge.sh`: the hook checks
-  AGT-03 step 1 (pin at cwd) and step 3 (branch-slug route), existence-only,
+  AGENT-03 step 1 (pin at cwd) and step 3 (branch-slug route), existence-only,
   without verifying open-tack state. Dropped the "steps 1–4" claim.
 
 Also resolved the standing forge-support backlog item and applied EARS polish:
@@ -305,8 +318,8 @@ swallowed bad input).
   - Added `[CLI-29]` `tack --version` / `-v`.
   - Tightened `[TACK-04]` to acknowledge that the CLI persists status before
     surfacing pending after-items; gating is the caller's responsibility.
-  - Tightened `[AGT-02]` ("background" → "without blocking the user prompt").
-  - Tightened `[AGT-03]` to reflect the actual implementation
+  - Tightened `[AGENT-02]` ("background" → "without blocking the user prompt").
+  - Tightened `[AGENT-03]` to reflect the actual implementation
     (`UserPromptSubmit` hook + branch-slug heuristic), not the
     URL-inference language that never shipped.
 
@@ -340,7 +353,7 @@ swallowed bad input).
     will load successfully and later save to the filename, silently
     renaming.
   - EARS conformance polish for the "list of fields" requirements (ROUTE-03,
-    ROUTE-04, ROUTE-09, ROUTE-10, TACK-01, TACK-02, TODO-02, DEL-02, LINK-01). These remain
+    ROUTE-04, ROUTE-09, ROUTE-10, TACK-01, TACK-02, TODO-02, DELIVER-02, LINKS-01). These remain
     acceptable Ubiquitous form. (TODO-01 reworded to shall form and CLI-21
     decomposed into sub-requirements on 2026-05-31.)
 

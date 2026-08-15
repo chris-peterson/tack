@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- **`/tack:start` and `/tack:end` open and close a session.** A route had no defined beginning or end — you created one by hand and remembered to close it. `/tack:start` reads the linked issue or change request in full (the whole thread, not the note the link anchors), derives one slug, cuts the branch from the freshly fetched default rather than whatever is checked out, and creates the route. `/tack:end` reads git and forge state fresh, refuses to close on work that only exists in your working tree, records the deliverable, and reports the commands still owed — it never runs them. Both skills came from a personal toolkit where they had been in daily use; the spec categories SESSION, BRIEF, DURABILITY, and FALLBACK are what they look like written down.
+- **A change-request description landing now prompts the handoff report.** The first moment a session has something reviewable is the moment you want one block saying where it stands and what's next. A `PostToolUse` hook detects the description write and asks for `/tack:end`'s table right there, once per session.
+
+### Changed
+
+- **The anti-requirements now say which layer they bind.** "No git operations" and "no enforced workflows" always described the CLI and the schema — the tool-agnostic half a consumer builds on. The skill layer reads git and cuts a branch, and `/tack:end` holds a durability floor. Both are still true where they were always meant to apply: nothing git-derived enters a route, and the floor asks rather than blocking a transition the CLI allows.
+- **Route resolution retries until it binds.** The `UserPromptSubmit` hook resolved the session's route once per session, which meant a session opened with `/tack:start` was probed before the route existed and never looked at again — unattributed for its whole life. Resolution now runs every prompt until it succeeds; only the "no route resolves" nudge still fires once.
+
 ### Fixed
 
 - **`scripts/shipyard` works on a machine that hasn't run it before.** It reset its cached checkout to `origin/v1`, a remote-tracking branch that stopped existing when shipyard began publishing `v1` as a tag: the first run cloned and worked, and every run after it failed with `fatal: ambiguous argument 'origin/v1'`. A cache created before that switch kept resolving the stale ref instead, pinning the build tooling to whatever commit it still pointed at. Both cases now reset to the fetched ref, which resolves a tag and a branch alike.
@@ -179,7 +189,7 @@ Fixes session→tack binding, which silently did nothing because the code and th
 ### Features
 
 - **Sessions link to the specific tack they're driving.** `tack session <slug> <session-id> --tack <tack-id>` binds a session to a tack within the route, stored as a `tacks` array on the session entry (touch order, last = current focus). A session was previously associated only with a route, so a fleet view could group live sessions by route but not show which tack each one was working. Re-binding a tack moves it to the end, so a pivot back to an earlier tack makes it current again (ROUTE-11, CLI-17).
-- **The skill establishes the session→tack link early from a tracker URL.** When a PR/MR/issue URL is in scope at session start, the tack skill runs `tack find` on it — a match binds the session to the existing tack, no match means emerging work (create the tack, then bind) — so a dashboard can tell resumed/tracked work from work spun up fresh in the session. Whether work is existing or emerging is read off the bound tack's own state (does it carry a deliverable or tracker link?), not stored as a flag (AGT-11).
+- **The skill establishes the session→tack link early from a tracker URL.** When a PR/MR/issue URL is in scope at session start, the tack skill runs `tack find` on it — a match binds the session to the existing tack, no match means emerging work (create the tack, then bind) — so a dashboard can tell resumed/tracked work from work spun up fresh in the session. Whether work is existing or emerging is read off the bound tack's own state (does it carry a deliverable or tracker link?), not stored as a flag (AGENT-11).
 
 ## 0.17.0
 
@@ -303,7 +313,7 @@ Closes #1.
 - New `tack pin <slug>` / `tack unpin` commands persist the active route for a working directory in a `.tack` YAML file at the cwd root. The tack skill reads the pin first when resolving "what am I working on?", so pinned routes win over branch-slug or single-open-route heuristics. Commit the file for shared assignment or `.gitignore` it for per-dev state.
 
 ### Architecture
-- Spec now states the layering explicitly: the CLI encapsulates schema operations as a deterministic primitive; the skill owns reasoning (route resolution, ambiguity prompts, URL capture); hooks emit advisory reminders. The CLI no longer reaches into inference — that lives entirely in `skills/tack/SKILL.md`. New `[STORE-06]` covers the pin file format; new `[CLI-30]`/`[CLI-31]` cover the pin/unpin commands; AG- expanded with a formal resolution procedure (`[AGT-03]`) and pin discipline (`[AGT-10]`); new **HK** category formalizes what each hook does.
+- Spec now states the layering explicitly: the CLI encapsulates schema operations as a deterministic primitive; the skill owns reasoning (route resolution, ambiguity prompts, URL capture); hooks emit advisory reminders. The CLI no longer reaches into inference — that lives entirely in `skills/tack/SKILL.md`. New `[STORE-06]` covers the pin file format; new `[CLI-30]`/`[CLI-31]` cover the pin/unpin commands; AG- expanded with a formal resolution procedure (`[AGENT-03]`) and pin discipline (`[AGENT-10]`); new **HK** category formalizes what each hook does.
 - Hook reminder text now points at the tack skill rather than naming specific CLI commands, routing all writes through one path (the skill) so context (which slug, which tack) is applied by the only component that sees it.
 
 ## 0.9.1
@@ -314,7 +324,7 @@ Closes #1.
 
 ### Other
 - Spec catches up to the shipped CLI: `tack edit`, `tack merge`, and `tack --version` are now formal requirements [CLI-27], [CLI-28], [CLI-29].
-- Wording tightened on [TACK-04] (gating responsibility lies with the caller, not the CLI), [AGT-02] ("background" → "without blocking the user prompt"), and [AGT-03] (matches the actual `UserPromptSubmit` + branch-slug heuristic, not the URL inference that never shipped).
+- Wording tightened on [TACK-04] (gating responsibility lies with the caller, not the CLI), [AGENT-02] ("background" → "without blocking the user prompt"), and [AGENT-03] (matches the actual `UserPromptSubmit` + branch-slug heuristic, not the URL inference that never shipped).
 - New `STATUS.md` tracks spec coverage (73/73 normative + 5 deferred) and an advisory backlog for the next audit.
 
 ## 0.9.0

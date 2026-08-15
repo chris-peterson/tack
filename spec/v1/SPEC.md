@@ -217,12 +217,12 @@ and still produces the usual "tack not found" error.
 
 ---
 
-### DEL — Deliverable
+### DELIVER — Deliverable
 
-**[DEL-01]** Each tack shall have at most one deliverable. The deliverable
+**[DELIVER-01]** Each tack shall have at most one deliverable. The deliverable
 represents the change request (PR/MR) that the tack produces.
 
-**[DEL-02]** Each deliverable shall contain the following required fields:
+**[DELIVER-02]** Each deliverable shall contain the following required fields:
 - `label` (string) — short display text
 - `url` (string) — full URL
 
@@ -253,28 +253,28 @@ for that array's prefix.
 
 ---
 
-### DEP — Dependencies
+### DEPENDS — Dependencies
 
-**[DEP-01]** Route-level `depends_on` shall be an array of route slugs
+**[DEPENDS-01]** Route-level `depends_on` shall be an array of route slugs
 (strings).
 
-**[DEP-02]** Tack-level `depends_on` shall be an array of tack IDs within the
+**[DEPENDS-02]** Tack-level `depends_on` shall be an array of tack IDs within the
 same route.
 
-**[DEP-03]** When a tack has `depends_on` entries and any referenced tack has a
+**[DEPENDS-03]** When a tack has `depends_on` entries and any referenced tack has a
 status other than `done`, the dependent tack's status shall not be set to
 `in_progress` — the operation shall fail with an error indicating which
 dependencies are unmet.
 
-**[DEP-04]** Route-level dependencies shall be informational. The CLI shall
+**[DEPENDS-04]** Route-level dependencies shall be informational. The CLI shall
 display them in `tack status` output but shall not enforce them (the referenced
 route files may not exist locally).
 
 ---
 
-### LINK — Links
+### LINKS — Links
 
-**[LINK-01]** Each link shall contain the following required fields:
+**[LINKS-01]** Each link shall contain the following required fields:
 - `label` (string) — short display text
 - `url` (string) — full URL
 
@@ -397,7 +397,7 @@ tack created in error, use [CLI-25].
 
 **[CLI-07]** `tack start <slug> <tack-id>` — When invoked, the CLI shall set
 the specified tack's status to `in_progress`. If the tack has `depends_on`
-entries with unmet dependencies, the operation shall fail per [DEP-03]. The
+entries with unmet dependencies, the operation shall fail per [DEPENDS-03]. The
 error message shall guide the user to either drop the edge with
 [CLI-33] (`tack depends rm`) when the declared ordering no longer holds, or
 to bypass the guard with [CLI-34] (`tack status set`) when the inconsistent
@@ -618,7 +618,7 @@ the array becomes empty, the field shall be omitted from the YAML. If
 **[CLI-34]** `tack status set <slug> <tack-id> <status>` — When invoked, the
 CLI shall set the specified tack's `status` field to the given value
 (`pending`, `in_progress`, `done`, `blocked`, or `dropped`) without enforcing
-[DEP-03] dependency guards. When the new status is `done` and `done_at` is
+[DEPENDS-03] dependency guards. When the new status is `done` and `done_at` is
 not already set, the CLI shall stamp `done_at` per [TACK-03]. This command is
 the supported escape hatch for representing states the guarded commands
 ([CLI-05], [CLI-06], [CLI-07]) refuse to produce (e.g., reverting a `done` tack
@@ -629,7 +629,7 @@ shall rename the route file from `<old-slug>.yaml` to `<new-slug>.yaml` and
 update the `slug` field inside the file. The route's `id` ([ROUTE-08]) shall
 be preserved. The CLI shall fail if `<new-slug>` already exists as a route,
 if `<old-slug>` does not exist, or if any other route's `depends_on`
-references `<old-slug>` (per [DEP-01]).
+references `<old-slug>` (per [DEPENDS-01]).
 
 **[CLI-36]** `tack move <src-slug>/<tack-id> <dst-slug> [--include-dependents]`
 — When invoked, the CLI shall remove the specified tack from the source
@@ -677,7 +677,7 @@ label derivation ([CLI-04], [CLI-08]), producing `<group>&<n>` and `<repo>%<n>`
 respectively — GitLab's own reference syntax. Neither is a change request: they
 shall not be promoted to a deliverable on `tack done` ([CLI-05]). Both shall be
 surfaced by the hook scanners ([HOOK-02], [HOOK-03]), which nudge the agent to
-record them as links ([AGT-06]). Neither shall contribute an entry to the repo
+record them as links ([AGENT-06]). Neither shall contribute an entry to the repo
 database ([REPO-06]): both can be group-scoped, where the path carries a group
 rather than a repo.
 
@@ -822,7 +822,7 @@ markdown horizontal rule, since the merge deletes the source files and a body
 left behind would be unrecoverable.
 
 **[CLI-52d]** When a route outside the merge set has a route-level `depends_on`
-([DEP-01]) referencing a source route, the CLI shall refuse the merge to avoid
+([DEPENDS-01]) referencing a source route, the CLI shall refuse the merge to avoid
 dangling the reference, unless `--break-deps` is passed, which repoints those
 references at `<new-slug>`.
 
@@ -877,21 +877,21 @@ skipped tack is indistinguishable from one that hasn't merged.
 
 ---
 
-### AGT — Agent Integration
+### AGENT — Agent Integration
 
 The CLI encapsulates schema operations; the skill encapsulates reasoning.
 Inference (what's active, which route to attach to, when to prompt) lives in
 the skill and uses CLI primitives. Hooks emit reminders (see HK); the skill
 acts on them.
 
-**[AGT-01]** The agent shall be implemented as a Claude Code skill that reads
+**[AGENT-01]** The agent shall be implemented as a Claude Code skill that reads
 and writes tack route files using the CLI defined in the CLI category.
 
-**[AGT-02]** When a session begins, the plugin's skill shall load all active
+**[AGENT-02]** When a session begins, the plugin's skill shall load all active
 routes (routes with at least one tack whose status is not `done` or `dropped`)
 to build context about current work.
 
-**[AGT-03]** The agent shall maintain the answer to "what am I working on?"
+**[AGENT-03]** The agent shall maintain the answer to "what am I working on?"
 for the current working directory by running the following resolution
 procedure in order, stopping at the first confident match:
 
@@ -901,7 +901,7 @@ procedure in order, stopping at the first confident match:
 2. **URL match** — When a PR/MR/issue URL is in scope (recently emitted by
    a tool, pasted by the user, or passed as a hint), run `tack find --url
    <url> --json` and use the matched route if exactly one is returned. The matched
-   tack is also the session's tack per [AGT-11] — bind it via [AGT-09].
+   tack is also the session's tack per [AGENT-11] — bind it via [AGENT-09].
 3. **Branch slug** — When the cwd is a git repository, run `tack list
    --json` and use the route whose slug equals the current branch name if
    it has at least one open tack.
@@ -909,48 +909,48 @@ procedure in order, stopping at the first confident match:
 5. **Ambiguous or unknown** — Prompt the user via `AskUserQuestion` with
    candidates: in-progress routes, recently-updated routes (via `tack
    recent --json`), or a "start a new route" option. On the user's pick,
-   record the answer with `tack pin <slug>` per [AGT-10].
+   record the answer with `tack pin <slug>` per [AGENT-10].
 
-**[AGT-04]** When the user confirms a new route during resolution per [AGT-03],
+**[AGENT-04]** When the user confirms a new route during resolution per [AGENT-03],
 the agent shall run `tack init <slug>` and add the first tack with `tack add`.
 
-**[AGT-05]** When a hook emits a deliverable reminder per [HOOK-02], or a PR/MR
+**[AGENT-05]** When a hook emits a deliverable reminder per [HOOK-02], or a PR/MR
 URL otherwise appears in the session, the agent shall record the URL on the
 active route's current tack via `tack deliverable <slug> <tack-id> <label>
 <url>` without prompting the user. If no active tack exists, the agent shall
 add one with `tack add` and then record the deliverable.
 
-**[AGT-06]** When a hook emits a link reminder per [HOOK-02], or a non-PR/MR
+**[AGENT-06]** When a hook emits a link reminder per [HOOK-02], or a non-PR/MR
 URL is referenced in the session, the agent shall capture it via `tack link
 add <slug> <tack-id> <label> <url>` on the active tack. URLs already recorded
-as a deliverable per [AGT-05] shall not be duplicated; the CLI enforces this
+as a deliverable per [AGENT-05] shall not be duplicated; the CLI enforces this
 per [CLI-13].
 
-**[AGT-07]** The agent shall not prompt the user more than once per distinct
+**[AGENT-07]** The agent shall not prompt the user more than once per distinct
 event. If the user ignores or dismisses a prompt, the agent shall not re-ask
 about the same work item in the same session.
 
-**[AGT-08]** When the user completes a tack, the agent shall surface any
+**[AGENT-08]** When the user completes a tack, the agent shall surface any
 pending `after` todo items per [TACK-04] before moving on.
 
-**[AGT-09]** When the agent begins operating on a route, it shall record the
+**[AGENT-09]** When the agent begins operating on a route, it shall record the
 current Claude Code session ID in the route's `sessions` array per [ROUTE-09].
 If the session ID already exists, it shall not duplicate. When the agent has
-resolved which tack the session is working — a tack matched per [AGT-11], the
+resolved which tack the session is working — a tack matched per [AGENT-11], the
 single open tack, or one the agent created for this session — it shall pass
 `--tack <tack-id>` to bind the session to that tack per [ROUTE-11], and re-bind
 when the session's focus shifts to a different tack.
 
-**[AGT-11]** The agent shall establish the session→tack link as early as it
+**[AGENT-11]** The agent shall establish the session→tack link as early as it
 confidently can, so a fleet view can distinguish *existing* work (a session
 resumed on tracked work) from *emerging* work (a session that spun up a new
 tack). When a PR/MR/issue/tracker URL is in scope at session start (pasted by
 the user, passed as a hint, or emitted by a tool per [HOOK-02]/[HOOK-03]), the
 agent shall run `tack find --url <url> --json` per [CLI-23]:
 - **Match** — exactly one tack references the URL: the session is resuming
-  existing work. The agent shall bind the session to that tack per [AGT-09].
+  existing work. The agent shall bind the session to that tack per [AGENT-09].
 - **No match** — the work is emerging. The agent shall create a tack per
-  [AGT-04]/[AGT-05] (recording the URL as its deliverable or link) and bind the
+  [AGENT-04]/[AGENT-05] (recording the URL as its deliverable or link) and bind the
   session to the new tack.
 
 The existing-vs-emerging distinction is not stored as a flag; a consumer
@@ -958,7 +958,7 @@ derives it from the bound tack's own state — a tack carrying a deliverable or
 a PR/MR/issue link ([CLI-37]) is tracked/existing, one with neither is
 emerging.
 
-**[AGT-10]** When the agent resolves an active route via [AGT-03] in a way
+**[AGENT-10]** When the agent resolves an active route via [AGENT-03] in a way
 that is not already pinned (URL match, branch slug, single-open-route, or
 user pick), the agent shall pin the result with `tack pin <slug>` so future
 resolutions are immediate. The agent shall not pin speculatively — only
@@ -974,7 +974,7 @@ Hooks are scaffolding around the agent. They surface signals the agent might
 otherwise miss (URLs in tool output, URLs in user prompts, version drift),
 and they emit reminder text the agent reads as additional context. Hooks
 never write to route files directly; the skill performs all writes via the
-CLI per [AGT-05] and [AGT-06].
+CLI per [AGENT-05] and [AGENT-06].
 
 **[HOOK-01]** A `SessionStart` hook shall compare the installed CLI wrapper's
 version to the plugin's `version` per [CLI-29]. When they differ, the hook
@@ -988,8 +988,8 @@ output for PR/MR and issue URLs (the recognized forges are defined in
 tracks the URL by running `tack find --url <url>` ([CLI-23]); a URL already mapped
 emits no reminder, so the hooks stop nagging about work that is already
 recorded. Only an untracked URL shall emit reminder text, instructing the
-agent to ensure a route/tack mapping exists via the tack skill per [AGT-05] or
-[AGT-06] depending on URL type. When `tack` is not on `PATH` the tracked-check
+agent to ensure a route/tack mapping exists via the tack skill per [AGENT-05] or
+[AGENT-06] depending on URL type. When `tack` is not on `PATH` the tracked-check
 cannot run, so the hook shall emit the reminder unconditionally.
 
 **[HOOK-03]** A `UserPromptSubmit` hook shall scan the user's prompt for
@@ -998,16 +998,25 @@ PR/MR and issue URLs ([CLI-37]) and emit the same kind of reminder as
 hook is responsible for noticing URLs the user pastes inline rather than
 through a Bash tool call.
 
-**[HOOK-04]** The `UserPromptSubmit` hook shall also, once per session, resolve
-the route for the current cwd by running [AGT-03] step 1 (pin for cwd, via
-`tack pin`) and step 3 (branch-slug route) — existence-only, without verifying
-the route's open-tack state and without prompting the user. When a route
-resolves, the hook shall record the current session on it per [ROUTE-09]
-(route-level, no tack binding), so session→route attribution does not depend on
-the agent remembering to run `tack session`. When neither resolves, the hook
-shall emit a one-line nudge suggesting the user invoke the tack skill to
-identify or create a route. The hook shall debounce so this fires at most once
-per session.
+**[HOOK-04]** The `UserPromptSubmit` hook shall also resolve the route for the
+current cwd by running [AGENT-03] step 1 (pin for cwd, via `tack pin`) and step 3
+(branch-slug route) — existence-only, without verifying the route's open-tack
+state and without prompting the user. When a route resolves, the hook shall
+record the current session on it per [ROUTE-09] (route-level, no tack binding),
+so session→route attribution does not depend on the agent remembering to run
+`tack session`.
+
+**[HOOK-04a]** Resolution per [HOOK-04] shall repeat on every prompt until it
+binds, rather than running once per session. A session opened with the `start`
+skill has no route at its first prompt — the skill creates one mid-turn — so a
+once-per-session probe would look before the route exists and never look again,
+leaving the session unattributed for its whole life.
+
+**[HOOK-04b]** When no route resolves, the hook shall emit a nudge naming the
+`start` skill as the way to open one, at most once per session. The nudge shall
+be suppressed when the prompt already invokes that skill, and when the cwd is
+not a git repository. The once-per-session debounce applies to the nudge text
+only, never to the resolution of [HOOK-04a].
 
 **[HOOK-05]** Hook reminders are advisory: the *judgment-laden* writes — which
 slug and tack a URL maps to — shall be made by the agent via the tack skill,
@@ -1015,6 +1024,135 @@ not by the hook, so that context the hook cannot see is applied and those
 schema writes go through one path. The hook may perform deterministic reads
 (the `tack find` tracked-check per [HOOK-02]) and the route-level session record
 per [HOOK-04], which need no such judgment.
+
+**[HOOK-06]** A `PostToolUse` hook scoped to the `Bash` tool shall detect a
+change-request description being written — `gh pr … --body-file` on GitHub, a
+`merge_requests` call carrying `description=@` on GitLab — and emit reminder
+text asking for the handoff report of [SESSION-08]. The hook shall fire at most once
+per session, and only when the detection matched, so a session that revises a
+description twice is still at one handoff point. The reminder shall state that
+it previews the close rather than performing it.
+
+---
+
+### SESSION — Opening and Closing a Session
+
+Two skills bracket a session's work on a route: `start` binds one slug to a
+branch and a route, `end` reads what landed and records it. Both are skill-layer
+artifacts. They read git and forge state, which the CLI and schema never do, and
+nothing they read enters a route except through the CLI primitives already
+specified in the CLI category.
+
+**[SESSION-01]** The plugin shall provide a `start` skill that opens a work session
+by deriving one slug, cutting the branch that carries it, and creating the route
+the work is recorded against.
+
+**[SESSION-02]** Before doing anything else, the `start` skill shall check whether a
+route already resolves for the session per [HOOK-04]. When one does, the skill
+shall report it in one line and stop, so a second route is never opened over work
+already tracked.
+
+**[SESSION-03]** The `start` skill shall derive the slug from, in order of
+precedence: user-provided text, the title of a linked issue or change request,
+or a question to the user. Deterministic URL parsing and slugification shall be
+performed by a bundled script rather than re-derived per invocation.
+
+**[SESSION-04]** The `start` skill shall cut the work's branch from the freshly
+fetched default branch rather than from whatever is checked out, except where
+the user states the work builds on the current branch.
+
+**[SESSION-05]** The `start` skill shall not run `tack session`. Session binding is
+the hook's responsibility per [HOOK-04], which is the only place the session id
+is reliably available.
+
+**[SESSION-06]** The plugin shall provide an `end` skill that closes a work session
+by reading the end state fresh, holding the durability floor of the FLOOR
+category, recording what landed on the route, and reporting the commands still
+owed.
+
+**[SESSION-07]** The `end` skill shall not launch a commit, a review, a merge, or a
+release on its own initiative. Naming the next command is its deliverable;
+sequencing is the user's.
+
+**[SESSION-08]** The `end` skill's entire user-facing output shall be one table of
+`change | state | next` rows plus a `route` / `retro` / `notes` footer, emitted
+as rendered markdown with live forge links. Steps preceding it shall run without
+narration.
+
+**[SESSION-09]** A session that produced nothing worth keeping is a legitimate close.
+The `end` skill shall drop the tack, record the reason on the route via `tack
+describe`, and decide the branch and working tree explicitly with the user rather
+than discarding either by assumption.
+
+**[SESSION-10]** Neither skill shall write a session label or status to any external
+fleet view. The route's own state is what a fleet view reads; a separately
+written label is a second source for the same field that goes stale when the
+route moves.
+
+---
+
+### BRIEF — Reading the Linked Artifact
+
+**[BRIEF-01]** Where the `start` skill is given a URL, that URL is the session's
+brief, and the skill shall read it before proposing anything.
+
+**[BRIEF-02]** The skill shall fetch the artifact's description *and* every note
+or comment on it, in chronological order.
+
+**[BRIEF-03]** A URL fragment identifying a single note or line shall be treated
+as anchoring a position, not as scoping the read. The skill shall never filter
+the fetched thread down to the anchored id.
+
+**[BRIEF-04]** The skill shall state back what the thread settled — who reported
+what, which approach was rejected, and any decision already made — before
+proposing work. Where a later step would contradict one of those, the skill
+shall surface the conflict rather than re-deciding it.
+
+---
+
+### DURABILITY — The Floor a Session Must Clear
+
+**[DURABILITY-01]** The `end` skill shall not close a session whose work exists only
+in the working tree. The floor is a durable artifact at one of three levels: a
+pushed commit (minimum), a pushed branch with a draft change request (usual), or
+a verified release (where shipping was the session's point).
+
+**[DURABILITY-02]** Below the floor, the skill shall name the level reached, name the
+commands that reach the next one, and **ask** whether to run them. It shall never
+block a status transition the CLI allows.
+
+**[DURABILITY-03]** The skill shall treat a pushed branch with an open *draft* change
+request and passing checks as a stall rather than a finish, and shall name the
+draft flag when it finds one — every other visible signal reads as delivered.
+
+**[DURABILITY-04]** A dead end declared per [SESSION-09] is not a floor violation.
+
+---
+
+### FALLBACK — Absent Companions
+
+The `start` and `end` skills name and read tools that are not tack. Every one of them
+is optional, and tack declares no runtime dependency on any plugin.
+
+**[FALLBACK-01]** Where a companion plugin's skill would be invoked or named, the
+skills shall determine its availability by reading the agent's own
+available-skills listing rather than probing the filesystem, since a plugin
+present on disk may be disabled.
+
+**[FALLBACK-02]** Where no forge-operation skill is available, the `end` skill shall
+name the equivalent `gh`, `glab`, and `git` commands instead. A named command
+that does not resolve for the session shall not be emitted.
+
+**[FALLBACK-03]** Where no retrospective skill is available, the `end` skill shall
+omit the retro handoff and its footer field rather than failing.
+
+**[FALLBACK-04]** Where no playbook fits the work in the available-skills listing, the
+`start` skill shall omit the handoff row rather than naming a command that does
+not resolve. A `tack.handoff` git-config value, where set, shall override the
+choice.
+
+**[FALLBACK-05]** No skill shall fail, and none shall silently continue, when an
+optional companion is absent: each shall complete and state what it skipped.
 
 ---
 
@@ -1262,10 +1400,15 @@ The following are explicitly out of scope:
 
 - **No project management.** No sprints, epics, story points, or velocity.
 - **No time tracking.** No start times, durations, or estimates.
-- **No git operations.** tack does not create branches, commits, or tags.
+- **No git operations in the CLI or schema.** The CLI creates no branches,
+  commits, or tags, and nothing git-derived is stored in a route. The Claude
+  Code skill layer reads git state and cuts the branch a route is named for,
+  which is an integration concern in the same sense as the rest of the plugin.
 - **No enforced workflows.** No prescribed state machines beyond the status
   enum. Users can move between statuses freely (except where dependencies
-  constrain transitions per [DEP-03]).
+  constrain transitions per [DEPENDS-03]). Where the skill layer holds a durability
+  floor before closing a route, it asks; it never blocks a transition the CLI
+  allows.
 - **No sync, no cloud, no non-loopback bind.** Local files are the only store.
   Two commands are allowed out of that shell and no more: `tack reconcile`
   ([CLI-56]) asks a forge a question the local files cannot answer, and
@@ -1274,4 +1417,4 @@ The following are explicitly out of scope:
   command wide by design, so nothing else grows a network dependency by
   drifting into it.
 - **No cross-route dependency enforcement.** Route-level `depends_on` is
-  informational only per [DEP-04].
+  informational only per [DEPENDS-04].
