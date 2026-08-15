@@ -2,8 +2,15 @@
 # UserPromptSubmit hook — two responsibilities:
 #   1. Detect PR/MR/issue URLs pasted by the user that no tack tracks yet, and
 #      nudge the agent to ensure a route/tack mapping exists.
-#   2. On the first message of a session, resolve the tack route for the current
-#      repo/branch. If one exists, record the session on it; if not, nudge.
+#   2. Resolve the tack route for the current repo/branch. If one exists, record
+#      the session on it; if not, recommend opening one.
+#
+# Resolution retries every prompt until it binds, rather than running once per
+# session. A session that opens with `/tack:start` has no route at its first
+# prompt — the skill creates one mid-turn — so a once-per-session probe would
+# look before the route exists and never look again, leaving the session
+# unattributed for its whole life. The nudge text is still once per session; only
+# the resolution repeats.
 #
 # Stdin: JSON with "prompt", "cwd", "session_id" fields.
 # Stdout: reminder text (injected as system context for the agent).
@@ -24,14 +31,13 @@ output=""
 # --- 1. URL detection ---
 output="${output}$(url_nudges "$prompt" "PR/MR/issue URL in user message:")"
 
-# --- 2. Session nudge (once per session) ---
-nudge_dir="${TMPDIR:-/tmp}/tack-nudge"
-mkdir -p "$nudge_dir"
-nudge_file="${nudge_dir}/${session_id}"
+# --- 2. Route resolution, and the open-a-session nudge ---
+state_dir="${TMPDIR:-/tmp}/tack-nudge"
+mkdir -p "$state_dir"
+bound_file="${state_dir}/${session_id}.bound"
+nudged_file="${state_dir}/${session_id}.nudged"
 
-if [ ! -f "$nudge_file" ] && command -v tack >/dev/null 2>&1; then
-  touch "$nudge_file"
-
+if [ ! -f "$bound_file" ] && command -v tack >/dev/null 2>&1; then
   resolved_slug=""
 
   # Step 1: pin recorded for cwd (stored in ~/.tack/pins.yaml; `tack pin` with
@@ -62,9 +68,20 @@ if [ ! -f "$nudge_file" ] && command -v tack >/dev/null 2>&1; then
     # `|| true` keeps a tack write failure from ever breaking the user's prompt.
     if [ -n "$session_id" ]; then
       tack session "$resolved_slug" "$session_id" >/dev/null 2>&1 || true
+      touch "$bound_file"
     fi
-  else
-    output="${output}No tack route resolves for this cwd (no pin, no branch-slug match). Use the tack skill to identify or create a route for this work — the skill owns route resolution and will prompt if needed.\n"
+  elif [ ! -f "$nudged_file" ]; then
+    touch "$nudged_file"
+    # A prompt that already opens a session needs no recommendation to, and
+    # outside a git repo there is no branch for a route to answer to.
+    case "$prompt" in
+      */start*) ;;
+      *)
+        if [ -n "$cwd" ] && [ -d "$cwd/.git" ]; then
+          output="${output}No tack route resolves for this cwd (no pin, no branch-slug match).\n\nIf this turns out to be work rather than a question — it will span turns and produce a deliverable — recommend the user run \`/tack:start [issue-url]\` before starting: it reads the linked thread in full, derives one slug, cuts the branch, and binds the route the work gets recorded against. \`/tack:end\` closes it.\n\nFor a one-off question, a read-only investigation, or a mechanical one-liner, say nothing about this.\n"
+        fi
+        ;;
+    esac
   fi
 fi
 

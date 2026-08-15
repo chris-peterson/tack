@@ -148,7 +148,7 @@ Full contract: the COMPAT requirements in [`spec/v1/SPEC.md`](spec/v1/SPEC.md).
 - **The schema is the product.** The CLI is a convenience wrapper. Any tool that reads/writes conforming YAML is a first-class citizen.
 - **One file per route.** Easy to list, archive, delete, or version-control.
 - **Flat over nested.** A tack is one unit of work with one deliverable. No sub-items.
-- **Dependencies, not workflows.** Tacks declare what they depend on. No enforced state machine.
+- **Dependencies, not workflows.** Tacks declare what they depend on. No enforced state machine. The skills that open and close a route ask before closing on work that isn't durable yet, and name the next commands rather than running them.
 - **Local only.** No server, no sync, no cloud.
 
 ## License

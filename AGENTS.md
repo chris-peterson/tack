@@ -26,7 +26,9 @@ tack is not a project management system. It answers three questions:
   one concrete deliverable — an MR, a deployment, a script run. No sub-items,
   no hierarchy.
 - **Dependencies, not workflows.** Tacks declare what they depend on. There is
-  no enforced state machine or prescribed workflow.
+  no enforced state machine or prescribed workflow. The skills that open and
+  close a route ask before closing on work that isn't durable yet; they name
+  the commands that would advance it rather than running them.
 - **Tool-agnostic core.** The schema has no assumptions about Claude Code,
   Cursor, Windsurf, or any specific AI coding tool. Integrations are packaging
   concerns, not schema concerns.

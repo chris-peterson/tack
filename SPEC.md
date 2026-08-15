@@ -62,13 +62,17 @@ Route (1 YAML file per route)
 |---|---|
 | ROUTE | Route schema structure and constraints |
 | TACK | Tack fields, statuses, and ID sequencing |
-| DEL | Deliverable (single change request per tack) |
+| DELIVER | Deliverable (single change request per tack) |
 | TODO | Todo items (before/after arrays with IDs) |
-| DEP | Dependency tracking and enforcement |
-| LINK | Link structure (label + url) |
+| DEPENDS | Dependency tracking and enforcement |
+| LINKS | Link structure (label + url) |
 | STORE | Storage location, directory creation, validation, cwd pointer file |
 | CLI | CLI commands and output behavior |
-| AGT | Claude Code agent integration (skill responsibilities) |
+| AGENT | Claude Code agent integration (skill responsibilities) |
+| SESSION | Opening and closing a session — the `start` and `end` skills |
+| BRIEF | Reading the linked issue or change request in full |
+| DURABILITY | Durability floor a session must clear before it closes |
+| FALLBACK | Behavior when an optional companion plugin is absent |
 | HOOK | Hook responsibilities (nudges, freshness checks) |
 | REPO | Repo database (name→remote index, captured as work is observed) |
 | SERVE | Loopback document server and the terminal hyperlinks into it |
@@ -96,7 +100,9 @@ Explicitly out of scope:
 
 - No project management (sprints, epics, story points)
 - No time tracking
-- No git operations
-- No enforced workflows beyond dependency constraints
+- No git operations in the CLI or schema — the skill layer cuts the branch a
+  route is named for, and nothing git-derived is stored in a route
+- No enforced workflows beyond dependency constraints — the skill layer's
+  durability floor asks before closing, and never blocks
 - No sync, no cloud, no non-loopback bind — the two commands that leave the local files are `tack reconcile`, which asks the git forge (GitHub, GitLab) what merged, and `tack serve`, which renders those files to `127.0.0.1`
 - No cross-route dependency enforcement

@@ -3,7 +3,7 @@
 # the marketplace SPA (the suite: block).
 
 name: tack
-version: 1.0.0
+version: 1.1.0
 description: Route tracker for AI-assisted development work — pivots, deliverables, and dependencies — across session boundaries
 author: chris-peterson
 repository: https://github.com/chris-peterson/tack
@@ -24,6 +24,8 @@ suite:
   pitch: "Keep losing your place between sessions? It remembers what you were doing so you don't re-explain it every time."
   what: "Tracks what you're working on — across crashes, context overflow, or jumping between projects. Start a fresh session and pick up exactly where you left off."
   cmds:
+    - ["/tack:start", "Open a session — read the ticket, cut the branch, bind the route"]
+    - ["/tack:end", "Close it — record what landed, report what's still owed"]
     - ["/tack:tack", "Resume — what you were doing, and where you stopped"]
     - ["tack", "Track routes, tasks, and deliverables from any terminal"]
   # Skill-anchored previews of the flagship flows, shown live on the docs site;
@@ -31,12 +33,15 @@ suite:
   # >>> shipyard:describe — generated from source by `shipyard gen-describe`; do not edit >>>
   describe:
     skills:
+      end: 'Close a work session: read what actually landed, refuse to close on work that isn''t durable yet, record the deliverable on the tack route, hand off the retro, and report the commands still owed rather than sequencing them.'
+      start: 'Open a work session: read the linked issue or CR thread in full, derive one slug, cut the branch, and bind the tack route.'
       tack: Track AI-assisted development work with the `tack` route tracker, spanning session boundaries.
     hooks:
       capture-urls: PostToolUse — Detects PR/MR/issue URLs in Bash tool output and nudges the agent to ensure a tack route mapping exists for each.
       cli-freshness: SessionStart — Detects when the installed tack CLI wrapper is stale relative to the plugin version and nudges to refresh it.
-      hooks: 'Hook wiring: SessionStart→cli-freshness; UserPromptSubmit→session-nudge; PostToolUse→capture-urls (Bash).'
-      session-nudge: UserPromptSubmit — Detects untracked PR/MR/issue URLs in user messages and, on the first prompt of a session, resolves and records the session's tack route.
+      hooks: 'Hook wiring: SessionStart→cli-freshness; UserPromptSubmit→session-nudge; PostToolUse→capture-urls (Bash), landing-nudge (Bash).'
+      landing-nudge: PostToolUse — Detects a change-request description landing and prompts the handoff report the end skill defines, so it isn't produced from recall.
+      session-nudge: UserPromptSubmit — Detects untracked PR/MR/issue URLs in user messages, resolves and records the session's tack route, and recommends opening one when none resolves.
   # <<< shipyard:describe <<<
   examples:
     - label: "/tack:tack"
