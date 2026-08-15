@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0
 
 ### Added
 
@@ -11,14 +11,13 @@
 
 - **The anti-requirements now say which layer they bind.** "No git operations" and "no enforced workflows" always described the CLI and the schema — the tool-agnostic half a consumer builds on. The skill layer reads git and cuts a branch, and `/tack:end` holds a durability floor. Both are still true where they were always meant to apply: nothing git-derived enters a route, and the floor asks rather than blocking a transition the CLI allows.
 - **Route resolution retries until it binds.** The `UserPromptSubmit` hook resolved the session's route once per session, which meant a session opened with `/tack:start` was probed before the route existed and never looked at again — unattributed for its whole life. Resolution now runs every prompt until it succeeds; only the "no route resolves" nudge still fires once.
+- **Every requirement prefix in the spec reads as a word:** `DEL` is now `DELIVER`, `DEP` is `DEPENDS`, `LINK` is `LINKS`, `AGT` is `AGENT`. Requirement IDs are not one of the four surfaces `1.x` freezes and nothing outside the repo reads them, so this changes only how the spec and its coverage ledger read.
+- **The docs site's hero image comes from `assets/`, not a second copy under `docs/`.** Only `docs/` is published, which is why the art was duplicated there; the build now copies the plugin's `assets/` into the published tree and fails if a page references a file that tree doesn't carry. Deleting `assets/hero.svg` is a red build instead of a blank homepage.
 
 ### Fixed
 
+- **`tack serve install` produces a unit that actually starts.** A supervisor runs the unit outside any shell, so it inherited a PATH that never reached node — the wrapper's `exec node` exited 127 and the supervisor respawned it forever, while `tack serve status` cheerfully reported the unit loaded and nothing answered on the port. The unit now carries the PATH of the shell that installed it, with the running node's own directory appended so the lookup resolves even when node is on no PATH at all, and escapes the value for both plist XML and systemd.
 - **`scripts/shipyard` works on a machine that hasn't run it before.** It reset its cached checkout to `origin/v1`, a remote-tracking branch that stopped existing when shipyard began publishing `v1` as a tag: the first run cloned and worked, and every run after it failed with `fatal: ambiguous argument 'origin/v1'`. A cache created before that switch kept resolving the stale ref instead, pinning the build tooling to whatever commit it still pointed at. Both cases now reset to the fetched ref, which resolves a tag and a branch alike.
-
-### Changed
-
-- **The docs site's hero image comes from `assets/`, not a second copy under `docs/`.** Only `docs/` is published, which is why the art was duplicated there; the build now copies the plugin's `assets/` into the published tree and fails if a page references a file that tree doesn't carry. Deleting `assets/hero.svg` is a red build instead of a blank homepage.
 
 ## 1.0.0
 
