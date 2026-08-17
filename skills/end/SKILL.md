@@ -141,21 +141,25 @@ Match the record to reality rather than to intent:
 
 ## 4. Hand off the retro
 
-Run whatever retrospective skill the available-skills listing carries —
-`/logbook:retro` when logbook is installed — and let it decide whether the
-session earned one. It reads the session's own captured notes first, so
-re-deriving that judgment here would duplicate work that already happens
-downstream with better material.
+Hand off to whatever retrospective skill this session has, and let it decide
+whether the session earned one. It reads the session's own captured notes
+first, so re-deriving that judgment here would duplicate work that already
+happens downstream with better material.
 
+- **Prefer a bare skill name over a plugin-namespaced one** (`retro` over
+  `logbook:retro`). A bare skill is usually the user's own, fuller retro
+  workflow installed locally; a plugin's namespaced skill is the generic
+  fallback behind it, not the default to reach for first. Naming a specific
+  plugin here would skip that local skill every time both are installed.
 - **Don't recap the retro's material.** The worker reads this session's
   transcript, so listing what it has material on is output the user pays for and
   the worker never sees.
 - **Don't wait for the document.** A retro that spawns its own session returns
   immediately; this session is closed regardless of what that one produces.
 - **The exception is a skill the Skill tool refuses** (`cannot be used with Skill
-  tool due to disable-model-invocation`). Then the user types it, and the seeds
-  go with the ask so the worker doesn't start cold — name the specific moments
-  worth a note, not the topic.
+  tool due to disable-model-invocation`) **and no bare alternative exists.**
+  Then the user types it, and the seeds go with the ask so the worker doesn't
+  start cold — name the specific moments worth a note, not the topic.
 
 Notes deferred by *earlier* sessions, where the retro tool reports them, are one
 `notes` line in step 5's block, not a paragraph of their own.
