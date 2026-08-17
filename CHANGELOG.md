@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.1
+
+## 1.1.1
+
+### Added
+
+- **`just ts` runs the full CI check locally.** The job runs `check-dist`, `test`, and `completions-check` — you can invoke them individually or with a single command to verify a change before push.
+
+### Fixed
+
+- **`/tack:end` prefers your own retro skill over a plugin.** The `end` skill shipped in 1.1.0 hardcoded `/logbook:retro`, creating an unintended cross-plugin dependency — it failed if logbook wasn't installed and skipped a local `retro` skill if logbook was. It now picks the bare skill first, so your own retro workflow stays the default and tack works without logbook.
+
 ## 1.1.0
 
 ### Added
