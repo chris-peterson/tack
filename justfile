@@ -42,6 +42,9 @@ check-dist:
     npm run build
     git diff --exit-code dist
 
+# build.yml: ts — build, verify dist matches src, run tests, verify completions
+ts: check-dist test completions-check
+
 # lint the shell half of the plugin (hooks, the URL library, the shipyard shim)
 lint-shell:
     shellcheck hooks/*.sh scripts/lib-url.sh scripts/shipyard
