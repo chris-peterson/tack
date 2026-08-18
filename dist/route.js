@@ -33,6 +33,57 @@ export function assertValidSlug(slug, what = "slug") {
         return;
     throw new Error(`Invalid ${what}: ${slug} (lowercase letters, digits, and inner hyphens only)`);
 }
+// Free text in a route is not always something the user typed. `tack describe
+// --file -` is documented as taking an issue body straight off a forge, and the
+// start skill drives exactly that, so a description — and a summary derived from
+// one — is attacker-authored prose. It then goes two places that read control
+// characters as commands rather than as text: a terminal, where an ESC sequence
+// repaints the screen, and an agent's context, where a newline in a field
+// rendered inline forges the structure around it.
+//
+// Stripping happens on the way in and out of the file rather than at each of the
+// dozen render sites, so display, `--json`, and the web view all get text that is
+// safe to print, and a route file that already holds a payload is cleaned when
+// it loads.
+//
+// Tab and newline are legitimate in prose; every other C0 control, DEL, and
+// the C1 range are not, and are what a terminal reads as an escape sequence.
+const CONTROL_CHARS = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g;
+const CONTROL_CHARS_AND_BREAKS = /[\u0000-\u001F\u007F-\u009F]+/g;
+// Prose that keeps its line structure: newlines and tabs survive, everything
+// else in the C0/C1 ranges does not.
+function cleanBlock(s) {
+    return s.replace(CONTROL_CHARS, "");
+}
+// Text rendered inline, where a line break would forge structure in the output:
+// every control character becomes a space, and the runs that leaves collapse —
+// the indentation that followed a stripped newline is not meaningful once the
+// line break is gone.
+function cleanLine(s) {
+    return s.replace(CONTROL_CHARS_AND_BREAKS, " ").replace(/\s+/g, " ").trim();
+}
+function cleanTodo(items) {
+    for (const i of items ?? [])
+        i.text = cleanLine(i.text);
+}
+// Mutates in place: the caller either just parsed this object or is about to
+// serialize it, and a copy would leave the original as the one that gets written.
+export function sanitizeRoute(route) {
+    if (route.title !== undefined)
+        route.title = cleanLine(route.title);
+    if (route.description !== undefined)
+        route.description = cleanBlock(route.description);
+    for (const t of route.tacks) {
+        t.summary = cleanLine(t.summary);
+        if (t.deliverable)
+            t.deliverable.label = cleanLine(t.deliverable.label);
+        for (const l of t.links ?? [])
+            l.label = cleanLine(l.label);
+        cleanTodo(t.before);
+        cleanTodo(t.after);
+    }
+    return route;
+}
 export function loadAll() {
     ensureDir();
     const files = readdirSync(TACK_DIR).filter((f) => f.endsWith(".yaml"));
@@ -90,7 +141,7 @@ export function load(slug) {
         throw new Error(`Route file ${slug}.yaml declares slug '${loaded.slug}' — rename the file ` +
             `to ${loaded.slug}.yaml, or set slug: ${slug} inside it`);
     }
-    return loaded;
+    return sanitizeRoute(loaded);
 }
 // A tack date may be a bare `YYYY-MM-DD` (accepted for backward compatibility),
 // but `created_at` is date-time in the schema, so widen before adopting one.
@@ -120,6 +171,9 @@ function save(route) {
     ensureDir();
     route.updated_at = now();
     floorCreatedAt(route);
+    // Every mutation lands here, which is where the text a command just supplied
+    // gets cleaned — `tack describe --file -` reads a forge issue body off stdin.
+    sanitizeRoute(route);
     const result = validate(route);
     if (!result.valid) {
         throw new Error(`Route validation failed:\n${result.errors.join("\n")}`);
@@ -130,6 +184,9 @@ function save(route) {
 // updated_at, so a full restore preserves timestamps and a merge sets its own.
 export function writeRoute(route) {
     ensureDir();
+    // An imported archive is as untrusted as a forge issue body — it arrives from
+    // another machine — and this path bypasses load(), so it cleans its own input.
+    sanitizeRoute(route);
     const result = validate(route);
     if (!result.valid) {
         throw new Error(`Route validation failed:\n${result.errors.join("\n")}`);

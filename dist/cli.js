@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { execSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { delimiter, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -195,8 +194,12 @@ function installZshCompletions() {
         console.log("Updated ~/.zshrc (added fpath before compinit).");
     }
     else if (!hasFpath && !hasCompinit) {
+        // Appended with writeFileSync like the branch above, never through a shell.
+        // `zshrc` is built from $HOME, and interpolating it into a command string
+        // let any metacharacter in $HOME run as a command — and broke the append
+        // outright for the ordinary case of a home directory containing a space.
         const block = `\n${fpathLine}\nautoload -Uz compinit && compinit\n`;
-        execSync(`echo '${block}' >> ${zshrc}`);
+        writeFileSync(zshrc, zshrcContent + block);
         console.log("Updated ~/.zshrc (added fpath + compinit).");
     }
     console.log("Restart your shell to activate completions.");

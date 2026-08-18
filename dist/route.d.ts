@@ -3,6 +3,7 @@ import type { Link, Route, Tack, TackStatus } from "./types.js";
 export declare function isOpen(t: Tack): boolean;
 export declare function routeState(route: Route): "active" | "done";
 export declare function assertValidSlug(slug: string, what?: string): void;
+export declare function sanitizeRoute(route: Route): Route;
 export declare function loadAll(): Route[];
 export declare function normalizeTimestamp(input: string): string;
 export declare function load(slug: string): Route;

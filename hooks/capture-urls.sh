@@ -16,6 +16,9 @@ input=$(cat)
 output=$(echo "$input" | jq -r '.tool_response.stdout // empty' 2>/dev/null)
 [ -z "$output" ] && exit 0
 
+# `%s`, not `%b`: the nudge carries a URL harvested from tool output, and `%b`
+# would expand a backslash escape inside it into real newlines — letting
+# untrusted text forge its own lines in the context this stdout becomes.
 nudges=$(url_nudges "$output" "PR/MR/issue URL in tool output:")
-[ -n "$nudges" ] && printf '%b' "$nudges"
+[ -n "$nudges" ] && printf '%s\n' "$nudges"
 exit 0

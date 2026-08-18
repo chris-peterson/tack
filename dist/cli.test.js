@@ -250,7 +250,7 @@ describe("tack describe (CLI-54)", () => {
         runFail(["init", "dsc-inline"]);
         const r = runFail(["describe", "dsc-inline", "Consolidate the auth paths."]);
         assert.equal(r.status, 0);
-        assert.match(r.stdout, /description:\n {4}Consolidate the auth paths\./);
+        assert.match(r.stdout, /\):\n {4}Consolidate the auth paths\.\n {2}end description/);
     });
     it("reads a markdown body from --file and prints it back verbatim", () => {
         const path = join(mkdtempSync(join(tmpdir(), "tack-desc-")), "body.md");

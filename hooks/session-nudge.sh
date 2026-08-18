@@ -29,7 +29,11 @@ session_id=$(echo "$input" | jq -r '.session_id // empty' 2>/dev/null)
 output=""
 
 # --- 1. URL detection ---
-output="${output}$(url_nudges "$prompt" "PR/MR/issue URL in user message:")"
+# Command substitution eats the nudge's trailing newline, so put one back when
+# there was anything to say — otherwise the route-resolution nudge below runs on
+# from the end of the last URL line.
+url_part=$(url_nudges "$prompt" "PR/MR/issue URL in user message:")
+[ -n "$url_part" ] && output="${output}${url_part}"$'\n'
 
 # --- 2. Route resolution, and the open-a-session nudge ---
 state_dir="${TMPDIR:-/tmp}/tack-nudge"
@@ -78,7 +82,15 @@ if [ ! -f "$bound_file" ] && command -v tack >/dev/null 2>&1; then
       */start*) ;;
       *)
         if [ -n "$cwd" ] && [ -d "$cwd/.git" ]; then
-          output="${output}No tack route resolves for this cwd (no pin, no branch-slug match).\n\nIf this turns out to be work rather than a question — it will span turns and produce a deliverable — recommend the user run \`/tack:start [issue-url]\` before starting: it reads the linked thread in full, derives one slug, cuts the branch, and binds the route the work gets recorded against. \`/tack:end\` closes it.\n\nFor a one-off question, a read-only investigation, or a mechanical one-liner, say nothing about this.\n"
+          # Real newlines rather than literal `\n`: this is printed with
+          # `printf '%s'` so that the URL nudge above, which carries untrusted
+          # text, cannot have escapes in it expanded.
+          output="${output}No tack route resolves for this cwd (no pin, no branch-slug match).
+
+If this turns out to be work rather than a question — it will span turns and produce a deliverable — recommend the user run \`/tack:start [issue-url]\` before starting: it reads the linked thread in full, derives one slug, cuts the branch, and binds the route the work gets recorded against. \`/tack:end\` closes it.
+
+For a one-off question, a read-only investigation, or a mechanical one-liner, say nothing about this.
+"
         fi
         ;;
     esac
@@ -87,5 +99,5 @@ fi
 
 # Only emit output if we have something to say
 if [ -n "$output" ]; then
-  printf '%b' "$output"
+  printf '%s' "$output"
 fi
