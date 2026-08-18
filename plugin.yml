@@ -26,7 +26,7 @@ suite:
       reason: supplies the commit, CR, merge, and release commands end reports as owed
     - name: logbook
       required: false
-      reason: takes the retro hand-off when end closes a session
+      reason: supplies the deferred-note count and the harvest command end reports
   # User-invoked skills, plus hooks that read the agent's Bash output
   # (PostToolUse) and act at session start.
   activations: [agent, user, session]
