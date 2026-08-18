@@ -5,6 +5,11 @@
   - [Requirement Categories](/spec?id=requirement-categories)
   - [Compatibility](/spec?id=compatibility)
   - [Anti-Requirements](/spec?id=anti-requirements)
+- Skills
+  - [start](/skills/start)
+  - [end](/skills/end)
+  - [tack](/skills/tack)
+- [Hooks](/hooks)
 - [CLI Reference](/cli)
   - [Routes](/cli?id=routes)
   - [Tacks](/cli?id=tacks)
@@ -21,3 +26,4 @@
   - [Dependency Graph](/examples?id=view-dependency-graph)
   - [Quarterly Report (Gantt)](/examples?id=view-quarterly-report-gantt)
   - [Deriving Views from Schema](/examples?id=deriving-views-from-schema)
+- [Coverage](/status)

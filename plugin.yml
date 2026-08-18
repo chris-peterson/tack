@@ -20,6 +20,16 @@ marketplace:
 suite:
   cli: true
   group: bearings
+  dependencies:
+    - name: anchor
+      required: false
+      reason: supplies the commit, CR, merge, and release commands end reports as owed
+    - name: logbook
+      required: false
+      reason: takes the retro hand-off when end closes a session
+  # User-invoked skills, plus hooks that read the agent's Bash output
+  # (PostToolUse) and act at session start.
+  activations: [agent, user, session]
   gloss: To tack is to change course; tack remembers every course you've held.
   pitch: "Keep losing your place between sessions? It remembers what you were doing so you don't re-explain it every time."
   what: "Tracks what you're working on — across crashes, context overflow, or jumping between projects. Start a fresh session and pick up exactly where you left off."
@@ -27,7 +37,6 @@ suite:
     - ["/tack:start", "Open a session — read the ticket, cut the branch, bind the route"]
     - ["/tack:end", "Close it — record what landed, report what's still owed"]
     - ["/tack:tack", "Resume — what you were doing, and where you stopped"]
-    - ["tack", "Track routes, tasks, and deliverables from any terminal"]
   # Skill-anchored previews of the flagship flows, shown live on the docs site;
   # the session: below is the at-a-glance flow the hub also reads.
   # >>> shipyard:describe — generated from source by `shipyard gen-describe`; do not edit >>>

@@ -2,9 +2,7 @@
   <img src="hero.svg" alt="tack — route tracker for AI-assisted development" width="800">
 </p>
 
-Route tracker for AI-assisted development.
-
-tack captures the non-linear reality of how development actually happens — pivots, context switches, multi-repo changes — so that work-in-progress survives context exhaustion, crashes, and session boundaries.
+[](_home.md ':include')
 
 ## In action
 
@@ -12,22 +10,13 @@ You stepped away mid-refactor and burned through the context window. Next mornin
 
 <div class="cw-session" data-cw-session="session"></div>
 
-## Installation
+The two moves you reach for most — resuming a route and capturing a deliverable as it ships:
 
-### Claude Code Plugin
+<div class="cw-session" data-cw-session="examples"></div>
 
-```bash
-claude plugin marketplace add chris-peterson/claude-marketplace
-claude plugin install tack@chris-peterson
-```
+## The CLI
 
-### CLI Only
-
-```bash
-npm install -g tack
-```
-
-## Quick Start
+The plugin bundles the CLI. To make `tack` callable from any shell, run `/tack:tack install-cli` once — it drops a `tack` wrapper at `~/.local/bin/tack` and installs the zsh completions. Without the plugin, the same binary is on npm as `tack`.
 
 ```bash
 tack init auth-rewrite
@@ -43,10 +32,6 @@ tack done auth-rewrite t1
 
 tack status auth-rewrite
 ```
-
-The two moves you reach for most — resuming a route and capturing a deliverable as it ships:
-
-<div class="cw-session" data-cw-session="examples"></div>
 
 ## Data Model
 
@@ -80,3 +65,12 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 - **Flat over nested.** A tack is one unit of work with one deliverable. No sub-items.
 - **Dependencies, not workflows.** Tacks declare what they depend on. No enforced state machine.
 - **Local only.** No server, no sync, no cloud.
+
+## Reference
+
+- [SPEC](/spec) — the requirements, with formal IDs; [v1](/spec/v1) is the frozen contract the CLI implements
+- [CLI reference](/cli) — every command, subcommand, and flag
+- [Examples & visualizations](/examples) — sample routes, and the views (Sankey, dependency graph, Gantt) derived from them
+- **Skills** — [`/tack:start`](/skills/start), [`/tack:end`](/skills/end), and [`/tack:tack`](/skills/tack), sourced from each `SKILL.md`
+- [Hooks](/hooks) — what the plugin does without being asked, and the scripts each hook runs
+- [Coverage](/status) — which requirements are implemented, and where
