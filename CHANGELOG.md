@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.3.0
+
+### Removed
+
+- **Pins are gone: `tack pin`, `tack unpin`, `tack pins`, and `tack pins prune` no longer exist.** If you have a script or an alias calling one, it now exits non-zero with the usage text. `~/.tack/pins.yaml` is left on disk and stops being read; delete it when you like.
+- **`tack export` no longer writes a `pins` field**, and `tack import --replace` no longer restores one. Archives stay at `schemaVersion 1` — an older tack reads a new archive and simply restores no pins.
+
+### Changed
+
+- **A route now resolves by branch name, then by project name.** Work sitting on a default branch — where there's no branch for a route to answer to — resolves to a route named after the checkout's directory, which is what a pin was usually standing in for. A directory that merely contains repos matches nothing, so a marker set once in a parent directory can no longer bind every session under it to one unrelated route.
+- **Resolution works from a subdirectory of a checkout**, not only from its root.
+- **`tack repo rebuild` no longer reads pinned directories.** `tack init` still records the cwd's origin remote, so `locals` keep accumulating as you open routes.
+
 ## 1.2.0
 
 # v1.2.0
