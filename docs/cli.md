@@ -676,6 +676,39 @@ or re-pin the directory.
 tack pins prune
 ```
 
+## Health
+
+### `tack doctor [--json]`
+
+Read every route file and report the ones that will not load, naming for each
+the path to open and every rule it breaks. Exits non-zero when any file fails,
+zero when none does, and changes nothing on disk.
+
+```bash
+tack doctor
+tack doctor --json
+```
+
+```
+77 route files, 1 could not be read
+
+migrate-vault-to-secretsmanager.yaml — ~/.tack/routes/migrate-vault-to-secretsmanager.yaml
+  /tacks/21/after/1/text: must NOT have more than 1000 characters (has 1249)
+
+Repair each file listed above by hand, then re-run `tack doctor`.
+```
+
+Repair is a hand edit on purpose. The CLI refuses to write a file it could not
+read, and the automatic alternatives — truncating an over-length note, dropping
+a field it does not recognize — throw away text somebody wrote. The report
+exists so the edit does not also require reading the schema.
+
+A file in this state no longer takes the rest of the store with it: `tack list`,
+`recent`, `tree` and `pins` render the routes they could read, name the ones
+they left out on stderr, and exit non-zero. `tack export` still refuses
+outright, since a route missing from an archive makes the archive wrong rather
+than merely partial.
+
 ## Backup
 
 ### `tack export [--out-file <path>] [--compress]`

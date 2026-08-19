@@ -61,6 +61,7 @@ Usage:
   tack unpin                         Clear the cwd pin
   tack pins [--json]                 List all pins (flags dangling and idle entries)
   tack pins prune                    Remove pins with a deleted route or missing directory
+  tack doctor [--json]               Report route files that will not load
   tack rm <slug> [--force]
   tack export [--out-file <path>] [--compress]  Dump a backup to stdout (routes + repos + pins)
   tack import <file> [--merge|--replace] [--dry-run]  Merge (default) or restore a backup
@@ -305,7 +306,7 @@ function run() {
         case "list": {
             const jsonFlag = rest.includes("--json");
             if (jsonFlag) {
-                const routes = route.loadAll().map((r) => ({ ...r, state: route.routeState(r) }));
+                const routes = route.scanAll().map((r) => ({ ...r, state: route.routeState(r) }));
                 console.log(JSON.stringify(routes, null, 2));
             }
             else {
@@ -1042,6 +1043,31 @@ function run() {
             }
             break;
         }
+        case "doctor": {
+            const report = route.doctor();
+            if (rest.includes("--json")) {
+                console.log(JSON.stringify(report, null, 2));
+            }
+            else {
+                const files = `${report.files} route file${report.files === 1 ? "" : "s"}`;
+                if (report.invalid.length === 0) {
+                    console.log(`${files}, all readable`);
+                }
+                else {
+                    console.log(`${files}, ${report.invalid.length} could not be read\n`);
+                    for (const r of report.invalid) {
+                        console.log(`${r.slug}.yaml — ${r.file}`);
+                        for (const e of r.errors)
+                            console.log(`  ${e}`);
+                        console.log("");
+                    }
+                    console.log("Repair each file listed above by hand, then re-run `tack doctor`.");
+                }
+            }
+            if (report.invalid.length > 0)
+                process.exitCode = 1;
+            break;
+        }
         case "install-cli": {
             const { values } = parseArgs({
                 args: rest,
@@ -1068,8 +1094,27 @@ function run() {
             usage();
     }
 }
+// Issue #49: a route file the scan could not read is missing from whatever the
+// command just printed. Name it, and exit non-zero — the answer is incomplete,
+// and a caller reading only the exit code has no other way to learn that.
+function reportInvalidRoutes() {
+    const invalid = route.invalidRoutes();
+    if (invalid.length === 0)
+        return;
+    const n = invalid.length;
+    console.error(`\ntack: ${n} route file${n === 1 ? "" : "s"} could not be read ` +
+        `and ${n === 1 ? "was" : "were"} left out:`);
+    for (const r of invalid) {
+        console.error(`  ${r.slug}.yaml`);
+        for (const e of r.errors)
+            console.error(`    ${e}`);
+    }
+    console.error("Run `tack doctor` for the full report.");
+    process.exitCode = 1;
+}
 try {
     run();
+    reportInvalidRoutes();
 }
 catch (e) {
     fail(e);

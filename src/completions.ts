@@ -212,6 +212,7 @@ _tack() {
     'pin:Pin a route to the current cwd'
     'unpin:Clear the cwd pin'
     'pins:List all pins (or prune stale ones)'
+    'doctor:Report route files that will not load'
     'repo:Look up a repo remote by name'
     'rm:Delete a route'
     'rename:Rename a route'
@@ -514,6 +515,11 @@ _tack() {
         '--path[Find routes covering a repo checkout]:dir:_files -/' \
         '--json[Output JSON]'
       ;;
+    doctor)
+      # tack doctor [--json]
+      _alternative 'options:option:((--json\:"emit JSON"))'
+      ;;
+
     export)
       # tack export [--out-file <path>] [--compress]
       _arguments '--out-file[Write to a file instead of stdout]:file:_files' '--compress[Gzip the output]'

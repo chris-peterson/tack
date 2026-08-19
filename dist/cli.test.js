@@ -797,3 +797,150 @@ describe("tack rm refuses without --force", () => {
         assert.equal(runFail(["status", "rm-intact"]).status, 0);
     });
 });
+// Issue #49: one route file that fails validation used to abort every command
+// that enumerates the store, so a single bad file out of 77 cost access to all
+// 77. Each test gets its own store — an invalid file in the shared one would
+// break every listing test in this suite.
+describe("an unreadable route file does not take the listing down with it", () => {
+    // A store holding one good route and one whose `after` note is over the
+    // limit, written past the CLI the way an agent editing the YAML directly
+    // does — `tack after` itself refuses the same text.
+    function storeWithOneBadFile() {
+        const home = mkdtempSync(join(tmpdir(), "tack-invalid-"));
+        const e = { ...process.env, TACK_HOME: home };
+        delete e.CLAUDE_CODE_SESSION_ID;
+        execFileSync("node", [cli, "init", "good-one"], { env: e });
+        execFileSync("node", [cli, "init", "bad-one"], { env: e });
+        execFileSync("node", [cli, "add", "bad-one", "a tack"], { env: e });
+        const path = join(home, "routes", "bad-one.yaml");
+        writeFileSync(path, readFileSync(path, "utf-8").replace(/\n$/, "") +
+            `\n    after:\n      - id: a1\n        text: ${"x".repeat(1200)}\n        done: false\n`);
+        return e;
+    }
+    function run(e, args) {
+        const r = spawnSync("node", [cli, ...args], { env: e, encoding: "utf-8" });
+        return { status: r.status ?? 0, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+    }
+    for (const args of [["list"], ["recent"], ["tree"], ["status"]]) {
+        it(`${args.join(" ")} still renders the routes it could read`, () => {
+            const r = run(storeWithOneBadFile(), args);
+            assert.match(r.stdout, /good-one/);
+        });
+        it(`${args.join(" ")} names the file it left out, on stderr`, () => {
+            const r = run(storeWithOneBadFile(), args);
+            assert.match(r.stderr, /bad-one\.yaml/);
+            assert.match(r.stderr, /must NOT have more than 1000 characters/);
+        });
+        // Availability is restored without making the gap silent: a script reading
+        // the output still learns the answer is incomplete.
+        it(`${args.join(" ")} still exits non-zero`, () => {
+            assert.notEqual(run(storeWithOneBadFile(), args).status, 0);
+        });
+    }
+    it("list --json emits a parseable array of the readable routes on stdout", () => {
+        const r = run(storeWithOneBadFile(), ["list", "--json"]);
+        const parsed = JSON.parse(r.stdout);
+        assert.deepEqual(parsed.map((x) => x.slug), ["good-one"]);
+    });
+    // An export that quietly omits a route is a lossy backup wearing a
+    // successful exit; completeness outranks availability here.
+    it("export still refuses rather than writing an incomplete archive", () => {
+        const r = run(storeWithOneBadFile(), ["export"]);
+        assert.equal(r.status, 1);
+        assert.equal(r.stdout, "");
+        assert.match(r.stderr, /bad-one\.yaml/);
+    });
+});
+describe("tack doctor", () => {
+    function storeWith(files) {
+        const home = mkdtempSync(join(tmpdir(), "tack-doctor-"));
+        const e = { ...process.env, TACK_HOME: home };
+        delete e.CLAUDE_CODE_SESSION_ID;
+        execFileSync("node", [cli, "init", "healthy"], { env: e });
+        for (const [name, body] of Object.entries(files)) {
+            writeFileSync(join(home, "routes", name), body);
+        }
+        return e;
+    }
+    function run(e, args) {
+        const r = spawnSync("node", [cli, ...args], { env: e, encoding: "utf-8" });
+        return { status: r.status ?? 0, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+    }
+    const routeFile = (slug, note) => `id: 6e6f2f4a-0000-4000-8000-000000000001\nslug: ${slug}\n` +
+        `created_at: 2026-01-01T00:00:00.000Z\nupdated_at: 2026-01-01T00:00:00.000Z\n` +
+        `tacks:\n  - id: t1\n    summary: a tack\n    status: pending\n` +
+        `    after:\n      - id: a1\n        text: ${note}\n        done: false\n`;
+    const overLong = (slug) => routeFile(slug, "x".repeat(1200));
+    it("exits zero and says so when every route file reads", () => {
+        const r = run(storeWith({}), ["doctor"]);
+        assert.equal(r.status, 0);
+        assert.match(r.stdout, /1 route file/);
+    });
+    it("reports the route, the path, and the rule for each violation", () => {
+        const r = run(storeWith({ "sick.yaml": overLong("sick") }), ["doctor"]);
+        assert.match(r.stdout, /sick\.yaml/);
+        assert.match(r.stdout, /\/tacks\/0\/after\/0\/text/);
+        assert.match(r.stdout, /must NOT have more than 1000 characters/);
+    });
+    // The user has to edit the file by hand, so the report has to say which file
+    // and what to change — a rule name alone leaves them reading the schema.
+    it("names the file to edit and how to re-check it", () => {
+        const r = run(storeWith({ "sick.yaml": overLong("sick") }), ["doctor"]);
+        assert.match(r.stdout, /routes\/sick\.yaml/);
+        assert.match(r.stdout, /tack doctor/);
+    });
+    it("exits non-zero when any violation exists", () => {
+        assert.equal(run(storeWith({ "sick.yaml": overLong("sick") }), ["doctor"]).status, 1);
+    });
+    // load() refuses a file whose internal slug disagrees with its name, and the
+    // repair is a rename rather than a field edit — doctor has to say which.
+    it("reports a filename that disagrees with the slug inside", () => {
+        const file = routeFile("declared-elsewhere", "a note of ordinary length");
+        const r = run(storeWith({ "misnamed.yaml": file }), ["doctor"]);
+        assert.match(r.stdout, /misnamed\.yaml/);
+        assert.match(r.stdout, /declared-elsewhere/);
+    });
+    it("reports a file that is not parseable YAML at all", () => {
+        const r = run(storeWith({ "broken.yaml": "tacks: [unclosed\n" }), ["doctor"]);
+        assert.equal(r.status, 1);
+        assert.match(r.stdout, /broken\.yaml/);
+    });
+    it("emits the same report as JSON", () => {
+        const r = run(storeWith({ "sick.yaml": overLong("sick") }), ["doctor", "--json"]);
+        const parsed = JSON.parse(r.stdout);
+        assert.equal(parsed.invalid[0].slug, "sick");
+        assert.match(parsed.invalid[0].errors[0], /must NOT have more than 1000 characters/);
+    });
+});
+describe("note text is bounded at the command boundary (issue #49)", () => {
+    it("accepts a note at the raised limit that the old one refused", () => {
+        runFail(["init", "note-limit"]);
+        runFail(["add", "note-limit", "a tack"]);
+        assert.equal(runFail(["after", "note-limit", "t1", "x".repeat(993)]).status, 0);
+    });
+    // Not the raw ajv path (`/tacks/0/after/0/text`) the write path used to
+    // surface: the caller supplied a note, so the message names the note.
+    it("names the field and the limit rather than a schema path", () => {
+        runFail(["init", "note-limit-over"]);
+        runFail(["add", "note-limit-over", "a tack"]);
+        const r = runCapture(["after", "note-limit-over", "t1", "x".repeat(1001)]);
+        assert.equal(r.status, 1);
+        assert.match(r.stderr, /note text/);
+        assert.match(r.stderr, /1000/);
+        assert.doesNotMatch(r.stderr, /\/tacks\/\d+\//);
+    });
+    it("bounds a before note the same way", () => {
+        runFail(["init", "note-limit-before"]);
+        runFail(["add", "note-limit-before", "a tack"]);
+        const r = runCapture(["before", "note-limit-before", "t1", "x".repeat(1001)]);
+        assert.equal(r.status, 1);
+        assert.match(r.stderr, /note text/);
+    });
+    it("bounds a tack summary, naming that field instead", () => {
+        runFail(["init", "summary-limit"]);
+        const r = runCapture(["add", "summary-limit", "x".repeat(501)]);
+        assert.equal(r.status, 1);
+        assert.match(r.stderr, /summary/);
+        assert.match(r.stderr, /500/);
+    });
+});

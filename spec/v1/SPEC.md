@@ -93,8 +93,9 @@ Repo database (1 YAML file, ~/.tack/repos.yaml)
   validate group membership.
 - `depends_on` (array of strings) — slugs of routes that must complete before
   this one can proceed
-- `title` (string) — a human-readable name for the route, free-form and
-  unconstrained. It is displayed alongside the slug, never in place of it: the
+- `title` (string) — a human-readable name for the route, free-form within the
+  length limit [STORE-10] sets. It is displayed alongside the slug, never in
+  place of it: the
   slug remains the addressing key every command takes and every listing prints,
   so a reader can always type back what they see.
 - `description` (string) — markdown prose stating the route's goal and why it
@@ -304,11 +305,27 @@ exit without modifying the file. Writes resolve their path from the route's
 declared one on the next mutation, renaming the route silently.
 
 **[STORE-09]** Where a command reads every route file rather than one named
-route — a listing, a cross-route search, an export — it shall apply [STORE-05]
-and [STORE-07] to each file and fail on the first that does not pass, rather
-than skipping it and reporting the rest. A skipped route is an invisible route:
-the output looks complete, and the work recorded in the unreadable file is
-missing from it with nothing on screen to say so.
+route, it shall apply [STORE-05] and [STORE-07] to each file and continue past
+the ones that do not pass. Before exiting it shall name every file it left out,
+on stderr, along with the rule each one breaks, and shall exit non-zero.
+
+A skipped route is otherwise an invisible route: the output looks complete, and
+the work recorded in the unreadable file is missing from it with nothing on
+screen to say so. Naming the file answers that for a reader, and the non-zero
+exit answers it for a script, which sees only the code. Failing outright answers
+it too, but at the price the CLI was observed paying: one unreadable file out of
+seventy-seven cost access to all seventy-seven, and every listing stayed broken
+until the YAML was repaired by hand.
+
+Two commands are exempt, and fail on the first file they cannot read:
+
+- `tack export` ([CLI-49]), whose archive is wrong rather than merely partial if
+  a route is missing from it;
+- `tack rename` ([CLI-35]) and `tack merge-routes` ([CLI-51]), which read every
+  route to find the ones whose `depends_on` would dangle. A file they could not
+  read is a file whose references they cannot rule out.
+
+`tack doctor` ([CLI-57]) reports the same set on demand.
 
 **[STORE-08]** Where a command accepts a slug from the caller — a route slug
 ([CLI-02], [CLI-35], [CLI-52]) or a group slug ([CLI-02], [CLI-51], [CLI-52])
@@ -316,6 +333,41 @@ missing from it with nothing on screen to say so.
 it against the slug pattern at the command boundary and report a message naming
 the rule. A route named in the command shall be resolved before its group
 argument is checked, so a missing route is reported as such.
+
+**[STORE-10]** Every free-text field shall carry a length limit, enforced by
+`schema/route.schema.json` ([STORE-04]):
+
+| Field | Limit | Why that size |
+|---|---|---|
+| `title` ([ROUTE-04]) | 200 | One line beside the slug in a listing |
+| `description` ([ROUTE-04]) | 20000 | Markdown prose — a forge issue body pasted whole |
+| `summary` ([TACK-02]) | 500 | One deliverable stated in a sentence or two |
+| `text` ([TODO-02]) | 1000 | A note written mid-session, which runs longer than a summary |
+| `label` ([DELIVER-02], [LINKS-01]) | 200 | Short display text |
+| `url` ([DELIVER-02], [LINKS-01]) | 2048 | The ceiling browsers and forges converge on |
+
+The limits exist so a route file stays something a person can read and a
+terminal can render; none of them is a storage constraint. Raising one is
+additive under [COMPAT-02] and ships in a minor release.
+
+Lowering one requires a major ([COMPAT-04]), and so does **introducing** one
+where a field had none — the two are the same change seen from different
+starting points, and the second is the easier one to ship by accident. Both
+refuse input an earlier `1.x` accepted, and the input they refuse is already on
+disk: the release does not reject a new write, it makes a route file that
+loaded yesterday stop loading, with no migration and no way back but a hand
+edit.
+
+**[STORE-11]** Where a command accepts free text for a field bounded by
+[STORE-10], the CLI shall check its length at the command boundary and report a
+message naming the field and the limit — the same treatment [STORE-08] gives a
+slug. Left to the write, the same input surfaces as the schema's own error, an
+array-index path into a file the caller never opened.
+
+The length checked shall be the length that would be stored, measured after the
+control-character cleaning a write applies, so text that exceeds the limit only
+in whitespace the write is about to collapse is not refused for a length it
+never reaches.
 
 **[STORE-06]** Pins shall be stored in a single YAML file at `~/.tack/pins.yaml`,
 a map keyed by absolute working-directory path. Each entry has the following
@@ -875,6 +927,18 @@ unreadable change request, or a URL from a forge it has no reader for shall fail
 the command naming the URL ([CLI-55]) rather than being passed over — a silently
 skipped tack is indistinguishable from one that hasn't merged.
 
+**[CLI-57]** `tack doctor [--json]` — When invoked, the CLI shall read every
+route file and report the ones that will not load, naming for each the file's
+path and every rule it breaks ([STORE-05], [STORE-07]). It shall exit non-zero
+when any file fails and zero when none does, and shall change nothing on disk.
+
+Repair is a hand edit: the CLI refuses to write a file it could not read, and
+the alternatives — truncating an over-length note, dropping a field it does not
+recognize — discard text somebody wrote. So the report exists to make the edit
+possible without reading the schema, which means naming the file to open, the
+path within it, and the rule that path breaks. It is also what [STORE-09] points
+a reader at once a listing tells them something was left out.
+
 ---
 
 ### AGENT — Agent Integration
@@ -1234,9 +1298,18 @@ link to whichever route rendered first.
 edit to a route file shall be visible on the next request without a restart.
 
 **[SERVE-04]** A request for a slug or group that does not exist shall return
-404 with a message naming it, never an empty document. A route file that fails
-validation shall return 500 reporting the failure ([STORE-09]) — the documents
-inherit the CLI's refusal to render work it could not read.
+404 with a message naming it, never an empty document. A request for a route
+whose file fails validation shall return 500 reporting the failure — the
+documents inherit the CLI's refusal to render work it could not read.
+
+The refusal is scoped to that route's own document. The index and the group
+documents, which read the whole store, shall render the routes they could read
+— a store with one bad file would otherwise serve 500 at every path, the index
+included. The index shall additionally name the files it left out. A group
+document shall not, because it cannot: the file did not parse, so which group it
+belongs to is exactly what is unknown. Neither shall the JSON representation
+([SERVE-11]), whose shape is the CLI's array and has nowhere to put the notice;
+it carries the readable routes, as `tack list --json` does.
 
 **[SERVE-11]** Each path in [SERVE-02] shall serve two representations of the
 same thing, chosen by the request's `Accept` header: the HTML document, and

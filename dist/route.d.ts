@@ -4,6 +4,14 @@ export declare function isOpen(t: Tack): boolean;
 export declare function routeState(route: Route): "active" | "done";
 export declare function assertValidSlug(slug: string, what?: string): void;
 export declare function sanitizeRoute(route: Route): Route;
+export interface InvalidRoute {
+    slug: string;
+    file: string;
+    errors: string[];
+}
+export declare function invalidRoutes(): InvalidRoute[];
+export declare function clearInvalidRoutes(): void;
+export declare function scanAll(): Route[];
 export declare function loadAll(): Route[];
 export declare function normalizeTimestamp(input: string): string;
 export declare function load(slug: string): Route;
@@ -98,6 +106,11 @@ export declare function findCollisions(url: string, exclude: {
     tackId: string;
 }): FindMatch[];
 export declare function rebuildRepos(): repos.RebuildResult;
+export interface DoctorReport {
+    files: number;
+    invalid: InvalidRoute[];
+}
+export declare function doctor(): DoctorReport;
 export declare function remove(slug: string): void;
 export interface Pin {
     slug: string;

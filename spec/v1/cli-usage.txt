@@ -48,6 +48,7 @@ Usage:
   tack unpin                         Clear the cwd pin
   tack pins [--json]                 List all pins (flags dangling and idle entries)
   tack pins prune                    Remove pins with a deleted route or missing directory
+  tack doctor [--json]               Report route files that will not load
   tack rm <slug> [--force]
   tack export [--out-file <path>] [--compress]  Dump a backup to stdout (routes + repos + pins)
   tack import <file> [--merge|--replace] [--dry-run]  Merge (default) or restore a backup

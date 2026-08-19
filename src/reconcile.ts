@@ -80,7 +80,7 @@ export function reconcile(
   opts: { slug?: string; dryRun?: boolean; probe?: (url: string) => MergeState } = {},
 ): Reconciled[] {
   const probe = opts.probe ?? mergeState;
-  const routes = opts.slug ? [route.load(opts.slug)] : route.loadAll();
+  const routes = opts.slug ? [route.load(opts.slug)] : route.scanAll();
   const closed: Reconciled[] = [];
 
   for (const r of routes) {

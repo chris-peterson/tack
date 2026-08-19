@@ -6,15 +6,61 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = resolve(__dirname, "..", "schema", "route.schema.json");
 let cachedValidator = null;
+let cachedSchema = null;
+function getSchema() {
+    if (!cachedSchema)
+        cachedSchema = JSON.parse(readFileSync(SCHEMA_PATH, "utf-8"));
+    return cachedSchema;
+}
 function getValidator() {
     if (cachedValidator)
         return cachedValidator;
-    const schemaText = readFileSync(SCHEMA_PATH, "utf-8");
-    const schema = JSON.parse(schemaText);
     const ajv = new Ajv.default({ allErrors: true });
     addFormats(ajv);
-    cachedValidator = ajv.compile(schema);
+    cachedValidator = ajv.compile(getSchema());
     return cachedValidator;
+}
+// Every length limit the schema imposes, keyed `<owner>.<field>` — `route.title`,
+// `todoItem.text`. The schema is the canonical source ([STORE-04]), so the
+// command boundary ([STORE-11]) and the spec's own table ([STORE-10]) read the
+// numbers from here rather than restating them, and raising one stays a
+// one-line edit to the JSON.
+export function maxLengths() {
+    const schema = getSchema();
+    const found = {};
+    const collect = (owner, node) => {
+        for (const [field, prop] of Object.entries(node.properties ?? {})) {
+            if (typeof prop.maxLength === "number")
+                found[`${owner}.${field}`] = prop.maxLength;
+        }
+    };
+    collect("route", schema);
+    for (const [name, def] of Object.entries(schema.definitions ?? {}))
+        collect(name, def);
+    return found;
+}
+// The limit a named field carries, for a caller that refuses over-length input
+// before writing. Throws on an unknown key rather than defaulting, so a renamed
+// schema field fails loudly here instead of silently dropping the check.
+export function maxLength(key) {
+    const limit = maxLengths()[key];
+    if (limit === undefined)
+        throw new Error(`No maxLength in the schema for ${key}`);
+    return limit;
+}
+// Resolve a JSON pointer against the data being validated. Used only to report
+// how long an over-length string actually is: "must NOT have more than 1000
+// characters" says what the rule is, not how far past it the file sits, and the
+// person repairing the file by hand needs the second number.
+function valueAt(data, pointer) {
+    let node = data;
+    for (const raw of pointer.split("/").slice(1)) {
+        if (node === null || typeof node !== "object")
+            return undefined;
+        const key = raw.replace(/~1/g, "/").replace(/~0/g, "~");
+        node = node[key];
+    }
+    return node;
 }
 export function validate(data) {
     const validator = getValidator();
@@ -23,7 +69,11 @@ export function validate(data) {
         return { valid: true, errors: [] };
     const errors = (validator.errors ?? []).map((e) => {
         const path = e.instancePath || "/";
-        return `${path}: ${e.message}`;
+        if (e.keyword !== "maxLength")
+            return `${path}: ${e.message}`;
+        const actual = valueAt(data, e.instancePath ?? "");
+        const has = typeof actual === "string" ? ` (has ${actual.length})` : "";
+        return `${path}: ${e.message}${has}`;
     });
     return { valid: false, errors };
 }

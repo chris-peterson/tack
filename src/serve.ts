@@ -258,9 +258,19 @@ ${opts.editable === false ? "" : editForm(r)}
 <h2>Tacks</h2>${tacks}`;
 }
 
-export function renderIndex(routes: Route[]): string {
+export function renderIndex(routes: Route[], invalid: route.InvalidRoute[] = []): string {
+  // A route file the scan could not read is missing from the cards below. The
+  // index says so where the reader is, rather than leaving them to notice an
+  // absence (issue #49).
+  const banner = invalid.length === 0 ? "" : `<div class="card"><div class="row">
+      <div><strong>${invalid.length} route file${invalid.length === 1 ? "" : "s"} could not be read</strong>
+      and ${invalid.length === 1 ? "is" : "are"} missing from this page: ${
+        invalid.map((r) => esc(`${r.slug}.yaml`)).join(", ")
+      }. Run <code>tack doctor</code>.</div>
+    </div></div>`;
+
   if (routes.length === 0) {
-    return `<h1>tack</h1><p class="empty">No routes yet — <code>tack init &lt;slug&gt;</code>.</p>`;
+    return `<h1>tack</h1>${banner}<p class="empty">No routes yet — <code>tack init &lt;slug&gt;</code>.</p>`;
   }
 
   // Grouped first, in group order; ungrouped last, so the reader meets the
@@ -288,7 +298,7 @@ export function renderIndex(routes: Route[]): string {
   );
   if (loose.length) sections.push(`<h2>ungrouped</h2>${loose.map(card).join("")}`);
 
-  return `<h1>tack</h1><p class="sub">${routes.length} routes</p>${sections.join("")}`;
+  return `<h1>tack</h1><p class="sub">${routes.length} routes</p>${banner}${sections.join("")}`;
 }
 
 export function renderGroup(group: string, routes: Route[]): string {
@@ -410,23 +420,29 @@ export function handle(req: IncomingMessage, res: ServerResponse): void {
   // Read on every request rather than caching: the CLI writes these files
   // behind the server's back, and a stale document that disagrees with
   // `tack status` is worse than no document.
-  let routes: Route[];
-  try {
-    routes = route.loadAll();
-  } catch (e) {
-    return fail(500, (e as Error).message);
-  }
+  // One unreadable file used to 500 every page, index included. The scan
+  // reports what it skipped instead, and a request for that route still gets
+  // the refusal ([SERVE-04]) — the failure is scoped to the document that
+  // cannot honestly be rendered (issue #49).
+  route.clearInvalidRoutes();
+  const routes = route.scanAll();
+  const unreadable = route.invalidRoutes();
 
   if (path === "/") {
     return json
       ? sendJson(res, 200, routes.map(routeJson))
-      : send(res, 200, page("tack", renderIndex(routes)));
+      : send(res, 200, page("tack", renderIndex(routes, unreadable)));
   }
 
   const routeMatch = path.match(/^\/route\/([^/]+)\/?$/);
   if (routeMatch) {
     const r = routes.find((x) => x.slug === routeMatch[1]);
-    if (!r) return fail(404, `No route ${routeMatch[1]}.`);
+    if (!r) {
+      const bad = unreadable.find((x) => x.slug === routeMatch[1]);
+      return bad
+        ? fail(500, `Invalid route file ${bad.slug}.yaml:\n${bad.errors.join("\n")}`)
+        : fail(404, `No route ${routeMatch[1]}.`);
+    }
     return json ? sendJson(res, 200, routeJson(r)) : send(res, 200, page(r.slug, renderRoute(r)));
   }
 

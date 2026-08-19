@@ -1,6 +1,6 @@
 import { describe, it, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, renameSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 let route;
@@ -1576,5 +1576,98 @@ describe("created_at floors to the earliest tack date", () => {
         const created = r.created_at;
         route.addTack("floor-noop", "later", { done: true });
         assert.equal(route.load("floor-noop").created_at, created);
+    });
+});
+describe("length limits at the command boundary (issue #49)", () => {
+    it("names the field and the limit rather than a schema path", () => {
+        route.init("bound");
+        route.addTack("bound", "a tack");
+        assert.throws(() => route.addAfter("bound", "t1", "x".repeat(1001)), /note text is 1001 characters; the limit is 1000/);
+    });
+    // The check has to measure what save() would store, not what the caller
+    // typed: cleanLine collapses runs of whitespace, so text only over the limit
+    // in spaces the write is about to drop would be refused for a length it
+    // never reaches.
+    it("measures the length after the cleaning a write applies", () => {
+        route.init("bound-ws");
+        route.addTack("bound-ws", "a tack");
+        const padded = `${"x".repeat(997)}${" ".repeat(100)}yz`;
+        assert.equal(padded.length, 1099);
+        const tack = route.addAfter("bound-ws", "t1", padded);
+        assert.equal(tack.after[0].text.length, 1000);
+    });
+    it("bounds a route title against its own smaller limit", () => {
+        route.init("bound-title");
+        assert.throws(() => route.setTitle("bound-title", "x".repeat(201)), /limit is 200/);
+    });
+    it("bounds a link url", () => {
+        route.init("bound-url");
+        route.addTack("bound-url", "a tack");
+        assert.throws(() => route.addLink("bound-url", "t1", "label", `https://x/${"y".repeat(2048)}`), /link url is \d+ characters; the limit is 2048/);
+    });
+});
+describe("scanning a store that holds an unreadable file (issue #49)", () => {
+    // Written past the CLI, the way an agent editing the YAML directly does —
+    // every write through save() validates first.
+    function writeBadRoute(slug) {
+        route.init(slug);
+        route.addTack(slug, "a tack");
+        const path = join(tmp, "routes", `${slug}.yaml`);
+        writeFileSync(path, readFileSync(path, "utf-8").replace(/\n$/, "") +
+            `\n    after:\n      - id: a1\n        text: ${"x".repeat(1200)}\n        done: false\n`);
+        route.clearInvalidRoutes();
+    }
+    it("returns the routes it could read", () => {
+        route.init("readable");
+        writeBadRoute("unreadable");
+        assert.deepEqual(route.scanAll().map((r) => r.slug), ["readable"]);
+    });
+    it("records what it skipped, with the file and the rule", () => {
+        writeBadRoute("unreadable");
+        route.scanAll();
+        const [skipped] = route.invalidRoutes();
+        assert.equal(skipped.slug, "unreadable");
+        assert.match(skipped.file, /routes\/unreadable\.yaml$/);
+        assert.match(skipped.errors[0], /\/tacks\/0\/after\/0\/text: must NOT have more than 1000/);
+    });
+    // The limit alone says what the rule is, not how far past it the file sits,
+    // and repairing by hand needs the second number.
+    it("says how long the offending value actually is", () => {
+        writeBadRoute("unreadable");
+        route.scanAll();
+        assert.match(route.invalidRoutes()[0].errors[0], /\(has 1200\)/);
+    });
+    it("reports one entry per file however many scans a run makes", () => {
+        writeBadRoute("unreadable");
+        route.scanAll();
+        route.scanAll();
+        assert.equal(route.invalidRoutes().length, 1);
+    });
+    // Completeness outranks availability here: a route missing from an archive
+    // is a lossy backup, not a partial listing.
+    it("still throws for the callers that cannot answer partially", () => {
+        writeBadRoute("unreadable");
+        assert.throws(() => route.loadAll(), /Invalid route file unreadable\.yaml/);
+    });
+    it("counts every file, readable or not, in the doctor report", () => {
+        route.init("readable");
+        writeBadRoute("unreadable");
+        const report = route.doctor();
+        assert.equal(report.files, 2);
+        assert.deepEqual(report.invalid.map((r) => r.slug), ["unreadable"]);
+    });
+    // listPins reads each pinned route to decide whether it is idle. A pin whose
+    // route will not load is still a pin worth listing.
+    it("lists a pin whose route file is unreadable, and records the file", () => {
+        const cwd = mkdtempSync(join(tmpdir(), "tack-pins-bad-"));
+        writeBadRoute("unreadable");
+        route.writePin("unreadable", cwd);
+        assert.deepEqual(route.listPins().map((e) => e.slug), ["unreadable"]);
+        assert.deepEqual(route.invalidRoutes().map((r) => r.slug), ["unreadable"]);
+    });
+    it("leaves nothing recorded after a clean doctor run", () => {
+        route.init("readable");
+        route.doctor();
+        assert.deepEqual(route.invalidRoutes(), []);
     });
 });

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { parse, stringify } from "yaml";
-import { validate } from "./schema.js";
+import { maxLength, validate } from "./schema.js";
 import * as repos from "./repos.js";
 const TACK_HOME = process.env.TACK_HOME ?? join(homedir(), ".tack");
 const TACK_DIR = join(TACK_HOME, "routes");
@@ -32,6 +32,28 @@ export function assertValidSlug(slug, what = "slug") {
     if (SLUG_PATTERN.test(slug))
         return;
     throw new Error(`Invalid ${what}: ${slug} (lowercase letters, digits, and inner hyphens only)`);
+}
+// Mirrors the schema's length limits at the command boundary, for the reason
+// assertValidSlug mirrors its slug pattern: refused here, the message names the
+// thing the caller typed. Left to save(), the same input surfaces as the ajv
+// path `/tacks/0/after/0/text`, which is an array index into a file the caller
+// never opened.
+//
+// The limit is read from the schema ([STORE-04]) rather than restated, and the
+// value is measured after the cleaning save() will apply — otherwise text that
+// only exceeds the limit in whitespace the write is about to collapse would be
+// refused for a length it never gets stored at.
+function assertLength(value, key, what) {
+    const limit = maxLength(key);
+    if (value.length <= limit)
+        return;
+    throw new Error(`${what} is ${value.length} characters; the limit is ${limit}`);
+}
+function assertLineLength(value, key, what) {
+    assertLength(cleanLine(value), key, what);
+}
+function assertBlockLength(value, key, what) {
+    assertLength(cleanBlock(value), key, what);
 }
 // Free text in a route is not always something the user typed. `tack describe
 // --file -` is documented as taking an issue body straight off a forge, and the
@@ -84,10 +106,49 @@ export function sanitizeRoute(route) {
     }
     return route;
 }
-export function loadAll() {
+function routeSlugs() {
     ensureDir();
-    const files = readdirSync(TACK_DIR).filter((f) => f.endsWith(".yaml"));
-    return files.map((f) => load(f.replace(/\.yaml$/, "")));
+    return readdirSync(TACK_DIR)
+        .filter((f) => f.endsWith(".yaml"))
+        .map((f) => f.replace(/\.yaml$/, ""));
+}
+// Route files this process passed over. Keyed by slug so one run reports each
+// file once, however many scans it made — a listing and the URL-collision check
+// behind it both walk the store.
+const skipped = new Map();
+export function invalidRoutes() {
+    return [...skipped.values()].sort((a, b) => a.slug.localeCompare(b.slug));
+}
+// The server re-scans on every request and the test suite drives many stores
+// through one process; both need the record to start empty rather than carry
+// the previous scan's findings.
+export function clearInvalidRoutes() {
+    skipped.clear();
+}
+function recordSkip(slug, errors) {
+    skipped.set(slug, { slug, file: routePath(slug), errors });
+}
+// Load every route file, recording the ones that cannot be read instead of
+// stopping at the first ([STORE-09]). The caller renders what it got and the
+// CLI reports `invalidRoutes()` before exiting non-zero, so the gap is loud:
+// a skipped route that nothing mentions is the invisible route this used to
+// fail hard to avoid.
+export function scanAll() {
+    const routes = [];
+    for (const slug of routeSlugs()) {
+        const read = readRoute(slug);
+        if ("route" in read)
+            routes.push(read.route);
+        else
+            recordSkip(slug, read.errors);
+    }
+    return routes;
+}
+// Every route file, or a throw naming the first that cannot be read. For the
+// callers whose answer is wrong when it is incomplete — the export archive,
+// where a quietly omitted route is a lossy backup wearing a zero exit.
+export function loadAll() {
+    return routeSlugs().map((slug) => load(slug));
 }
 function ensureDir() {
     if (!existsSync(TACK_DIR)) {
@@ -121,27 +182,43 @@ export function normalizeTimestamp(input) {
     }
     throw new Error(`Invalid timestamp: ${input} (expected YYYY-MM-DD or ISO 8601 date-time)`);
 }
-export function load(slug) {
+function readRoute(slug) {
     const path = routePath(slug);
     if (!existsSync(path)) {
         throw new Error(`Route not found: ${slug}`);
     }
-    const raw = readFileSync(path, "utf-8");
-    const data = parse(raw);
-    const result = validate(data);
-    if (!result.valid) {
-        throw new Error(`Invalid route file ${slug}.yaml:\n${result.errors.join("\n")}`);
+    let data;
+    try {
+        data = parse(readFileSync(path, "utf-8"));
     }
+    catch (e) {
+        // The parser's own message carries the line and column; the frames after
+        // its first line are the YAML library's, not the user's file.
+        return { errors: [`not parseable as YAML: ${e.message.split("\n")[0]}`] };
+    }
+    const result = validate(data);
+    if (!result.valid)
+        return { errors: result.errors };
     // The filename is how a route is addressed; save() writes back to
     // routePath(route.slug). A file whose internal slug disagrees would load here
     // and then be written to the other name on the next mutation, renaming the
     // route with nothing said.
     const loaded = data;
     if (loaded.slug !== slug) {
-        throw new Error(`Route file ${slug}.yaml declares slug '${loaded.slug}' — rename the file ` +
-            `to ${loaded.slug}.yaml, or set slug: ${slug} inside it`);
+        return {
+            errors: [
+                `declares slug '${loaded.slug}' — rename the file to ${loaded.slug}.yaml, ` +
+                    `or set slug: ${slug} inside it`,
+            ],
+        };
     }
-    return sanitizeRoute(loaded);
+    return { route: sanitizeRoute(loaded) };
+}
+export function load(slug) {
+    const read = readRoute(slug);
+    if ("route" in read)
+        return read.route;
+    throw new Error(`Invalid route file ${slug}.yaml:\n${read.errors.join("\n")}`);
 }
 // A tack date may be a bare `YYYY-MM-DD` (accepted for backward compatibility),
 // but `created_at` is date-time in the schema, so widen before adopting one.
@@ -219,7 +296,7 @@ export function init(slug, opts = {}) {
     return route;
 }
 export function list() {
-    return loadAll().map((r) => ({
+    return scanAll().map((r) => ({
         slug: r.slug, title: r.title, group: r.group, total: r.tacks.length, open: r.tacks.filter(isOpen).length,
         state: routeState(r),
     }));
@@ -297,6 +374,7 @@ function detectCycle(route, tackId, dependsOn) {
     }
 }
 export function addTack(slug, summary, opts = {}) {
+    assertLineLength(summary, "tack.summary", "tack summary");
     const route = load(slug);
     const id = nextTackId(route);
     const dependsOn = opts.dependsOn?.map(normalizeTackId);
@@ -452,6 +530,9 @@ export function rename(oldSlug, newSlug) {
     if (existsSync(newPath)) {
         throw new Error(`Route already exists: ${newSlug}`);
     }
+    // Strict, unlike the listings: this sweep is what stops a rename from
+    // dangling another route's `depends_on`, and a file it could not read is a
+    // file whose references it cannot rule out. `tack doctor` names what to fix.
     const all = loadAll();
     const referers = all
         .filter((r) => r.slug !== oldSlug && r.depends_on?.includes(oldSlug))
@@ -487,6 +568,7 @@ export function clearGroup(slug) {
     return route;
 }
 export function setTitle(slug, title) {
+    assertLineLength(title, "route.title", "route title");
     const route = load(slug);
     route.title = title;
     save(route);
@@ -499,6 +581,7 @@ export function clearTitle(slug) {
     return route;
 }
 export function setDescription(slug, description) {
+    assertBlockLength(description, "route.description", "route description");
     const route = load(slug);
     route.description = description;
     save(route);
@@ -511,6 +594,8 @@ export function clearDescription(slug) {
     return route;
 }
 export function setDeliverable(slug, tackId, label, url, opts = {}) {
+    assertLineLength(label, "deliverable.label", "deliverable label");
+    assertLength(url, "deliverable.url", "deliverable url");
     const route = load(slug);
     const tack = findTack(route, tackId);
     if (tack.deliverable && !opts.force) {
@@ -548,6 +633,7 @@ export function removeDeliverable(slug, tackId, opts = {}) {
     return tack;
 }
 export function addBefore(slug, tackId, text) {
+    assertLineLength(text, "todoItem.text", "note text");
     const route = load(slug);
     const tack = findTack(route, tackId);
     if (!tack.before)
@@ -558,6 +644,7 @@ export function addBefore(slug, tackId, text) {
     return tack;
 }
 export function addAfter(slug, tackId, text) {
+    assertLineLength(text, "todoItem.text", "note text");
     const route = load(slug);
     const tack = findTack(route, tackId);
     if (!tack.after)
@@ -642,6 +729,8 @@ export function deriveDeliverableLabel(url) {
     return `${ref.repo}${CHANGE_REF_SIGIL[ref.kind]}${ref.ref}`;
 }
 export function addLink(slug, tackId, label, url) {
+    assertLineLength(label, "link.label", "link label");
+    assertLength(url, "link.url", "link url");
     const route = load(slug);
     const tack = findTack(route, tackId);
     if (tack.deliverable?.url === url)
@@ -669,6 +758,7 @@ export function removeLink(slug, tackId, url) {
     return tack;
 }
 export function editTack(slug, tackId, summary) {
+    assertLineLength(summary, "tack.summary", "tack summary");
     const route = load(slug);
     const tack = findTack(route, tackId);
     tack.summary = summary;
@@ -738,7 +828,7 @@ export function recordSession(slug, sessionId, tackId) {
     return route;
 }
 export function recent(opts = {}) {
-    let routes = loadAll().map((r) => ({
+    let routes = scanAll().map((r) => ({
         slug: r.slug, group: r.group, updated_at: r.updated_at, total: r.tacks.length, open: r.tacks.filter(isOpen).length,
     }));
     routes.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
@@ -758,7 +848,7 @@ export function recent(opts = {}) {
 // (same repo), so both render identically through formatFind.
 function findBy(accepts) {
     const matches = [];
-    for (const r of loadAll()) {
+    for (const r of scanAll()) {
         const routeOpen = r.tacks.filter(isOpen).length;
         for (const tack of r.tacks) {
             const base = { slug: r.slug, group: r.group, routeTotal: r.tacks.length, routeOpen, tackId: tack.id, summary: tack.summary, status: tack.status, done_at: tack.done_at };
@@ -803,7 +893,7 @@ export function findCollisions(url, exclude) {
 // recorded on a route plus every pinned directory's origin remote.
 export function rebuildRepos() {
     const urls = [];
-    for (const r of loadAll()) {
+    for (const r of scanAll()) {
         for (const tack of r.tacks) {
             if (tack.deliverable?.url)
                 urls.push(tack.deliverable.url);
@@ -813,6 +903,16 @@ export function rebuildRepos() {
     }
     const cwds = Object.keys(readPins());
     return repos.rebuildFrom({ urls, cwds });
+}
+// CLI-57: read every route file and report what will not load, changing
+// nothing. Repair is a hand edit, so the report's job is to name the file and
+// the rule it breaks — otherwise finding that out means reading the schema.
+export function doctor() {
+    clearInvalidRoutes();
+    const readable = scanAll().length;
+    const invalid = invalidRoutes();
+    clearInvalidRoutes();
+    return { files: readable + invalid.length, invalid };
 }
 export function remove(slug) {
     const path = routePath(slug);
@@ -876,7 +976,16 @@ export function listPins() {
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([path, pin]) => {
         const dangling = !existsSync(routePath(pin.slug));
-        const idle = !dangling && !load(pin.slug).tacks.some(isOpen);
+        // A pin whose route file will not read is still a pin worth listing;
+        // `idle` is simply unknowable until the file is repaired.
+        let idle = false;
+        if (!dangling) {
+            const read = readRoute(pin.slug);
+            if ("route" in read)
+                idle = !read.route.tacks.some(isOpen);
+            else
+                recordSkip(pin.slug, read.errors);
+        }
         return { path, ...pin, dangling, idle };
     });
 }
@@ -1007,6 +1116,8 @@ export function mergeRoutes(newSlug, srcSlugs, opts = {}) {
     // Route-level deps from outside the merge set that point at a source would
     // dangle once the source is deleted. Refuse unless --break-deps authorizes
     // repointing them at the new route (mirrors the rename referer guard).
+    // Strict for the reason rename() is: an unreadable file may hold the
+    // dependency this guard exists to catch.
     const externalReferers = loadAll()
         .filter((r) => !srcSet.has(r.slug) && r.depends_on?.some((d) => srcSet.has(d)))
         .map((r) => r.slug);

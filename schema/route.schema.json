@@ -157,7 +157,7 @@
         },
         "text": {
           "type": "string",
-          "maxLength": 500,
+          "maxLength": 1000,
           "description": "Description of the instruction"
         },
         "done": {

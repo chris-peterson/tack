@@ -50,7 +50,7 @@ function candidates(r) {
 }
 export function reconcile(opts = {}) {
     const probe = opts.probe ?? mergeState;
-    const routes = opts.slug ? [route.load(opts.slug)] : route.loadAll();
+    const routes = opts.slug ? [route.load(opts.slug)] : route.scanAll();
     const closed = [];
     for (const r of routes) {
         for (const t of candidates(r)) {

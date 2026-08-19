@@ -80,6 +80,20 @@ For bulk inspection, `tack pins` lists every pin with `[dangling]` /
 `[idle]` flags, and `tack pins prune` clears the dangling ones (plus pins
 whose directory no longer exists) in one shot.
 
+## Unreadable route files
+
+A command that reads the whole store (`list`, `recent`, `tree`, `pins`,
+`status` without a slug, `find`) renders the routes it could read, names any it
+could not on stderr, and exits **non-zero**. So a non-zero exit from one of
+these does not mean the output is unusable — read it, and treat the named files
+as work you are not seeing.
+
+Run `tack doctor` for the full report: each file's path and every rule it
+breaks. Repair is a hand edit of the YAML — offer to make it, rather than
+telling the user to go read the schema. `tack export` is the exception that
+still refuses outright, since a route missing from an archive makes the archive
+wrong rather than partial.
+
 ## Session start
 
 When invoked at session start (no arguments or "status"):

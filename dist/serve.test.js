@@ -1,6 +1,6 @@
 import { describe, it, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { request } from "node:http";
@@ -396,6 +396,51 @@ describe("group documents link out to each tack", () => {
         route.addTack("anchored", "work");
         await withServer(async (base) => {
             assert.match(await (await fetch(`${base}/route/anchored`)).text(), /id="t1"/);
+        });
+    });
+});
+// Issue #49: one route file the scan cannot read used to 500 every path, the
+// index included. The refusal now belongs to that route's own document.
+describe("a route file that will not load", () => {
+    function writeBadRoute(slug) {
+        route.init(slug);
+        route.addTack(slug, "a tack");
+        const path = join(tmp, "routes", `${slug}.yaml`);
+        writeFileSync(path, readFileSync(path, "utf-8").replace(/\n$/, "") +
+            `\n    after:\n      - id: a1\n        text: ${"x".repeat(1200)}\n        done: false\n`);
+    }
+    it("leaves the index serving the routes it could read", async () => {
+        route.init("readable");
+        writeBadRoute("unreadable");
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/`);
+            assert.equal(res.status, 200);
+            assert.match(await res.text(), /readable/);
+        });
+    });
+    it("names the file it left out, on the index itself", async () => {
+        route.init("readable");
+        writeBadRoute("unreadable");
+        await withServer(async (base) => {
+            const body = await (await fetch(`${base}/`)).text();
+            assert.match(body, /unreadable\.yaml/);
+            assert.match(body, /tack doctor/);
+        });
+    });
+    // SERVE-04: the documents inherit the CLI's refusal to render work it could
+    // not read — for the document that would have rendered it, and no other.
+    it("still refuses the unreadable route's own document", async () => {
+        writeBadRoute("unreadable");
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/route/unreadable`);
+            assert.equal(res.status, 500);
+            assert.match(await res.text(), /must NOT have more than 1000 characters/);
+        });
+    });
+    it("still 404s a route that was never there", async () => {
+        writeBadRoute("unreadable");
+        await withServer(async (base) => {
+            assert.equal((await fetch(`${base}/route/never-existed`)).status, 404);
         });
     });
 });
