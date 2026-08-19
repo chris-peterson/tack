@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.2.0
+
+# v1.2.0
+
+Restores route files that 1.1.2 refused to load, and stops one bad file from taking down every command that lists.
+
+### Fixed
+
+- **A route file that stopped loading on 1.1.2 loads again.** That release put a length limit on todo item text tight enough to refuse notes an earlier 1.x had already written, so a note stored legally by `tack after` failed to load after upgrading. The limit now fits a note written mid-session. If a route went unreadable on 1.1.2, upgrading is the repair. The [spec](https://chris-peterson.github.io/tack/#/spec) carries every field's limit.
+
+- **One unreadable route file no longer costs you the whole store.** `list`, `recent`, `tree`, `pins`, `find`, and `status` without a slug print the routes they could read, name the file they left out and the rule it breaks, and exit non-zero. Before, the first bad file aborted the run and every listing stayed dead until the YAML was hand-repaired.
+
+- **The docs site serves what it can read.** A route it cannot render is refused on its own page; the index lists the rest and names the ones it left out.
+
+### Added
+
+- **`tack doctor [--json]`** reports every route file that will not load, with its path and each rule it breaks — enough to repair the file without reading the schema.
+
+### Changed
+
+- **Text too long for its field is refused when you type it, naming the field and its limit,** rather than surfacing later as the schema's array-index path into a file you never opened.
+
+- `export`, `tack rename`, and `tack merge-routes` still stop on a file they cannot read: an archive missing a route is wrong rather than partial, and a rename cannot rule out references in a file it cannot parse.
+
+### Other
+
+- The "Works with" table on the docs home page describes the actual logbook relationship — `end` names the harvest command and reads the deferred-note count; it stopped handing the retro to a named plugin in 1.1.1.
+
 ## 1.1.2
 
 # v1.1.2
