@@ -43,24 +43,31 @@ nudged_file="${state_dir}/${session_id}.nudged"
 
 if [ ! -f "$bound_file" ] && command -v tack >/dev/null 2>&1; then
   resolved_slug=""
+  tack_dir="${TACK_HOME:-$HOME/.tack}/routes"
 
-  # Step 1: pin recorded for cwd (stored in ~/.tack/pins.yaml; `tack pin` with
-  # no slug prints "<slug> (pinned …)" and exits 0 when a pin exists, else exits
-  # 1). Gate on the exit code — the no-pin case still writes a line to stdout.
+  # Resolution reads route filenames directly rather than shelling out to tack
+  # per prompt: both steps are a filename test, and this runs on every prompt.
+  toplevel=""
   if [ -n "$cwd" ]; then
-    if pin_line=$(cd "$cwd" && tack pin 2>/dev/null); then
-      resolved_slug=$(printf '%s' "$pin_line" | awk '{print $1}')
+    toplevel=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || true)
+  fi
+
+  # Step 1: the branch is named for a route. This is the path `/tack:start`
+  # sets up, and it stays the most specific signal — one branch, one route.
+  if [ -n "$toplevel" ]; then
+    branch=$(git -C "$toplevel" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+    if [ -n "$branch" ] && [ -f "$tack_dir/$branch.yaml" ]; then
+      resolved_slug="$branch"
     fi
   fi
 
-  # Step 2: branch slug matches a route
-  if [ -z "$resolved_slug" ] && [ -n "$cwd" ] && [ -d "$cwd/.git" ]; then
-    branch=$(git -C "$cwd" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
-    if [ -n "$branch" ]; then
-      tack_dir="${TACK_HOME:-$HOME/.tack}/routes"
-      if [ -f "$tack_dir/$branch.yaml" ]; then
-        resolved_slug="$branch"
-      fi
+  # Step 2: the project is named for a route. Plenty of repos carry one
+  # long-lived route of the same name, so work sitting on the default branch —
+  # where step 1 has nothing to match — still lands on it.
+  if [ -z "$resolved_slug" ] && [ -n "$toplevel" ]; then
+    project=$(basename "$toplevel")
+    if [ -f "$tack_dir/$project.yaml" ]; then
+      resolved_slug="$project"
     fi
   fi
 
@@ -81,11 +88,11 @@ if [ ! -f "$bound_file" ] && command -v tack >/dev/null 2>&1; then
     case "$prompt" in
       */start*) ;;
       *)
-        if [ -n "$cwd" ] && [ -d "$cwd/.git" ]; then
+        if [ -n "$toplevel" ]; then
           # Real newlines rather than literal `\n`: this is printed with
           # `printf '%s'` so that the URL nudge above, which carries untrusted
           # text, cannot have escapes in it expanded.
-          output="${output}No tack route resolves for this cwd (no pin, no branch-slug match).
+          output="${output}No tack route resolves for this cwd (neither the branch nor the project name matches a route).
 
 If this turns out to be work rather than a question — it will span turns and produce a deliverable — recommend the user run \`/tack:start [issue-url]\` before starting: it reads the linked thread in full, derives one slug, cuts the branch, and binds the route the work gets recorded against. \`/tack:end\` closes it.
 

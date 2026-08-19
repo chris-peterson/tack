@@ -209,9 +209,6 @@ _tack() {
     'link:Add a link to a tack'
     'session:Record a session'
     'find:Find the tack that owns a URL'
-    'pin:Pin a route to the current cwd'
-    'unpin:Clear the cwd pin'
-    'pins:List all pins (or prune stale ones)'
     'doctor:Report route files that will not load'
     'repo:Look up a repo remote by name'
     'rm:Delete a route'
@@ -219,7 +216,7 @@ _tack() {
     'group:Set, change, or clear a route group'
     'title:Set, show, or clear a route title'
     'describe:Set, show, or clear a route description'
-    'export:Dump a backup to stdout (routes + repos + pins)'
+    'export:Dump a backup to stdout (routes + repos)'
     'import:Merge or restore a backup'
     'install-cli:Drop a tack wrapper on PATH'
     'completions:Output shell completion script'
@@ -475,25 +472,10 @@ _tack() {
           ;;
       esac
       ;;
-    pin)
-      # tack pin [<slug>]
-      case "$CURRENT" in
-        3) _tack_routes ;;
-      esac
-      ;;
-    unpin)
-      # tack unpin (no args)
-      ;;
-    pins)
-      # tack pins [prune | --json]
-      case "$CURRENT" in
-        3) _alternative 'subcommands:subcommand:((prune\:"remove stale pins"))' 'options:option:((--json\:"emit JSON"))' ;;
-      esac
-      ;;
     repo)
       # tack repo [<partial>] [--json] | alias <match> <alias> | prune | rm <match>
       case "$CURRENT" in
-        3) _alternative 'subcommands:subcommand:((alias\:"add an alias" prune\:"drop stale locals" rebuild\:"backfill from routes + pins" rm\:"remove a repo"))' 'repos:repo:_tack_repo_names' 'options:option:((--json\:"emit JSON"))' ;;
+        3) _alternative 'subcommands:subcommand:((alias\:"add an alias" prune\:"drop stale locals" rebuild\:"backfill from routes" rm\:"remove a repo"))' 'repos:repo:_tack_repo_names' 'options:option:((--json\:"emit JSON"))' ;;
         4)
           case "\${words[3]}" in
             alias|rm) _tack_repo_names ;;

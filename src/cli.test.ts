@@ -421,13 +421,13 @@ describe("--help after a subcommand shows usage", () => {
     assert.match(r.stdout, /Usage:/);
   });
 
-  it("pins --help prints usage instead of silently listing pins", () => {
-    const r = runFail(["pins", "--help"]);
+  it("list --help prints usage instead of silently listing routes", () => {
+    const r = runFail(["list", "--help"]);
     assert.equal(r.status, 0);
     assert.match(r.stdout, /Usage:/);
-    // The arrow only appears in actual pin listings (formatPins), so its
-    // absence confirms usage was shown rather than the command running.
-    assert.doesNotMatch(r.stdout, /→/);
+    // `list` parses its flags by hand, so without the pre-dispatch check it
+    // would ignore --help and print the route list instead.
+    assert.doesNotMatch(r.stdout, /open \/ /);
   });
 
   it("init --help prints usage and exits 0", () => {

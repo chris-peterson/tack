@@ -57,7 +57,7 @@ suite:
       ac: "--orient"
       frames:
         - { t: you, text: "/tack:tack" }
-        - { t: claude, text: "Picking up the pinned route: auth-rewrite. 3 of 5 tacks done — next is the client SDK, and t4 is blocked on the middleware PR." }
+        - { t: claude, text: "Picking up the route this branch is on: auth-rewrite. 3 of 5 tacks done — next is the client SDK, and t4 is blocked on the middleware PR." }
         - { t: status, text: "resolves the active route and replays where you left off" }
     - label: "record a deliverable"
       ac: "--green"

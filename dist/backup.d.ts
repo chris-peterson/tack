@@ -1,4 +1,3 @@
-import * as route from "./route.js";
 import * as repos from "./repos.js";
 import type { Route } from "./types.js";
 export declare const SCHEMA_VERSION = 1;
@@ -8,14 +7,12 @@ export interface Archive {
     generator: string;
     routes: Route[];
     repos: repos.RepoDb;
-    pins: ReturnType<typeof route.readAllPins>;
 }
 export interface ExportResult {
     json: string;
     counts: {
         routes: number;
         repos: number;
-        pins: number;
     };
 }
 export declare function buildArchive(generator: string): ExportResult;
@@ -40,7 +37,6 @@ export interface ImportResult {
     merged: MergedRoute[];
     reposKeysAdded: number;
     reposNamesAdded: number;
-    pinsRestored: number;
 }
 export declare function applyImport(archive: Archive, opts: {
     mode: "merge" | "replace";

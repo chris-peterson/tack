@@ -1,5 +1,5 @@
 import type { Route, Tack } from "./types.js";
-import { type FindMatch, type PinEntry } from "./route.js";
+import { type FindMatch } from "./route.js";
 import type { RepoMatch } from "./repos.js";
 export declare function formatTack(tack: Tack, opts?: {
     url?: string;
@@ -31,5 +31,4 @@ export declare function formatList(routes: {
     open: number;
     state?: "active" | "done";
 }[]): string;
-export declare function formatPins(pins: PinEntry[]): string;
 export declare function formatRepos(repos: RepoMatch[]): string;

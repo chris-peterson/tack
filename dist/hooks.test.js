@@ -1,7 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 // The hooks print into the agent's context — capture-urls.sh as PostToolUse tool
 // feedback, session-nudge.sh as UserPromptSubmit additionalContext — and the URL
@@ -42,5 +44,79 @@ describe("url_nudges", () => {
     });
     it("says nothing when the text holds no forge URL", () => {
         assert.equal(nudges("just a question about https://example.com/docs"), "");
+    });
+});
+// Route resolution runs on every prompt, so it is exercised end to end: a real
+// git repo, a real routes directory, and a `tack` stub on PATH that records the
+// binding the hook would have written.
+describe("session-nudge route resolution", () => {
+    function makeRepo(branch) {
+        const dir = mkdtempSync(join(tmpdir(), "tack-hook-repo-"));
+        const git = (...args) => execFileSync("git", ["-C", dir, ...args], { encoding: "utf-8" });
+        git("init", "-q", "-b", "main");
+        git("-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "init");
+        if (branch)
+            git("checkout", "-q", "-b", branch);
+        return dir;
+    }
+    function makeRoutes(...slugs) {
+        const home = mkdtempSync(join(tmpdir(), "tack-hook-home-"));
+        mkdirSync(join(home, "routes"));
+        for (const slug of slugs) {
+            writeFileSync(join(home, "routes", `${slug}.yaml`), `slug: ${slug}\ntacks: []\n`);
+        }
+        return home;
+    }
+    let session = 0;
+    function run(cwd, tackHome, prompt = "carry on") {
+        const stub = mkdtempSync(join(tmpdir(), "tack-hook-stub-"));
+        const log = join(stub, "calls.log");
+        writeFileSync(join(stub, "tack"), `#!/bin/sh\necho "$@" >> "${log}"\n`, { mode: 0o755 });
+        const out = execFileSync("bash", [join(repoRoot, "hooks", "session-nudge.sh")], {
+            input: JSON.stringify({ prompt, cwd, session_id: `hook-test-${session++}` }),
+            encoding: "utf-8",
+            env: { ...process.env, PATH: `${stub}:${process.env.PATH}`, TACK_HOME: tackHome, TMPDIR: stub },
+        });
+        return { out, calls: existsSync(log) ? readFileSync(log, "utf-8") : "" };
+    }
+    it("binds the session to a route named after the branch", () => {
+        const repo = makeRepo("fix-the-select-bug");
+        const home = makeRoutes("fix-the-select-bug");
+        const { calls } = run(repo, home);
+        assert.match(calls, /^session fix-the-select-bug hook-test-\d+$/m);
+    });
+    it("falls back to a route named after the project when the branch matches none", () => {
+        const repo = makeRepo();
+        const home = makeRoutes(basename(repo));
+        const { calls } = run(repo, home);
+        assert.match(calls, new RegExp(`^session ${basename(repo)} hook-test-\\d+$`, "m"));
+    });
+    it("resolves from a subdirectory of the checkout", () => {
+        const repo = makeRepo();
+        const home = makeRoutes(basename(repo));
+        const sub = join(repo, "src");
+        mkdirSync(sub);
+        const { calls } = run(sub, home);
+        assert.match(calls, new RegExp(`^session ${basename(repo)} hook-test-\\d+$`, "m"));
+    });
+    it("prefers the branch route over the project route", () => {
+        const repo = makeRepo("hotfix-route");
+        const home = makeRoutes("hotfix-route", basename(repo));
+        const { calls } = run(repo, home);
+        assert.match(calls, /^session hotfix-route hook-test-\d+$/m);
+    });
+    it("nudges to open a session when neither the branch nor the project matches", () => {
+        const repo = makeRepo("some-other-branch");
+        const home = makeRoutes("unrelated");
+        const { out, calls } = run(repo, home);
+        assert.equal(calls, "");
+        assert.match(out, /No tack route resolves for this cwd/);
+    });
+    it("says nothing outside a git repo", () => {
+        const dir = mkdtempSync(join(tmpdir(), "tack-hook-plain-"));
+        const home = makeRoutes(basename(dir));
+        const { out, calls } = run(dir, home);
+        assert.equal(calls, "");
+        assert.equal(out, "");
     });
 });

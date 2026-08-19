@@ -10,21 +10,18 @@ export const SCHEMA_VERSION = 1;
 export function buildArchive(generator) {
     const routes = route.loadAll();
     const repoDb = repos.loadRepos();
-    const pins = route.readAllPins();
     const archive = {
         schemaVersion: SCHEMA_VERSION,
         exportedAt: new Date().toISOString(),
         generator,
         routes,
         repos: repoDb,
-        pins,
     };
     return {
         json: JSON.stringify(archive, null, 2),
         counts: {
             routes: routes.length,
             repos: Object.keys(repoDb).length,
-            pins: Object.keys(pins).length,
         },
     };
 }
@@ -89,7 +86,6 @@ export function applyImport(archive, opts) {
         merged: [],
         reposKeysAdded: 0,
         reposNamesAdded: 0,
-        pinsRestored: 0,
     };
     if (opts.mode === "replace") {
         for (const r of archive.routes) {
@@ -98,13 +94,9 @@ export function applyImport(archive, opts) {
                 route.writeRoute(r);
         }
         const repoDb = archive.repos ?? {};
-        const pins = archive.pins ?? {};
         res.reposKeysAdded = Object.keys(repoDb).length;
-        res.pinsRestored = Object.keys(pins).length;
-        if (!opts.dryRun) {
+        if (!opts.dryRun)
             repos.saveReplace(repoDb);
-            route.writeAllPins(pins);
-        }
         return res;
     }
     // merge: additive. Existing tacks are never mutated; new ones are appended
@@ -180,6 +172,5 @@ export function applyImport(archive, opts) {
     }
     if (!opts.dryRun)
         repos.saveReplace(localRepos);
-    // pins are machine-specific cwd paths — skipped on merge.
     return res;
 }

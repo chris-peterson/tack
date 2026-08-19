@@ -112,28 +112,6 @@ export interface DoctorReport {
 }
 export declare function doctor(): DoctorReport;
 export declare function remove(slug: string): void;
-export interface Pin {
-    slug: string;
-    pinned_at: string;
-    session_id?: string;
-}
-export declare function readAllPins(): Record<string, Pin>;
-export declare function writeAllPins(pins: Record<string, Pin>): void;
-export declare function readPin(cwd?: string): Pin | null;
-export declare function writePin(slug: string, cwd?: string): Pin;
-export declare function deletePin(cwd?: string): boolean;
-export interface PinEntry extends Pin {
-    path: string;
-    dangling: boolean;
-    idle: boolean;
-}
-export declare function listPins(): PinEntry[];
-export interface PruneResult {
-    path: string;
-    slug: string;
-    reason: "dangling route" | "missing directory";
-}
-export declare function prunePins(): PruneResult[];
 export interface MoveResult {
     srcRoute: Route;
     dstRoute: Route;

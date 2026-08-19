@@ -143,7 +143,6 @@ describe("rebuildFrom (CLI-47)", () => {
                 "https://github.com/chris-peterson/moor/issues/3", // new repo
                 "https://docs.example.com/not-a-repo", // ignored
             ],
-            cwds: [],
         });
         assert.equal(result.urlsMatched, 2);
         assert.equal(result.repoCount, 2);
