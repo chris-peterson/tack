@@ -19,7 +19,6 @@
   - [Links](/cli?id=links)
   - [Reconcile](/cli?id=reconcile)
   - [Documents](/cli?id=documents)
-  - [Pinning](/cli?id=pinning)
   - [Backup](/cli?id=backup)
 - [Examples & Visualizations](/examples)
   - [Effort Flow (Sankey)](/examples?id=view-effort-flow-sankey)

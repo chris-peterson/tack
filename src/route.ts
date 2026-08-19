@@ -9,7 +9,6 @@ import type { Link, Route, Session, Tack, TackStatus, TodoItem } from "./types.j
 
 const TACK_HOME = process.env.TACK_HOME ?? join(homedir(), ".tack");
 const TACK_DIR = join(TACK_HOME, "routes");
-const PINS_FILE = join(TACK_HOME, "pins.yaml");
 
 export function isOpen(t: Tack): boolean {
   return t.status !== "done" && t.status !== "dropped";
@@ -1073,7 +1072,7 @@ export function findCollisions(
 }
 
 // CLI-47: backfill the repo database from existing tack data — every forge URL
-// recorded on a route plus every pinned directory's origin remote.
+// recorded on a route.
 export function rebuildRepos(): repos.RebuildResult {
   const urls: string[] = [];
   for (const r of scanAll()) {
@@ -1082,8 +1081,7 @@ export function rebuildRepos(): repos.RebuildResult {
       for (const link of tack.links ?? []) urls.push(link.url);
     }
   }
-  const cwds = Object.keys(readPins());
-  return repos.rebuildFrom({ urls, cwds });
+  return repos.rebuildFrom({ urls });
 }
 
 export interface DoctorReport {
@@ -1108,111 +1106,6 @@ export function remove(slug: string): void {
     throw new Error(`Route not found: ${slug}`);
   }
   unlinkSync(path);
-}
-
-export interface Pin {
-  slug: string;
-  pinned_at: string;
-  session_id?: string;
-}
-
-// Pins live in ~/.tack/pins.yaml (keyed by absolute cwd), never in the
-// project tree — a state file at the cwd is one `git add .` away from being
-// committed to someone else's repo.
-function readPins(): Record<string, Pin> {
-  if (!existsSync(PINS_FILE)) return {};
-  return (parse(readFileSync(PINS_FILE, "utf-8")) ?? {}) as Record<string, Pin>;
-}
-
-function writePins(pins: Record<string, Pin>): void {
-  if (!existsSync(TACK_HOME)) {
-    mkdirSync(TACK_HOME, { recursive: true });
-  }
-  writeFileSync(PINS_FILE, stringify(pins), "utf-8");
-}
-
-// Whole-store pin accessors for backup export/restore.
-export function readAllPins(): Record<string, Pin> {
-  return readPins();
-}
-
-export function writeAllPins(pins: Record<string, Pin>): void {
-  writePins(pins);
-}
-
-export function readPin(cwd: string = process.cwd()): Pin | null {
-  return readPins()[cwd] ?? null;
-}
-
-export function writePin(slug: string, cwd: string = process.cwd()): Pin {
-  if (!existsSync(routePath(slug))) {
-    throw new Error(`Route not found: ${slug}`);
-  }
-  const pin: Pin = {
-    slug,
-    pinned_at: now(),
-  };
-  const sessionId = process.env.CLAUDE_CODE_SESSION_ID;
-  if (sessionId) pin.session_id = sessionId;
-  const pins = readPins();
-  pins[cwd] = pin;
-  writePins(pins);
-  captureBestEffort(() => repos.recordCwd(cwd));
-  return pin;
-}
-
-export function deletePin(cwd: string = process.cwd()): boolean {
-  const pins = readPins();
-  if (!(cwd in pins)) return false;
-  delete pins[cwd];
-  writePins(pins);
-  return true;
-}
-
-export interface PinEntry extends Pin {
-  path: string;
-  dangling: boolean;
-  idle: boolean;
-}
-
-export function listPins(): PinEntry[] {
-  const pins = readPins();
-  return Object.entries(pins)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([path, pin]) => {
-      const dangling = !existsSync(routePath(pin.slug));
-      // A pin whose route file will not read is still a pin worth listing;
-      // `idle` is simply unknowable until the file is repaired.
-      let idle = false;
-      if (!dangling) {
-        const read = readRoute(pin.slug);
-        if ("route" in read) idle = !read.route.tacks.some(isOpen);
-        else recordSkip(pin.slug, read.errors);
-      }
-      return { path, ...pin, dangling, idle };
-    });
-}
-
-export interface PruneResult {
-  path: string;
-  slug: string;
-  reason: "dangling route" | "missing directory";
-}
-
-export function prunePins(): PruneResult[] {
-  const pins = readPins();
-  const removed: PruneResult[] = [];
-  for (const [path, pin] of Object.entries(pins)) {
-    let reason: PruneResult["reason"] | null = null;
-    if (!existsSync(routePath(pin.slug))) reason = "dangling route";
-    else if (!existsSync(path)) reason = "missing directory";
-    if (reason) {
-      removed.push({ path, slug: pin.slug, reason });
-      delete pins[path];
-    }
-  }
-  if (removed.length > 0) writePins(pins);
-  return removed;
 }
 
 export interface MoveResult {

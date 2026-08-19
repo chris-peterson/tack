@@ -12,7 +12,7 @@ argument-hint: "[command]"
 You are a route-aware agent that tracks AI-assisted development work using
 the `tack` CLI. The CLI encapsulates schema operations on YAML routes at
 `~/.tack/routes/<slug>.yaml`. **This skill owns the reasoning** — picking
-the active route, resolving ambiguity, capturing URLs, deciding when to pin.
+the active route, resolving ambiguity, capturing URLs, recording deliverables.
 
 ## Direct CLI passthrough
 
@@ -39,50 +39,42 @@ confident match.
 
 ### Resolution procedure
 
-1. **Pin.** Run `tack pin` (no slug) to read the cwd's pin. If a pin
-   exists and `tack status <slug> --json` shows at least one open tack,
-   that's the active route. Done.
-2. **URL match.** If there's a PR/MR/issue URL in scope (recently emitted
-   by a tool, pasted by the user, given to you as a hint), run `tack find
-   --url <url> --json`. If exactly one route matches, that's active. Pin it —
-   and the matched tack is the one this session is driving, so bind it (see
-   "Binding the session to a tack").
-3. **Repo match.** With no URL in hand, run `tack find --path --json` (it
+Steps 1 and 2 are the two the `session-nudge` hook already tried on this
+prompt, so they cost one `tack status` each and usually end the search. The
+rest are the signals the hook has no cheap way to see.
+
+1. **Branch slug.** If `git rev-parse --abbrev-ref HEAD` returns a branch name
+   and a route exists with that slug, that's the active route. This is the
+   binding `/tack:start` sets up, and the most specific one — a branch belongs
+   to one piece of work.
+2. **Project name.** If the checkout's directory name matches a route slug,
+   that's the active route. Plenty of repos carry one long-lived route of the
+   same name, which is what makes this the right guess for work sitting on the
+   default branch.
+3. **URL match.** If there's a PR/MR/issue URL in scope (recently emitted by a
+   tool, pasted by the user, given to you as a hint), run `tack find --url
+   <url> --json`. If exactly one route matches, that's active — and the matched
+   tack is the one this session is driving, so bind it (see "Binding the
+   session to a tack").
+4. **Repo match.** With no URL in hand, run `tack find --path --json` (it
    resolves the cwd's `origin` remote to a repo and returns the routes whose
-   deliverables/links live there). If exactly one route matches, that's
-   active. Pin it.
-4. **Branch slug.** If `git rev-parse --abbrev-ref HEAD` returns a branch
-   name and a route exists with that slug (`tack list --json`) with an
-   open tack, that's active. Pin it.
-5. **Single open route.** If exactly one route has any open tack across
-   all of `tack list --json`, that's active. Pin it.
+   deliverables/links live there). If exactly one route matches, that's active.
+5. **Single open route.** If exactly one route has any open tack across all of
+   `tack list --json`, that's active.
 6. **Ambiguous or unknown.** Ask the user with `AskUserQuestion`. Build
    candidates from in-progress routes first, then `tack recent --json` for
    recently-touched routes, plus a "start a new route" option. When the user
-   picks an existing route, run `tack pin <slug>`. When the user starts a new
-   route, run `tack init <slug>`, add the first tack with `tack add <slug>
-   <summary>`, then pin it.
+   starts a new route, run `tack init <slug>` and add the first tack with
+   `tack add <slug> <summary>`.
 
-Always pin after a confident match (except step 1, which already is pinned)
-or after the user confirms. Pins make the next resolution a single lookup.
-Pins live in `~/.tack/pins.yaml`, never in the project tree.
-
-### When to unpin
-
-- The user explicitly switches focus ("I'm going to work on X now").
-- The pinned route's last open tack transitions to `done` or `dropped`.
-- The pin references a route that no longer exists (stale pin).
-
-Do not unpin speculatively. A finished session that may resume later should
-leave the pin alone.
-
-For bulk inspection, `tack pins` lists every pin with `[dangling]` /
-`[idle]` flags, and `tack pins prune` clears the dangling ones (plus pins
-whose directory no longer exists) in one shot.
+A route resolved at step 3, 4, 5, or 6 resolves the same way next time only if
+the same signal is still in scope. When the work is going to span sessions,
+the durable fix is a branch named for the slug (`/tack:start` cuts one), not a
+per-directory marker.
 
 ## Unreadable route files
 
-A command that reads the whole store (`list`, `recent`, `tree`, `pins`,
+A command that reads the whole store (`list`, `recent`, `tree`,
 `status` without a slug, `find`) renders the routes it could read, names any it
 could not on stderr, and exits **non-zero**. So a non-zero exit from one of
 these does not mean the output is unusable — read it, and treat the named files
@@ -234,9 +226,6 @@ with the user's chosen URL, or surface the candidates to the user to
 pick. Do not ignore the warning — the tack will ship with no
 deliverable until one is set.
 
-After the last open tack on the active route transitions to `done` or
-`dropped`, run `tack unpin`.
-
 ## Moving tacks between routes
 
 When the user reorganizes routes (e.g. consolidating tangent routes
@@ -336,12 +325,8 @@ tack session <slug> <session-id> [--tack <tack-id>]  Record a session; --tack bi
 tack repo [<partial>] [--json]     Look up repo remote(s) by name; no arg lists all
 tack repo alias <match> <alias>    Add a custom name to a repo
 tack repo prune                    Drop locals that no longer exist on disk
-tack repo rebuild                  Backfill the repo db from existing routes + pins
+tack repo rebuild                  Backfill the repo db from existing routes
 tack repo rm <match>               Remove a repo entry
-tack pin [<slug>]                  Pin / show the active route for this cwd
-tack unpin                         Clear the cwd pin
-tack pins [--json]                 List all pins (flags dangling/idle)
-tack pins prune                    Drop pins with a deleted route or missing directory
 tack rm <slug> [--force]           Delete an entire route
 tack install-cli [--dir <path>]    Install the tack wrapper + zsh completions on PATH
 tack completions zsh               Install shell completions

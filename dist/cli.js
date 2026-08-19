@@ -10,7 +10,7 @@ import * as reconcile from "./reconcile.js";
 import * as serve from "./serve.js";
 import * as service from "./service.js";
 import { TACK_STATUSES } from "./types.js";
-import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind, formatPins, formatRepos, treeData } from "./display.js";
+import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind, formatRepos, treeData } from "./display.js";
 import { ZSH_COMPLETION } from "./completions.js";
 function usage(exitCode = 1) {
     const print = exitCode === 0 ? console.log : console.error;
@@ -55,15 +55,11 @@ Usage:
   tack repo [<partial>] [--json]     Look up repo remote(s) by name; no arg lists all
   tack repo alias <match> <alias>    Add a custom name to a repo
   tack repo prune                    Drop locals that no longer exist on disk
-  tack repo rebuild                  Backfill the repo db from existing routes + pins
+  tack repo rebuild                  Backfill the repo db from existing routes
   tack repo rm <match>               Remove a repo entry
-  tack pin [<slug>]                  Pin a route to the current cwd (no slug: show current pin)
-  tack unpin                         Clear the cwd pin
-  tack pins [--json]                 List all pins (flags dangling and idle entries)
-  tack pins prune                    Remove pins with a deleted route or missing directory
   tack doctor [--json]               Report route files that will not load
   tack rm <slug> [--force]
-  tack export [--out-file <path>] [--compress]  Dump a backup to stdout (routes + repos + pins)
+  tack export [--out-file <path>] [--compress]  Dump a backup to stdout (routes + repos)
   tack import <file> [--merge|--replace] [--dry-run]  Merge (default) or restore a backup
   tack install-cli [--dir <path>]    (also installs zsh completions)
   tack completions zsh
@@ -247,7 +243,7 @@ function run() {
     const rest = args.slice(1);
     // `--help`/`-h` after any subcommand shows usage, mirroring bare `tack
     // --help`. Without this, subcommands parsed with strict parseArgs throw on
-    // the unknown flag and manual-parse ones (pins, list, status) silently
+    // the unknown flag and manual-parse ones (list, status) silently
     // ignore it and run anyway.
     if (rest.includes("--help") || rest.includes("-h"))
         usage(0);
@@ -713,7 +709,7 @@ function run() {
                 console.log(formatRoute(r));
             }
             else {
-                // No group argument: report the current group, mirroring `tack pin`.
+                // No group argument: report the current group.
                 const r = route.load(groupSlug);
                 if (r.group) {
                     console.log(r.group);
@@ -871,7 +867,7 @@ function run() {
             }
             else if (sub === "rebuild") {
                 const r = route.rebuildRepos();
-                console.log(`rebuilt repos.yaml: ${r.repoCount} repos (${r.urlsMatched} forge URLs across routes, ${r.localsAdded} locals from pins)`);
+                console.log(`rebuilt repos.yaml: ${r.repoCount} repos (${r.urlsMatched} forge URLs across routes)`);
             }
             else if (sub === "rm") {
                 if (!subArgs[0])
@@ -899,46 +895,6 @@ function run() {
                     const all = repos.listRepos();
                     console.log(jsonFlag ? JSON.stringify(all, null, 2) : formatRepos(all));
                 }
-            }
-            break;
-        }
-        case "pin": {
-            if (rest[0]) {
-                const pin = route.writePin(rest[0]);
-                console.log(`pinned ${pin.slug} → ${process.cwd()}`);
-            }
-            else {
-                const pin = route.readPin();
-                if (pin) {
-                    console.log(`${pin.slug} (pinned ${pin.pinned_at})`);
-                }
-                else {
-                    console.log("no pin set for current directory");
-                    process.exit(1);
-                }
-            }
-            break;
-        }
-        case "unpin": {
-            const removed = route.deletePin();
-            console.log(removed ? `unpinned ${process.cwd()}` : "no pin to remove");
-            break;
-        }
-        case "pins": {
-            if (rest[0] === "prune") {
-                const removed = route.prunePins();
-                if (removed.length === 0) {
-                    console.log("nothing to prune");
-                }
-                else {
-                    for (const r of removed) {
-                        console.log(`pruned ${r.path} → ${r.slug} (${r.reason})`);
-                    }
-                }
-            }
-            else {
-                const entries = route.listPins();
-                console.log(rest.includes("--json") ? JSON.stringify(entries, null, 2) : formatPins(entries));
             }
             break;
         }
@@ -982,7 +938,7 @@ function run() {
             if (outFile) {
                 writeFileSync(outFile, payload);
                 const size = Buffer.byteLength(payload);
-                console.error(`exported ${counts.routes} routes, ${counts.repos} repos, ${counts.pins} pins → ${outFile} ` +
+                console.error(`exported ${counts.routes} routes, ${counts.repos} repos → ${outFile} ` +
                     `(${(size / 1024).toFixed(1)} KB${compress ? ", gzip" : ""}, schema v${backup.SCHEMA_VERSION})`);
             }
             else {
@@ -1024,12 +980,12 @@ function run() {
             if (mode === "replace") {
                 console.log(`${tag}restored ${r.created.length + r.replaced.length} routes ` +
                     `(${r.created.length} new, ${r.replaced.length} overwritten), ` +
-                    `${r.reposKeysAdded} repos, ${r.pinsRestored} pins`);
+                    `${r.reposKeysAdded} repos`);
             }
             else {
                 const added = r.merged.reduce((s, m) => s + m.added, 0);
                 console.log(`${tag}created ${r.created.length} routes; merged ${r.merged.length} ` +
-                    `(${added} tacks added); repos +${r.reposKeysAdded} keys / +${r.reposNamesAdded} names; pins skipped`);
+                    `(${added} tacks added); repos +${r.reposKeysAdded} keys / +${r.reposNamesAdded} names`);
                 if (r.created.length)
                     console.log(`  created: ${r.created.join(", ")}`);
                 for (const m of r.merged) {

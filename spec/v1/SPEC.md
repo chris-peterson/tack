@@ -283,7 +283,10 @@ route files may not exist locally).
 
 ### STORE — Storage
 
-**[STORE-01]** Route files shall be stored in `~/.tack/routes/`.
+**[STORE-01]** Route files shall be stored in `~/.tack/routes/`. tack shall
+never write state into the working directory itself — a state file in the
+project tree is one `git add .` away from being committed to a repo where it
+has no business. All tack state lives under `~/.tack/`.
 
 **[STORE-02]** The storage directory shall be created automatically on first use
 if it does not exist.
@@ -368,19 +371,6 @@ The length checked shall be the length that would be stored, measured after the
 control-character cleaning a write applies, so text that exceeds the limit only
 in whitespace the write is about to collapse is not refused for a length it
 never reaches.
-
-**[STORE-06]** Pins shall be stored in a single YAML file at `~/.tack/pins.yaml`,
-a map keyed by absolute working-directory path. Each entry has the following
-fields:
-- `slug` (string, required) — the pinned route's slug
-- `pinned_at` (string, required) — ISO 8601 timestamp of when the pin was
-  written
-- `session_id` (string, optional) — informational; the Claude Code session
-  that wrote the pin
-
-tack shall never write state into the working directory itself — a state
-file in the project tree is one `git add .` away from being committed to a
-repo where it has no business. All tack state lives under `~/.tack/`.
 
 ---
 
@@ -644,18 +634,6 @@ highest-numbered.
 the `version` field of `.claude-plugin/plugin.json` (resolved from the
 plugin root) and exit zero.
 
-**[CLI-30]** `tack pin <slug>` — When invoked, the CLI shall record the given
-slug as the active route for the current working directory in
-`~/.tack/pins.yaml` per [STORE-06]. The CLI shall fail if no route file exists
-for the given slug. When invoked without arguments (`tack pin`), the CLI
-shall display the current cwd's pin and exit zero if one exists, or report
-that no pin is set and exit non-zero.
-
-**[CLI-31]** `tack unpin` — When invoked, the CLI shall remove the current
-working directory's entry from `~/.tack/pins.yaml` if one exists. The
-command shall succeed silently if no pin is set; absence of a pin is not an
-error.
-
 **[CLI-32]** `tack depends add <slug> <tack-id> <dep-id>` — When invoked, the
 CLI shall append `<dep-id>` to the specified tack's `depends_on` array. If
 the dependency already exists, the operation shall be a no-op (idempotent).
@@ -743,27 +721,13 @@ and is not surfaced by the hook scanners ([HOOK-02], [HOOK-03]).
 **[CLI-38]** `tack --help` / `tack -h` / `tack help` — When invoked, the CLI
 shall print the usage text to stdout and exit zero. The `--help` / `-h` flag
 shall be honored after any subcommand as well (e.g. `tack session --help`,
-`tack pins --help`): the CLI shall print the usage text to stdout and exit
+`tack list --help`): the CLI shall print the usage text to stdout and exit
 zero rather than treating the flag as a subcommand argument — which would
 otherwise throw on subcommands parsed strictly, or be silently ignored by
 subcommands that parse flags manually. When invoked with no arguments or with
 an unrecognized command, the CLI shall print the same usage text to stderr
 and exit non-zero; the unrecognized-command case shall name the offending
 command.
-
-**[CLI-39]** `tack pins [--json]` — When invoked, the CLI shall list every pin
-in `~/.tack/pins.yaml` ([STORE-06]) with its directory, slug, and `pinned_at`
-timestamp, flagging entries whose route no longer exists (dangling) and
-entries whose route has no open tacks (idle). With `--json`, the CLI shall
-emit the structured pin list including the computed flags. The command shall
-exit zero even when the list is empty.
-
-**[CLI-40]** `tack pins prune` — When invoked, the CLI shall remove every pin
-whose route no longer exists and every pin whose directory no longer exists
-on disk, displaying each removed entry and the reason (dangling route /
-missing directory). Pins to existing routes with no open tacks shall be
-kept — idle is informational ([CLI-39]); they are removed only by explicit
-`tack unpin` ([CLI-31]).
 
 **[CLI-41]** Subcommand-group verbs (`tack status set`, `tack todo`, `tack
 link`, `tack depends`) invoked without a valid subcommand shall print a
@@ -800,10 +764,9 @@ fail and list the candidates.
 
 **[CLI-47]** `tack repo rebuild` — When invoked, the CLI shall reconstruct the
 repo database from existing tack data: every deliverable and link URL across all
-routes that parses as a forge change reference ([REPO-06]), and every existing
-pinned directory's `origin` remote ([REPO-07]). The rebuild is additive — it adds
-names and locals but removes nothing, so custom aliases ([CLI-44]) survive a
-re-run. It backfills the database for routes recorded before capture existed.
+routes that parses as a forge change reference ([REPO-06]). The rebuild is
+additive — it adds names but removes nothing, so custom aliases ([CLI-44]) and
+recorded locals ([REPO-07]) survive a re-run. It backfills the database for routes recorded before capture existed.
 
 **[CLI-48]** Duplicate-URL warning — When a URL is attached as a deliverable
 (`tack add --deliverable`, `tack deliverable`) or a link (`tack link add`),
@@ -817,7 +780,7 @@ warn. The warning is informational: the attach still completes and the command
 exits zero.
 
 **[CLI-49]** Export — `tack export [--out-file <path>] [--compress]` shall
-serialize the entire local store (all routes, the repo database, and pins) as a
+serialize the entire local store (all routes and the repo database) as a
 single JSON document carrying a top-level `schemaVersion` (currently `1`), an
 `exportedAt` ISO timestamp, and a `generator` string. It shall write the archive
 uncompressed to stdout by default; `--out-file` shall redirect it to a file
@@ -826,12 +789,12 @@ uncompressed to stdout by default; `--out-file` shall redirect it to a file
 **[CLI-50]** Import — `tack import <file> [--merge|--replace] [--dry-run]` shall
 read an archive produced by [CLI-49] — gzip-compressed or plain JSON, detected by
 content — and refuse one whose `schemaVersion` exceeds the running tack's. `--replace` (full restore) shall overwrite each
-route in the archive verbatim and replace the repo database and pins wholesale.
+route in the archive verbatim and replace the repo database wholesale.
 `--merge` (the default, for combining machines) shall: create routes absent
 locally; for a route that exists on both, append only tacks whose identity
 (deliverable URL, else summary + `done_at`) is not already present, assigning
 fresh ids and remapping `depends_on` edges to those ids; union repo *names*
-while ignoring machine-specific repo `locals`; and skip pins. It shall report
+while ignoring machine-specific repo `locals`. It shall report
 every `old id → new id` reassignment. `--dry-run` shall report the outcome
 without writing.
 
@@ -842,7 +805,7 @@ boundary per [STORE-08].
 When `--clear` is passed, the CLI shall remove the `group` field. When invoked
 with neither, the CLI shall report the route's current group — printing it and
 exiting zero if a group is set, or reporting that none is set and exiting
-non-zero, mirroring `tack pin` ([CLI-30]).
+non-zero.
 
 **[CLI-52]** `tack merge-routes <new-slug> <src-slug>... [--group <slug>] [--created-at <date>] [--break-deps]`
 — When invoked, the CLI shall create a new route `<new-slug>`, move every tack
@@ -959,21 +922,20 @@ to build context about current work.
 for the current working directory by running the following resolution
 procedure in order, stopping at the first confident match:
 
-1. **Pin** — Run `tack pin` (no slug) to read the cwd's pin per [STORE-06]. If
-   present and the referenced route exists with at least one open tack, the
-   pinned route is active.
-2. **URL match** — When a PR/MR/issue URL is in scope (recently emitted by
+1. **Branch slug** — When the cwd is a git repository, use the route whose
+   slug equals the current branch name.
+2. **Project name** — Otherwise use the route whose slug equals the basename
+   of the checkout's root directory.
+3. **URL match** — When a PR/MR/issue URL is in scope (recently emitted by
    a tool, pasted by the user, or passed as a hint), run `tack find --url
    <url> --json` and use the matched route if exactly one is returned. The matched
    tack is also the session's tack per [AGENT-11] — bind it via [AGENT-09].
-3. **Branch slug** — When the cwd is a git repository, run `tack list
-   --json` and use the route whose slug equals the current branch name if
-   it has at least one open tack.
-4. **Single open route** — If exactly one route has an open tack, use it.
-5. **Ambiguous or unknown** — Prompt the user via `AskUserQuestion` with
+4. **Repo match** — With no URL in scope, run `tack find --path --json`
+   ([CLI-23a]) and use the returned route if exactly one is returned.
+5. **Single open route** — If exactly one route has an open tack, use it.
+6. **Ambiguous or unknown** — Prompt the user via `AskUserQuestion` with
    candidates: in-progress routes, recently-updated routes (via `tack
-   recent --json`), or a "start a new route" option. On the user's pick,
-   record the answer with `tack pin <slug>` per [AGENT-10].
+   recent --json`), or a "start a new route" option.
 
 **[AGENT-04]** When the user confirms a new route during resolution per [AGENT-03],
 the agent shall run `tack init <slug>` and add the first tack with `tack add`.
@@ -1022,13 +984,10 @@ derives it from the bound tack's own state — a tack carrying a deliverable or
 a PR/MR/issue link ([CLI-37]) is tracked/existing, one with neither is
 emerging.
 
-**[AGENT-10]** When the agent resolves an active route via [AGENT-03] in a way
-that is not already pinned (URL match, branch slug, single-open-route, or
-user pick), the agent shall pin the result with `tack pin <slug>` so future
-resolutions are immediate. The agent shall not pin speculatively — only
-after a confident match or user confirmation. The agent shall `tack unpin`
-when the user explicitly switches focus or when the pinned route's last open
-tack transitions to `done` or `dropped`.
+**[AGENT-10]** A route resolved by anything other than [AGENT-03] steps 1 and 2
+resolves again only while that signal is still in scope, so when the work will
+span sessions the agent shall name the branch for the slug rather than record
+the answer anywhere else. There is no per-directory marker to write.
 
 ---
 
@@ -1063,9 +1022,9 @@ hook is responsible for noticing URLs the user pastes inline rather than
 through a Bash tool call.
 
 **[HOOK-04]** The `UserPromptSubmit` hook shall also resolve the route for the
-current cwd by running [AGENT-03] step 1 (pin for cwd, via `tack pin`) and step 3
-(branch-slug route) — existence-only, without verifying the route's open-tack
-state and without prompting the user. When a route resolves, the hook shall
+current cwd by running [AGENT-03] steps 1 and 2 (branch slug, then project
+name) — existence-only, without verifying the route's open-tack state and
+without prompting the user. When a route resolves, the hook shall
 record the current session on it per [ROUTE-09] (route-level, no tack binding),
 so session→route attribution does not depend on the agent remembering to run
 `tack session`.
@@ -1081,6 +1040,12 @@ leaving the session unattributed for its whole life.
 be suppressed when the prompt already invokes that skill, and when the cwd is
 not a git repository. The once-per-session debounce applies to the nudge text
 only, never to the resolution of [HOOK-04a].
+
+**[HOOK-04c]** The project-name step of [HOOK-04] shall match the basename of
+the checkout's root, not of the cwd, so a prompt sent from a subdirectory
+resolves the same route as one sent from the root. Resolution shall read route
+filenames directly rather than shelling out per prompt: both steps are a
+filename test, and this runs on every prompt of every session.
 
 **[HOOK-05]** Hook reminders are advisory: the *judgment-laden* writes — which
 slug and tack a URL maps to — shall be made by the agent via the tack skill,
@@ -1249,8 +1214,8 @@ and SSH forms of one remote resolve to a single entry (e.g.
 **[REPO-04]** The `~/.tack/repos.yaml` file and the `~/.tack/` directory shall be
 created automatically on first write if they do not exist.
 
-**[REPO-05]** The repo database is internal derived state, like pins ([STORE-06]):
-tack is its sole writer, so — unlike the route schema, which is the product —
+**[REPO-05]** The repo database is internal derived state: tack is its sole
+writer, so — unlike the route schema, which is the product —
 it is not governed by a published JSON Schema. A missing file shall be treated
 as an empty database.
 
@@ -1260,7 +1225,7 @@ normalized remote ([REPO-02]) and add the derived repo name to `names` if absent
 Capture is best-effort: a failure to update the repo database shall not fail
 the command that triggered it.
 
-**[REPO-07]** When `tack init` or `tack pin` runs inside a git working directory,
+**[REPO-07]** When `tack init` runs inside a git working directory,
 the CLI shall read that directory's `origin` remote (a read-only git query)
 and, when one is present, upsert the corresponding repo ([REPO-02]) and add the
 absolute working-directory path to `locals` if absent. When no `origin` remote
@@ -1440,11 +1405,10 @@ what its successors will. The export archive behaves the same way, refusing a
 - the wording of errors and warnings. [CLI-55] freezes the `tack:` prefix and
   the non-zero exit; the sentence after the prefix is not part of the contract,
   and neither is any other message's phrasing;
-- the on-disk layout of `~/.tack/pins.yaml` ([STORE-06]) and `~/.tack/repos.yaml`
-  ([REPO-01]). Both are the CLI's own bookkeeping, reached through the commands
-  that own them (`tack pin`, `tack pins`, `tack repo`); neither is governed by a
-  published JSON Schema ([REPO-05]), and reading or writing either file directly
-  is outside the contract;
+- the on-disk layout of `~/.tack/repos.yaml` ([REPO-01]). It is the CLI's own
+  bookkeeping, reached through the commands that own it (`tack repo`); it is not
+  governed by a published JSON Schema ([REPO-05]), and reading or writing the
+  file directly is outside the contract;
 - the plugin surface — hook nudge text and the skill's prose ([AGT], [HOOK]).
   It is Claude-Code-specific and reasons rather than stores; the CLI it drives
   is the frozen part.

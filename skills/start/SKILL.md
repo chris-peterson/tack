@@ -21,15 +21,15 @@ wanted.
 Every prompt carries tack's own resolution line, injected by its
 `UserPromptSubmit` hook. Read it before running anything:
 
-- **A route resolves** (by cwd pin or branch-slug match). The session is open.
-  Report it in one line and stop. A second route over work already tracked is
-  what makes every reader of those routes double-count it.
-- **No route resolves** (`no pin, no branch-slug match`). Continue below.
+- **A route resolves** (the branch or the project is named for one). The
+  session is open. Report it in one line and stop. A second route over work
+  already tracked is what makes every reader of those routes double-count it.
+- **No route resolves** (`neither the branch nor the project name matches a
+  route`). Continue below.
 
-When that line isn't in context, probe instead: `tack pin` prints the cwd pin
-and exits 1 with `no pin set for current directory` when there is none, and
-`tack status <branch>` exits 1 with `Route not found` when the branch matches no
-route.
+When that line isn't in context, probe instead: `tack status <name>` exits 1
+with `Route not found`, so run it for the current branch and for the checkout's
+directory name — the two the hook resolves on.
 
 ## Read the linked artifact in full
 
@@ -140,14 +140,11 @@ route from its own stdin, which is the only place the session id is reliably
 available — `$CLAUDE_SESSION_ID` is not exported to the shell. Creating the route
 here is what lets the hook resolve it by branch-slug match on the next prompt.
 
-Branch-slug match is what resolves the route on later turns, so a branch named
-for the slug needs no pin. **Pin only when the branch can't carry the slug**:
-work staying on the default branch, or a worktree whose branch is named
-something else.
-
-```bash
-tack pin {slug}
-```
+Branch-slug match is what resolves the route on later turns, so the branch you
+just cut is what keeps this session findable. **When the work has no branch of
+its own** — it stays on the default branch, or a worktree's branch is named for
+something else — the hook falls back to a route named for the checkout, so give
+the route the project's name and it still resolves.
 
 **Don't set a session label.** A bound route is what a fleet view reads to label
 the session, so writing one separately gives it a second, staler source for the

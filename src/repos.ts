@@ -1,6 +1,6 @@
 // The repo database (REPO category): a standalone index mapping the names a git
 // repository is known by to its remote, accumulated as tack observes work.
-// Internal derived state like pins — tack is its sole writer, so it carries no
+// Internal derived state — tack is its sole writer, so it carries no
 // published JSON Schema (REPO-05). Stored as a bare map keyed by normalized
 // remote at ~/.tack/repos.yaml (REPO-01).
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
@@ -238,21 +238,18 @@ export function pruneLocals(): PrunedLocal[] {
 
 export interface RebuildInput {
   urls: string[];
-  cwds: string[];
 }
 
 export interface RebuildResult {
   repoCount: number;
   urlsMatched: number;
-  localsAdded: number;
 }
 
-// CLI-47: reconstruct the database from forge URLs and pinned directories in a
+// CLI-47: reconstruct the database from the forge URLs recorded on routes in a
 // single load/save. Additive — existing aliases and locals are preserved.
 export function rebuildFrom(input: RebuildInput): RebuildResult {
   const db = loadRepos();
   let urlsMatched = 0;
-  let localsAdded = 0;
 
   for (const url of input.urls) {
     const key = repoKeyFromForgeUrl(url);
@@ -261,18 +258,8 @@ export function rebuildFrom(input: RebuildInput): RebuildResult {
     upsert(db, key, { name: repoNameFromKey(key) });
   }
 
-  for (const cwd of input.cwds) {
-    const remote = readOriginRemote(cwd);
-    if (!remote) continue;
-    const key = normalizeGitRemote(remote);
-    if (!key) continue;
-    const hadLocal = db[key]?.locals?.includes(cwd) ?? false;
-    upsert(db, key, { name: repoNameFromKey(key), local: cwd });
-    if (!hadLocal) localsAdded++;
-  }
-
   saveRepos(db);
-  return { repoCount: Object.keys(db).length, urlsMatched, localsAdded };
+  return { repoCount: Object.keys(db).length, urlsMatched };
 }
 
 // CLI-46

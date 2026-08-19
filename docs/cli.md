@@ -152,11 +152,10 @@ references `<old-slug>` (clear the reference first, then rename).
 tack rename oss-quality opensource-contributions
 ```
 
-Note on stale pins: any pins referencing the old slug fail to resolve on
-the next session — `tack pin <old-slug>` and any write targeting the old
-slug error with `Route not found`. The old name is **not** resurrected, so
-there's no risk of a split route. Re-pin from the affected working
-directory when you next visit it.
+Note on the old slug: any write targeting it errors with `Route not found`,
+and a session whose branch or checkout is still named for it stops resolving
+a route. The old name is **not** resurrected, so there's no risk of a split
+route — rename the branch too, or open the route by its new slug.
 
 ### `tack group <slug> [<group>] [--clear]`
 
@@ -624,58 +623,6 @@ tack serve uninstall
 On a platform with neither supervisor, `install` prints the manual `tack serve`
 invocation instead of failing.
 
-## Pinning
-
-A pin marks a route as active for a working directory. The tack skill reads
-the pin first when resolving "what am I working on?", so pinned routes win
-over branch-slug or single-open-route heuristics.
-
-### `tack pin [<slug>]`
-
-Pin a route to the current directory. The pin is recorded in
-`~/.tack/pins.yaml` (keyed by absolute cwd) — tack never writes state into
-the project tree. Invoking with no slug prints the current pin (exit 1 if no
-pin is set).
-
-```bash
-tack pin auth-rewrite    # pin
-tack pin                 # show current pin
-```
-
-Each pin holds `slug`, `pinned_at`, and an optional `session_id`.
-
-### `tack unpin`
-
-Clear the pin for the current directory. Exits zero whether or not a pin
-existed.
-
-```bash
-tack unpin
-```
-
-### `tack pins [--json]`
-
-List every pin with its directory, slug, and pin timestamp. Entries whose
-route no longer exists are flagged `[dangling]`; entries whose route has no
-open tacks are flagged `[idle]`. `--json` emits the structured list with the
-computed flags.
-
-```bash
-tack pins
-tack pins --json
-```
-
-### `tack pins prune`
-
-Remove pins whose route no longer exists or whose directory is gone from
-disk, printing each removed entry with the reason. Idle pins are kept — a
-finished route that may resume later holds its pin until you `tack unpin`
-or re-pin the directory.
-
-```bash
-tack pins prune
-```
-
 ## Health
 
 ### `tack doctor [--json]`
@@ -704,7 +651,7 @@ a field it does not recognize — throw away text somebody wrote. The report
 exists so the edit does not also require reading the schema.
 
 A file in this state no longer takes the rest of the store with it: `tack list`,
-`recent`, `tree` and `pins` render the routes they could read, name the ones
+`recent` and `tree` render the routes they could read, name the ones
 they left out on stderr, and exit non-zero. `tack export` still refuses
 outright, since a route missing from an archive makes the archive wrong rather
 than merely partial.
@@ -713,8 +660,8 @@ than merely partial.
 
 ### `tack export [--out-file <path>] [--compress]`
 
-Bundle the entire local store — every route, the repo database, and pins —
-into a single JSON document. The document carries a `schemaVersion` (currently
+Bundle the entire local store — every route and the repo database — into a
+single JSON document. The document carries a `schemaVersion` (currently
 `1`), an `exportedAt` timestamp, and a `generator` string, so a future format
 change can be migrated rather than misread.
 
@@ -741,9 +688,9 @@ is newer than the running tack is refused rather than mishandled.
   summary + `done_at` when there's no deliverable — isn't already present are
   appended; they get fresh ids, `depends_on` edges are remapped to the new
   ids, and every `old id → new id` reassignment is reported. Repo *names* are
-  unioned; machine-specific repo `locals` and pins are ignored.
+  unioned; machine-specific repo `locals` are ignored.
 - **`--replace`** — full restore onto the same machine: overwrite each route
-  in the archive verbatim and replace the repo database and pins wholesale.
+  in the archive verbatim and replace the repo database wholesale.
 - **`--dry-run`** — report what would change without writing anything.
 
 ```bash

@@ -117,10 +117,6 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 | `tack link add <slug> <tack-id> <label> <url>` | Add a reference link |
 | `tack link rm <slug> <tack-id> <url>` | Remove a reference link |
 | `tack rm <slug> [--force]` | Delete an entire route |
-| `tack pin [<slug>]` | Pin a route as active for the current directory (no slug prints the current pin) |
-| `tack unpin` | Clear the pin for the current directory |
-| `tack pins [--json]` | List every pin with its directory, slug, and timestamp (flags `[dangling]`/`[idle]`) |
-| `tack pins prune` | Remove pins whose route or directory no longer exists |
 | `tack doctor [--json]` | Report route files that will not load, naming each file and the rule it breaks |
 | `tack serve [--port <n>]` | Serve route documents at `http://127.0.0.1:8788/` — index, one route, one group; re-read from disk on every request. HTML or JSON by `Accept`; a route's title and description are editable from the page |
 | `tack serve install\|uninstall\|status` | Manage an opt-in supervised server (launchd on macOS, systemd on Linux) |
@@ -135,7 +131,7 @@ Anything that reads `~/.tack/routes/*.yaml` or shells out to `tack` is a first-c
 |---|---|
 | The route schema — field names, types, formats | Human-readable output text and layout |
 | The CLI grammar — commands, subcommands, flags, positional order | Error and warning wording (the `tack:` prefix and non-zero exit stay) |
-| Exit codes | `~/.tack/pins.yaml` and `~/.tack/repos.yaml`, the CLI's own bookkeeping |
+| Exit codes | `~/.tack/repos.yaml`, the CLI's own bookkeeping |
 | `--json` output shapes | The Claude Code plugin's hook nudges and skill prose |
 
 Frozen means additive-only: new optional fields, commands, flags, and `--json` keys arrive in minor releases, so tolerate keys you don't recognize. Removing or renaming anything above, or refusing input an earlier `1.x` accepted, waits for 2.0.

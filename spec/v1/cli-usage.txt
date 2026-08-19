@@ -42,15 +42,11 @@ Usage:
   tack repo [<partial>] [--json]     Look up repo remote(s) by name; no arg lists all
   tack repo alias <match> <alias>    Add a custom name to a repo
   tack repo prune                    Drop locals that no longer exist on disk
-  tack repo rebuild                  Backfill the repo db from existing routes + pins
+  tack repo rebuild                  Backfill the repo db from existing routes
   tack repo rm <match>               Remove a repo entry
-  tack pin [<slug>]                  Pin a route to the current cwd (no slug: show current pin)
-  tack unpin                         Clear the cwd pin
-  tack pins [--json]                 List all pins (flags dangling and idle entries)
-  tack pins prune                    Remove pins with a deleted route or missing directory
   tack doctor [--json]               Report route files that will not load
   tack rm <slug> [--force]
-  tack export [--out-file <path>] [--compress]  Dump a backup to stdout (routes + repos + pins)
+  tack export [--out-file <path>] [--compress]  Dump a backup to stdout (routes + repos)
   tack import <file> [--merge|--replace] [--dry-run]  Merge (default) or restore a backup
   tack install-cli [--dir <path>]    (also installs zsh completions)
   tack completions zsh

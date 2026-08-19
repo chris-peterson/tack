@@ -14,12 +14,11 @@ export interface Archive {
   generator: string;
   routes: Route[];
   repos: repos.RepoDb;
-  pins: ReturnType<typeof route.readAllPins>;
 }
 
 export interface ExportResult {
   json: string;
-  counts: { routes: number; repos: number; pins: number };
+  counts: { routes: number; repos: number };
 }
 
 // Bundle the whole local store into one JSON document. Callers emit it as-is
@@ -27,21 +26,18 @@ export interface ExportResult {
 export function buildArchive(generator: string): ExportResult {
   const routes = route.loadAll();
   const repoDb = repos.loadRepos();
-  const pins = route.readAllPins();
   const archive: Archive = {
     schemaVersion: SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
     generator,
     routes,
     repos: repoDb,
-    pins,
   };
   return {
     json: JSON.stringify(archive, null, 2),
     counts: {
       routes: routes.length,
       repos: Object.keys(repoDb).length,
-      pins: Object.keys(pins).length,
     },
   };
 }
@@ -109,7 +105,6 @@ export interface ImportResult {
   merged: MergedRoute[];
   reposKeysAdded: number;
   reposNamesAdded: number;
-  pinsRestored: number;
 }
 
 function maxTackNum(tacks: Tack[]): number {
@@ -138,7 +133,6 @@ export function applyImport(
     merged: [],
     reposKeysAdded: 0,
     reposNamesAdded: 0,
-    pinsRestored: 0,
   };
 
   if (opts.mode === "replace") {
@@ -147,13 +141,8 @@ export function applyImport(
       if (!opts.dryRun) route.writeRoute(r);
     }
     const repoDb = archive.repos ?? {};
-    const pins = archive.pins ?? {};
     res.reposKeysAdded = Object.keys(repoDb).length;
-    res.pinsRestored = Object.keys(pins).length;
-    if (!opts.dryRun) {
-      repos.saveReplace(repoDb);
-      route.writeAllPins(pins);
-    }
+    if (!opts.dryRun) repos.saveReplace(repoDb);
     return res;
   }
 
@@ -226,7 +215,6 @@ export function applyImport(
     }
   }
   if (!opts.dryRun) repos.saveReplace(localRepos);
-  // pins are machine-specific cwd paths — skipped on merge.
 
   return res;
 }

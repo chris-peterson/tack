@@ -414,17 +414,6 @@ export function formatList(routes) {
     }
     return lines.join("\n");
 }
-export function formatPins(pins) {
-    if (pins.length === 0) {
-        return "No pins.";
-    }
-    const lines = [];
-    for (const p of pins) {
-        const flag = p.dangling ? "  [dangling]" : p.idle ? "  [idle]" : "";
-        lines.push(`${p.path} → ${p.slug} (pinned ${p.pinned_at})${flag}`);
-    }
-    return lines.join("\n");
-}
 export function formatRepos(repos) {
     if (repos.length === 0) {
         return "No repos.";

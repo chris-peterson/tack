@@ -7,7 +7,6 @@ import { maxLength, validate } from "./schema.js";
 import * as repos from "./repos.js";
 const TACK_HOME = process.env.TACK_HOME ?? join(homedir(), ".tack");
 const TACK_DIR = join(TACK_HOME, "routes");
-const PINS_FILE = join(TACK_HOME, "pins.yaml");
 export function isOpen(t) {
     return t.status !== "done" && t.status !== "dropped";
 }
@@ -890,7 +889,7 @@ export function findCollisions(url, exclude) {
     return find(url).filter((m) => !(m.slug === exclude.slug && m.tackId === exclude.tackId));
 }
 // CLI-47: backfill the repo database from existing tack data — every forge URL
-// recorded on a route plus every pinned directory's origin remote.
+// recorded on a route.
 export function rebuildRepos() {
     const urls = [];
     for (const r of scanAll()) {
@@ -901,8 +900,7 @@ export function rebuildRepos() {
                 urls.push(link.url);
         }
     }
-    const cwds = Object.keys(readPins());
-    return repos.rebuildFrom({ urls, cwds });
+    return repos.rebuildFrom({ urls });
 }
 // CLI-57: read every route file and report what will not load, changing
 // nothing. Repair is a hand edit, so the report's job is to name the file and
@@ -920,92 +918,6 @@ export function remove(slug) {
         throw new Error(`Route not found: ${slug}`);
     }
     unlinkSync(path);
-}
-// Pins live in ~/.tack/pins.yaml (keyed by absolute cwd), never in the
-// project tree — a state file at the cwd is one `git add .` away from being
-// committed to someone else's repo.
-function readPins() {
-    if (!existsSync(PINS_FILE))
-        return {};
-    return (parse(readFileSync(PINS_FILE, "utf-8")) ?? {});
-}
-function writePins(pins) {
-    if (!existsSync(TACK_HOME)) {
-        mkdirSync(TACK_HOME, { recursive: true });
-    }
-    writeFileSync(PINS_FILE, stringify(pins), "utf-8");
-}
-// Whole-store pin accessors for backup export/restore.
-export function readAllPins() {
-    return readPins();
-}
-export function writeAllPins(pins) {
-    writePins(pins);
-}
-export function readPin(cwd = process.cwd()) {
-    return readPins()[cwd] ?? null;
-}
-export function writePin(slug, cwd = process.cwd()) {
-    if (!existsSync(routePath(slug))) {
-        throw new Error(`Route not found: ${slug}`);
-    }
-    const pin = {
-        slug,
-        pinned_at: now(),
-    };
-    const sessionId = process.env.CLAUDE_CODE_SESSION_ID;
-    if (sessionId)
-        pin.session_id = sessionId;
-    const pins = readPins();
-    pins[cwd] = pin;
-    writePins(pins);
-    captureBestEffort(() => repos.recordCwd(cwd));
-    return pin;
-}
-export function deletePin(cwd = process.cwd()) {
-    const pins = readPins();
-    if (!(cwd in pins))
-        return false;
-    delete pins[cwd];
-    writePins(pins);
-    return true;
-}
-export function listPins() {
-    const pins = readPins();
-    return Object.entries(pins)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([path, pin]) => {
-        const dangling = !existsSync(routePath(pin.slug));
-        // A pin whose route file will not read is still a pin worth listing;
-        // `idle` is simply unknowable until the file is repaired.
-        let idle = false;
-        if (!dangling) {
-            const read = readRoute(pin.slug);
-            if ("route" in read)
-                idle = !read.route.tacks.some(isOpen);
-            else
-                recordSkip(pin.slug, read.errors);
-        }
-        return { path, ...pin, dangling, idle };
-    });
-}
-export function prunePins() {
-    const pins = readPins();
-    const removed = [];
-    for (const [path, pin] of Object.entries(pins)) {
-        let reason = null;
-        if (!existsSync(routePath(pin.slug)))
-            reason = "dangling route";
-        else if (!existsSync(path))
-            reason = "missing directory";
-        if (reason) {
-            removed.push({ path, slug: pin.slug, reason });
-            delete pins[path];
-        }
-    }
-    if (removed.length > 0)
-        writePins(pins);
-    return removed;
 }
 export function moveTack(srcSlug, srcTackId, dstSlug, opts = {}) {
     if (srcSlug === dstSlug) {
