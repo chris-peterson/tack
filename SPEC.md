@@ -1140,6 +1140,33 @@ fleet view. The route's own state is what a fleet view reads; a separately
 written label is a second source for the same field that goes stale when the
 route moves.
 
+**[SESSION-11]** The `end` skill shall account for every git worktree of each repo it
+closes against. It shall reap a worktree — `git worktree remove` then
+`git branch -d`, both non-forcing — where all three hold: the working tree is
+clean, the branch has merged into the freshly fetched default branch, and the
+worktree is not the session's current directory. Reaping is the one filesystem
+change the skill makes on its own initiative; it is bookkeeping in the sense of
+[SESSION-06] rather than one of the delivery operations [SESSION-07] reserves for
+the user, and the non-forcing commands are what bound it, so git refuses on a
+dirty tree or an unmerged branch even where the skill's own checks are wrong.
+
+**[SESSION-12]** Where a worktree fails any of [SESSION-11]'s three conditions, the
+`end` skill shall report it as a row of the [SESSION-08] table — the worktree as
+the change, what blocks it as the state, and the command that clears it as the
+next — rather than as a footer note. An unreapable worktree is a thing the user
+can act on, which is what the table holds; a footer line is where it goes
+unread. Where the session is working *inside* the worktree, the blocking
+condition is that, and the next command is `ExitWorktree`, which the skill shall
+name and not call. Reaped worktrees, having nothing left to act on, are reported
+in the footer instead.
+
+Rationale for both: Claude Code's keep-or-remove prompt fires at *session exit*,
+not at close, and covers only trees `EnterWorktree` created. A session routinely
+continues working after `/tack:end`, and a tree cut with `git worktree add` is
+outside that prompt entirely, so at the moment a worktree stops being needed
+there is nothing else that reports it. A merged branch with a clean tree is
+scaffolding with nothing left to protect.
+
 ---
 
 ### BRIEF — Reading the Linked Artifact

@@ -139,6 +139,57 @@ Match the record to reality rather than to intent:
   reaching for it — `tack rename` takes two *route* slugs, and guessing an
   argument order here renames the route out from under the session.
 
+### The worktree is bookkeeping too, and it is the one thing this skill reaps
+
+`start` cuts the tree; this is the moment it stops being needed, and nothing else
+reports it then. Claude Code's keep-or-remove prompt fires at **session exit**,
+not at close — and a session routinely keeps working for an hour after
+`/tack:end` — while a tree cut with `git worktree add` rather than
+`EnterWorktree` is outside that prompt altogether. So an abandoned worktree
+survives the session that made it, silently, and the next person to notice is
+whoever trips over the branch.
+
+Read every tree of each repo being closed against:
+
+```bash
+git -C <repo> worktree list
+git -C <repo> fetch origin <default>
+```
+
+**Reap a tree only when all three hold**, then say so in the footer:
+
+| Condition | Check |
+|---|---|
+| clean working tree | `git -C <tree> status --porcelain` is empty |
+| branch merged | the branch appears in `git -C <repo> branch --merged origin/<default>` |
+| not the session's cwd | the tree isn't where this session is working |
+
+```bash
+git -C <repo> worktree remove <tree>
+git -C <repo> branch -d <branch>
+```
+
+**Both commands non-forcing, always.** No `--force`, no `-D`. The three checks
+above are the intent; git's own refusal on a dirty tree or an unmerged branch is
+what makes a wrong check harmless rather than destructive. A command that
+refuses has told you the tree fails a condition you thought it met — report that,
+don't escalate the flag.
+
+**A tree you can't reap goes in the table, not the footer.** It is a thing the
+user can act on, which is what the table holds, and a footer line is where it
+goes unread. One row: the worktree as the change, what blocks it as the state,
+the command that clears it as the next.
+
+| Blocked by | state | next |
+|---|---|---|
+| uncommitted changes | `dirty · <n> files` | `/anchor:commit`, or `git -C <tree> worktree remove --force <tree>` once you've looked |
+| branch not merged | `unmerged · <branch>` | whatever the table's own row for that change already says |
+| the session is in it | `session cwd` | `ExitWorktree` |
+
+`ExitWorktree` is the user's to ask for, not this skill's to call — same rule
+`start` states when it moves a session into a tree. Name it and stop; the reap is
+theirs to trigger on the next turn.
+
 ## 4. Hand off the retro
 
 Hand off to whatever retrospective skill this session has, and let it decide
@@ -178,22 +229,27 @@ commands that advance it. This is the skill's whole output:
 |---|---|---|
 | [cleat#3](https://…/pull/3) | draft · checks ✅ test, preview · `2ff4d9e` | `gh pr ready 3` → /code-review → /anchor:merge → /anchor:release |
 | [cleat#7](https://…/pull/7) | merged · `a91c204` | — |
+| `cleat/.claude/worktrees/fresh-chips` | dirty · 3 files | `/anchor:commit` |
 
 **route** cleat t5 open, #3 and the commit as links · **retro** launched in a new tab
 **notes** 3 sessions hold deferred notes — `/logbook:retro <id>`
+**worktree** reaped `cleat/.claude/worktrees/badge-palette` (merged, clean)
 ```
 
 - **Emit it as markdown, not inside a fence.** The example above is fenced so
   its source is visible; what reaches the user is a rendered table with working
   links. A fenced copy is the old text block with extra steps.
 - **One row per thing the user can act on** — a CR, a pushed commit, the working
-  tree when step 2's floor isn't met. A session with nothing to act on (a dead
-  end, a read-only close) drops the table and keeps the footer.
+  tree when step 2's floor isn't met, a worktree step 3 couldn't reap. A session
+  with nothing to act on (a dead end, a read-only close) drops the table and
+  keeps the footer.
 - **`next` is commands in the order they run**, arrow-separated, no
   explanations. Nothing left to run is `—`.
-- **The footer is `route`, `retro`, `notes`**, bold-labelled, one line each, and
-  any field with nothing to say is dropped — no empty `retro` line, no `notes`
-  line when there are none.
+- **The footer is `route`, `retro`, `notes`, `worktree`**, bold-labelled, one
+  line each, and any field with nothing to say is dropped — no empty `retro`
+  line, no `notes` line when there are none, no `worktree` line when nothing was
+  reaped. `worktree` names only what step 3 *removed*; anything it couldn't is a
+  table row.
 - **Live links, not dead tokens.** The change cell carries a linked forge
   reference (`cleat#3`, `ai-tools!23`), never a bare number or a raw URL, and
   shas go in backticks at 7 characters. Name absent signals as absent (`no
@@ -202,8 +258,8 @@ commands that advance it. This is the skill's whole output:
   this replaces was a space-aligned text block whose second repo wrapped out of
   its column and whose forge references couldn't be clicked.
 - **Above the table, at most one sentence**, and only when step 1 found the draft
-  stall, step 2 found the floor unmet, or step 3 corrected a record. Otherwise
-  the table stands alone.
+  stall, step 2 found the floor unmet, or step 3 corrected a record or left a
+  worktree it couldn't reap. Otherwise the table stands alone.
 - **Below it, at most one line per caveat** from the state table's two flagged
   rows.
 - **No prose recap of what steps 1–4 did.** The wall of text this replaces is
@@ -229,6 +285,9 @@ step; it re-reads the state and closes properly.
 | `SPEC.md` present, ledger not refreshed | `/sextant:spec-status` — before the release, not trailing the CR |
 | Ready, green, approved | `/anchor:merge` |
 | Merged, repo publishes releases | `/anchor:release` — it owns the version bump; a hand-bump lands a conflicting commit |
+| Worktree dirty | `/anchor:commit`, then the reap runs on the next close |
+| Worktree on an unmerged branch | whatever that change's own row already says |
+| Worktree is the session's cwd | `ExitWorktree` — the user's to run, then the reap |
 | Nothing left to run, floor cleared | say that in one line and stop |
 | Declared a dead end | nothing to run; the route carries the reason |
 
