@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`/tack:end` now clears up the worktree a session leaves behind.** `/tack:start` cuts one when another live session already holds the checkout, and nothing removed it afterwards: Claude Code's keep-or-remove prompt fires at session *exit* rather than at close, and never covers a tree cut with `git worktree add`. The close now removes a tree whose branch has merged and whose working tree is clean, and lists any it can't alongside the command that clears it. The commands it uses are non-forcing, so a dirty tree or an unmerged branch gets reported rather than discarded.
+
+### Changed
+
+- **The CLI reference documents every command.** It is generated from `tack --help`, which picked up the six commands the page had been missing: `edit`, `merge`, `session`, `repo`, `install-cli`, and `completions`.
+- **The spec is a single page, at [/spec](https://chris-peterson.github.io/tack/#/spec).** A bookmark pointing at `/spec/v1` needs updating. Every surface `1.x` freezes — the route schema, the CLI grammar, exit codes, and `--json` output shapes — is unchanged.
+
 ## 1.3.0
 
 ### Removed
