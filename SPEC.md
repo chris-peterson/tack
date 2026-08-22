@@ -1126,9 +1126,9 @@ release on its own initiative. Naming the next command is its deliverable;
 sequencing is the user's.
 
 **[SESSION-08]** The `end` skill's entire user-facing output shall be one table of
-`change | state | next` rows plus a `route` / `retro` / `notes` footer, emitted
-as rendered markdown with live forge links. Steps preceding it shall run without
-narration.
+`change | state | next` rows plus a `route` / `retro` / `notes` / `worktree`
+footer, emitted as rendered markdown with live forge links. Steps preceding it
+shall run without narration.
 
 **[SESSION-09]** A session that produced nothing worth keeping is a legitimate close.
 The `end` skill shall drop the tack, record the reason on the route via `tack
