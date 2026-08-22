@@ -78,8 +78,13 @@ docs:
 # contract. gen-cli-manifest runs the built CLI, parses what its help documents,
 # and writes the manifest below — which build-docs then renders as a command
 # reference page, so the page can't drift from the binary.
+#
+# It goes through `bin/tack` rather than node directly: the committed `dist/`
+# imports `yaml` at runtime, and the release job regenerates these artifacts with
+# no Node build step ahead of it, so `bin/tack`'s first-run install is what puts
+# the runtime dependencies in place.
 cli:
-  invoke: node dist/cli.js
+  invoke: bin/tack
   engine: usage-lines
   manifest: spec/cli.yml
   lede: |
