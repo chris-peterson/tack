@@ -47,24 +47,37 @@ tack is not a project management system. It answers three questions:
 
 ## Quality Gates
 
-Every gate below runs on `pull_request` in `.github/workflows/build.yml` and has
-a `just` recipe for running it locally first:
+`.github/workflows/build.yml` runs the gates on `pull_request`, and each has a
+`just` recipe for running it locally first:
 
 | Gate | Local | What it catches |
 |---|---|---|
-| Build + tests | `just test` | Behavior regressions |
-| Committed `dist/` | `just check-dist` | A `src/` edit shipped without the rebuild — `bin/tack` runs the committed `dist/cli.js`, so a stale one reaches every installed user while CI's own fresh build stays green |
+| Build + tests | `just test` | Behavior regressions; a published `examples/` fixture that no longer validates; any change to a command, subcommand, or flag, against the `spec/cli-usage.txt` snapshot |
 | Completion coverage | `just completions-check` | A command added to `src/cli.ts` and forgotten in `src/completions.ts` |
-| CLI grammar | included in `just test` | Any change to a command, subcommand, or flag, against the `spec/v1/cli-usage.txt` snapshot |
-| Schema conformance | `just validate-schema` | A published `examples/` fixture that no longer validates |
 | shellcheck | `just lint-shell` | Defects in the hooks and the URL library |
-| Generated artifacts | `just check-generated` | `plugin.json`, `suite.describe`, or docs drifting from their source |
 
-Two notes on the last two rows. `just check` previews pending projections but
-exits zero even when drift is pending, so `check-generated` is the gate:
-regenerate, then let `git diff --exit-code` decide. And when a usage change is
-intended, re-record the grammar with `just usage-snapshot` in the same commit —
-the snapshot diff is how a reviewer sees a grammar change.
+`just validate-schema` runs the schema-conformance test alone, for a tighter loop
+than the whole suite. When a usage change is intended, re-record the grammar with
+`just usage-snapshot` in the same commit — the snapshot diff is how a reviewer
+sees a grammar change.
+
+`.github/workflows/project.yml` writes every generated artifact: `plugin.json`,
+`hooks/hooks.json`, `plugin.yml`'s `describe:` block, `docs/cli.md`,
+`spec/cli.yml`, and the `dist/` that `bin/tack` runs. It builds, regenerates,
+and commits the result to the branch, so a committed artifact matches its source
+and the diff a reviewer approves is the change that lands. The other rendered
+pages are git-ignored and rebuilt on deploy. `just peek-projection` shows what it
+would write, leaving the projected paths in your tree to restore.
+
+A push therefore leaves CI's checks sitting on a commit you didn't write. The
+projection lands on top of your work, and GitHub withholds workflow runs from a
+commit pushed with `GITHUB_TOKEN` — its guard against a pushing job retriggering
+itself. So `build.yml` also triggers when `Project` completes, and its `report`
+job posts a `Build` status — green or red — onto the commit the projection
+pushed. A branch whose checks arrive a beat late is that projection landing.
+
+`spec/cli.yml` is CI's recording of the grammar; `spec/cli-usage.txt` is
+the one you re-record by hand, and the one a test fails on.
 
 ## Naming Conventions
 

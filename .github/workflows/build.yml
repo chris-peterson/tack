@@ -1,16 +1,41 @@
 name: Build
+
+# Runs on a push or PR as usual, and *again* after the projection job pushes.
+#
+# That second trigger exists because GitHub won't run workflows for a commit
+# pushed with GITHUB_TOKEN — its guard against a job that pushes re-triggering
+# itself forever. The projection job pushes, so without this the commit that
+# actually merges is the one nothing tested. Each job skips a projection that
+# failed, which has nothing worth testing downstream of it.
+#
+# What the workflow_run path turns on:
+#   * head_sha names the commit the projection run *started* on, not the one it
+#     pushed — so the jobs check out head_branch instead
+#   * a workflow_run run is associated with the default branch, so it cannot
+#     produce a PR check by running; the `report` job posts the status onto the
+#     projected commit explicitly
+
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_run:
+    workflows: [Project]
+    types: [completed]
+
+permissions:
+  contents: read
 
 jobs:
   ts:
     name: TypeScript build & test
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
 
       - uses: actions/setup-node@v5
         with:
@@ -19,36 +44,41 @@ jobs:
 
       - run: npm ci
       - run: npm run build
-
-      # bin/tack runs the committed dist, not this job's build.
-      - name: Committed dist matches src
-        run: git diff --exit-code dist
-
       - run: npm test
       - name: Completions cover every CLI command
         run: node scripts/check-completions.mjs
 
   shell:
     name: shellcheck
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
 
       # Fail by name on a runner without shellcheck.
       - run: shellcheck --version
-      - run: shellcheck hooks/*.sh scripts/lib-url.sh scripts/shipyard
+      - run: shellcheck hooks/*.sh scripts/lib-url.sh
 
-  generated:
-    name: Generated artifacts match source
+  report:
+    name: Report onto the commit the projection pushed
+    needs: [ts, shell]
+    if: always() && github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: write
     steps:
-      - uses: actions/checkout@v6
-
-      - run: pip install pyyaml
-
-      # --dry-run exits zero on drift, so regenerate and let git compare.
-      - name: Regenerate projections
-        run: scripts/shipyard generate
-
-      - name: Committed artifacts match their source
-        run: git diff --exit-code
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          STATE: ${{ (needs.ts.result == 'success' && needs.shell.result == 'success') && 'success' || 'failure' }}
+        run: |
+          set -euo pipefail
+          sha=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${BRANCH}" --jq .sha)
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/statuses/${sha}" \
+            -f state="$STATE" -f context=Build \
+            -f target_url="$RUN_URL" \
+            -f description='ran on the projected tree'

@@ -1,0 +1,35 @@
+name: Project
+
+# Every generated artifact has one writer, and it is this job — AGENTS.md's
+# Quality Gates section covers what it writes and why.
+#
+# The build runs first, and has to: `dist/` is committed (bin/tack runs it), and
+# gen-cli-manifest interrogates the built CLI to record its grammar.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  project:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # The default pull_request checkout leaves a merge commit in detached
+          # HEAD, and there is no branch there to push a projection to.
+          ref: ${{ github.head_ref }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      - uses: chris-peterson/shipyard/actions/project@v2

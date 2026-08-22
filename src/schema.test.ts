@@ -36,7 +36,7 @@ describe("published examples conform to the route schema", () => {
 // learns them without opening the JSON. Two copies of a number drift the moment
 // either side moves; this is what stops it.
 describe("the spec's length table matches the schema", () => {
-  const spec = readFileSync(join(root, "spec", "v1", "SPEC.md"), "utf-8");
+  const spec = readFileSync(join(root, "SPEC.md"), "utf-8");
   const section = spec.slice(spec.indexOf("**[STORE-10]**"), spec.indexOf("**[STORE-11]**"));
 
   const stated = new Map<string, number>();
