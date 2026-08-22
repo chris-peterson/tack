@@ -1,16 +1,46 @@
 name: Build
+
+# Runs on a push or PR as usual, and *again* after the projection job pushes.
+#
+# That second trigger exists because GitHub won't run workflows for a commit
+# pushed with GITHUB_TOKEN — its guard against a job that pushes re-triggering
+# itself forever. The projection job pushes, so without this the commit that
+# actually merges is the one nothing tested.
+#
+# Three details here were measured on a scratch repo rather than assumed, and
+# each is easy to get wrong:
+#   * the workflow_run payload's head_sha names the commit the projection run
+#     *started* on, not the one it pushed — so this checks out head_branch
+#   * a workflow_run run is associated with the default branch, so it cannot
+#     produce a PR check by running; the status has to be posted explicitly
+#   * the payload's actor is the human who started the chain, not the bot, so
+#     an actor-based condition won't identify these runs
+
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_run:
+    workflows: [Project]
+    types: [completed]
+
+permissions:
+  contents: read
+  statuses: write
 
 jobs:
   ts:
     name: TypeScript build & test
+    # A failed projection has nothing worth testing downstream of it.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          # Empty on every trigger but workflow_run, where actions/checkout
+          # falls back to its usual default.
+          ref: ${{ github.event.workflow_run.head_branch }}
 
       - uses: actions/setup-node@v5
         with:
@@ -20,35 +50,45 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-      # bin/tack runs the committed dist, not this job's build.
-      - name: Committed dist matches src
-        run: git diff --exit-code dist
+      # No "committed dist matches src" check here. dist/ is projected by
+      # project.yml, which builds and commits it — gating on a human having
+      # rebuilt it is what that job removes.
 
       - run: npm test
       - name: Completions cover every CLI command
         run: node scripts/check-completions.mjs
 
+      - name: Report onto the commit the projection pushed
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/statuses/$(git rev-parse HEAD)" \
+            -f state=success -f context='TypeScript build & test' \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            -f description='passed on the projected tree'
+
   shell:
     name: shellcheck
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
 
       # Fail by name on a runner without shellcheck.
       - run: shellcheck --version
-      - run: shellcheck hooks/*.sh scripts/lib-url.sh scripts/shipyard
+      - run: shellcheck hooks/*.sh scripts/lib-url.sh
 
-  generated:
-    name: Generated artifacts match source
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - run: pip install pyyaml
-
-      # --dry-run exits zero on drift, so regenerate and let git compare.
-      - name: Regenerate projections
-        run: scripts/shipyard generate
-
-      - name: Committed artifacts match their source
-        run: git diff --exit-code
+      - name: Report onto the commit the projection pushed
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/statuses/$(git rev-parse HEAD)" \
+            -f state=success -f context=shellcheck \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            -f description='passed on the projected tree'

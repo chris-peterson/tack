@@ -1,6 +1,6 @@
 # Canonical descriptor for the tack plugin — edit here, never plugin.json.
-# Projects into .claude-plugin/plugin.json (via scripts/gen-plugin-json.py) and
-# the marketplace SPA (the suite: block).
+# shipyard's project job projects this into .claude-plugin/plugin.json and the
+# marketplace SPA (the suite: block), and commits the result to the branch.
 
 name: tack
 version: 1.3.0
@@ -73,3 +73,690 @@ suite:
 docs:
   code_languages: [typescript, yaml, bash]
   mermaid: true
+
+# tack's primary surface is a CLI, so its command and flag grammar is a public
+# contract. gen-cli-manifest runs the built CLI, parses what its help documents,
+# and writes the manifest below — which build-docs then renders as a command
+# reference page, so the page can't drift from the binary.
+cli:
+  invoke: node dist/cli.js
+  engine: usage-lines
+  manifest: spec/v1/cli.yml
+  lede: |
+    Tack ids display as `t<N>`. Anywhere a command takes a `<tack-id>`,
+    `<dep-id>`, or a `--depends-on` entry, the bare number works too — `t7` and
+    `7` both resolve to the same tack.
+  groups:
+    - name: Routes
+      about: Making a route, and finding your way around the ones you have.
+      commands: [init, rename, group, title, describe, status, list, recent, tree, find, rm]
+    - name: Tacks
+      about: The units of work on a route.
+      commands: [add, edit, start, done, drop, remove, move, merge, merge-routes]
+    - name: Dependencies
+      commands: [depends]
+    - name: Deliverable
+      about: What a tack produced, and how it gets closed.
+      commands: [deliverable, reconcile]
+    - name: Todos
+      commands: [before, after, todo]
+    - name: Links
+      commands: [link]
+    - name: Sessions
+      commands: [session]
+    - name: Documents
+      about: Serving route documents over HTTP, optionally supervised.
+      commands: [serve]
+    - name: Repos
+      about: The checkout-to-route mapping routes are resolved against.
+      commands: [repo]
+    - name: Health
+      commands: [doctor]
+    - name: Backup
+      commands: [export, import]
+    - name: Installation
+      commands: [install-cli, completions]
+  notes:
+    add: |
+      Add a tack to a route.
+
+      | Option | Description |
+      |---|---|
+      | `--depends-on <id,...>` | Comma-separated tack IDs this depends on |
+      | `--done` | Create the tack already marked done (for backfilling merged work) |
+      | `--date <ts>` | When used with `--done`, set `done_at` to this `YYYY-MM-DD` or ISO 8601 date-time instead of "now" |
+      | `--deliverable <url>` | Set the deliverable URL on creation. The label is auto-derived from the URL (`repo#N` for GitHub PRs/issues, `repo!N` for GitLab MRs, `repo@<sha7>` for commits). For a custom label, use `tack deliverable` after creation. |
+      | `--link "label,url"` | Attach a non-deliverable link on creation, mirroring `tack link add`'s `<label> <url>` pair. Repeatable — each flag adds one link. Combine with `--deliverable`. The split lands at the first comma whose remainder is an absolute URL, so commas are fine in the label (`"a, b,https://x"`) and in the URL (`"report,https://x?ids=1,2"`). |
+
+      Unknown flags fail with a usage error rather than being silently ignored.
+
+      ```bash
+      tack add auth-rewrite "Replace session middleware"
+      tack add auth-rewrite "Update SDK" --depends-on t1
+
+      # Attach an issue link in one call (no follow-up `tack link add`)
+      tack add auth-rewrite "Rate-limit login" \
+        --link "issue,https://github.com/org/repo/issues/123"
+
+      # Backfill a tack for an already-merged PR
+      tack add auth-rewrite "Vault role migration" \
+        --done --date 2026-04-30 \
+        --deliverable https://github.com/org/repo/pull/42
+      ```
+    after: |
+      Add a post-work todo.
+
+      ```bash
+      tack after auth-rewrite t1 "Notify security team"
+      ```
+    before: |
+      Add a pre-work todo.
+
+      ```bash
+      tack before auth-rewrite t1 "Read compliance requirements"
+      ```
+    deliverable: |
+      #### `tack deliverable`
+
+      Set the change request for a tack. The label is derived from the URL —
+      `<repo>#<n>` for a GitHub PR/issue, `<repo>!<n>` for a GitLab MR,
+      `<repo>@<sha7>` for a commit; unrecognized URLs keep the URL as the label.
+      Pass `--label` to override the derived label (e.g. an unrecognized forge URL,
+      or to use prose).
+
+      If a deliverable is already recorded, the command refuses with an error showing
+      the existing label and URL — this prevents a typo'd tack ID from silently
+      clobbering an unrelated tack's deliverable. Pass `--force` to overwrite
+      intentionally.
+
+      If the URL is already attached to another tack (as a deliverable or link), the
+      command prints a `warning: url already on <route>/<tack> ...` to stderr naming
+      where it lives, so you can spot a duplicate before a downstream tool
+      double-counts the work. The attach still completes — the warning is
+      informational. Re-attaching a URL already on the same tack does not warn.
+
+      ```bash
+      tack deliverable auth-rewrite t1 https://github.com/org/repo/pull/42            # label → "repo#42"
+      tack deliverable auth-rewrite t1 https://github.com/org/repo/pull/42 --label "Session PR"
+      tack deliverable auth-rewrite t1 https://github.com/org/repo/pull/43 --label "New session PR" --force
+      ```
+
+      #### `tack deliverable rm`
+
+      Remove a tack's deliverable — the inverse of setting one. By default the tack
+      ends with no deliverable. Pass `--to-link` to instead **demote** it into
+      `links`, preserving its label and URL rather than discarding it.
+
+      `--to-link` is the duplicate-remediation case: when the same PR/MR is
+      mistakenly the deliverable on two tacks, keep it on the tack that owns it and
+      demote it to a link on the other so it stops double-counting. If that URL is
+      already present in `links`, the demote is a no-op on the link (no duplicate).
+      Removing a deliverable from a tack that has none fails with a clear message.
+
+      ```bash
+      tack deliverable rm auth-rewrite t1                # clear the deliverable
+      tack deliverable rm auth-rewrite t1 --to-link      # demote it into links
+      ```
+    depends: |
+      #### `tack depends add`
+
+      Append a dependency. Idempotent — adding an existing dependency is a no-op.
+      Refuses self-dependencies and cycles.
+
+      ```bash
+      tack depends add auth-rewrite t3 t1
+      ```
+
+      #### `tack depends rm`
+
+      Remove a dependency. Fails if the dependency isn't set. If this empties the
+      list, the field is removed from the YAML.
+
+      ```bash
+      tack depends rm auth-rewrite t3 t1
+      ```
+    describe: |
+      Set, show, or clear a route's description: markdown prose stating the goal and
+      why it matters, for a reader deciding between routes. Since markdown is
+      multi-line, the body can come from a file or a pipe instead of an inline
+      argument; trailing newlines are stripped so both forms store the same value. An
+      empty body fails — a pipe that produced nothing reads as a mistake, and `--clear`
+      is how you remove a description.
+
+      ```bash
+      tack describe auth-rewrite "Consolidate the three auth paths into one."
+      tack describe auth-rewrite --file ROUTE.md
+      gh issue view 42 --json body --jq .body | tack describe auth-rewrite --file -
+      tack describe auth-rewrite --clear
+      tack describe auth-rewrite    # print the current description (exits non-zero if none)
+      ```
+
+      Keep it durable: counts, tack IDs, and status live on the tacks and are already
+      derived, so restating them in the description goes stale the first time a tack
+      lands. The CLI stores and prints the markdown verbatim; rendering it is the
+      reader's job.
+    doctor: |
+      Read every route file and report the ones that will not load, naming for each
+      the path to open and every rule it breaks. Exits non-zero when any file fails,
+      zero when none does, and changes nothing on disk.
+
+      ```bash
+      tack doctor
+      tack doctor --json
+      ```
+
+      ```
+      77 route files, 1 could not be read
+
+      migrate-vault-to-secretsmanager.yaml — ~/.tack/routes/migrate-vault-to-secretsmanager.yaml
+        /tacks/21/after/1/text: must NOT have more than 1000 characters (has 1249)
+
+      Repair each file listed above by hand, then re-run `tack doctor`.
+      ```
+
+      Repair is a hand edit on purpose. The CLI refuses to write a file it could not
+      read, and the automatic alternatives — truncating an over-length note, dropping
+      a field it does not recognize — throw away text somebody wrote. The report
+      exists so the edit does not also require reading the schema.
+
+      A file in this state no longer takes the rest of the store with it: `tack list`,
+      `recent` and `tree` render the routes they could read, name the ones
+      they left out on stderr, and exit non-zero. `tack export` still refuses
+      outright, since a route missing from an archive makes the archive wrong rather
+      than merely partial.
+    done: |
+      Complete a tack. `done_at` is stamped with the current ISO 8601 date-time
+      unless `--date <ts>` is given, in which case the supplied `YYYY-MM-DD` date
+      or full ISO 8601 date-time is used instead — supports backfilling work that
+      merged earlier than today. Shows pending after-todos if any exist.
+
+      ```bash
+      tack done auth-rewrite t1
+      tack done auth-rewrite t1 --date 2026-04-30
+      ```
+    drop: |
+      Mark a tack as dropped. The tack stays in the route file as a historical record
+      of intentionally descoped work. Use this for scope changes — "we decided not to
+      ship this."
+
+      ```bash
+      tack drop auth-rewrite t2
+      ```
+    export: |
+      Bundle the entire local store — every route and the repo database — into a
+      single JSON document. The document carries a `schemaVersion` (currently
+      `1`), an `exportedAt` timestamp, and a `generator` string, so a future format
+      change can be migrated rather than misread.
+
+      By default the archive is written **uncompressed to stdout**, so it pipes and
+      diffs cleanly. `--out-file` redirects it to a file (the summary line then goes
+      to stderr), and `--compress` gzips the output. `tack import` accepts either
+      form.
+
+      ```bash
+      tack export                                        # JSON to stdout
+      tack export > tack-backup.json                     # redirect to a file
+      tack export --compress > tack-backup.json.gz       # gzip to a file
+      tack export --out-file ~/backups/tack.json.gz --compress
+      ```
+    find: |
+      #### `tack find`
+
+      Find every tack that references a URL, in any deliverable or link. `--json`
+      emits the matches as an array.
+
+      ```bash
+      tack find --url https://github.com/org/repo/pull/42
+      tack find --url https://github.com/org/repo/pull/42 --json
+      ```
+
+      #### `tack find`
+
+      Find the routes covering a repo checkout. It resolves the directory's `origin`
+      remote (default the current directory) to a repo and returns every route whose
+      deliverable or link lives in that repo, so a session opening in a checkout can
+      find its route without a URL in hand. Exactly one of `--url` or `--path` is
+      required.
+
+      ```bash
+      tack find --path
+      tack find --path ~/src/org/repo --json
+      ```
+    group: |
+      Set, change, or clear a route's group. The group buckets related routes in
+      downstream views (e.g. the `/wip` dashboard groups routes by it), so
+      re-grouping a route is a normal housekeeping operation. Without this verb the
+      only way to re-group an existing route was to hand-edit its YAML; `tack group`
+      goes through the same load → modify → validate → save path as the other
+      route-level operations.
+
+      ```bash
+      tack group auth-rewrite platform   # set or change the group
+      tack group auth-rewrite --clear     # return the route to ungrouped
+      tack group auth-rewrite             # print the current group (exits non-zero if none)
+      ```
+
+      The group must be a valid slug (`^[a-z0-9][a-z0-9-]*[a-z0-9]$`) — the same
+      constraint `tack init --group` enforces. An invalid group surfaces a
+      validation error and the route is left unchanged.
+    import: |
+      Read an archive produced by `tack export`. An archive whose `schemaVersion`
+      is newer than the running tack is refused rather than mishandled.
+
+      - **`--merge`** (default) — combine the archive with the local store, for
+        syncing a second machine. Routes absent locally are created. For a route
+        that exists on both, only tacks whose identity — the deliverable URL, or
+        summary + `done_at` when there's no deliverable — isn't already present are
+        appended; they get fresh ids, `depends_on` edges are remapped to the new
+        ids, and every `old id → new id` reassignment is reported. Repo *names* are
+        unioned; machine-specific repo `locals` are ignored.
+      - **`--replace`** — full restore onto the same machine: overwrite each route
+        in the archive verbatim and replace the repo database wholesale.
+      - **`--dry-run`** — report what would change without writing anything.
+
+      ```bash
+      tack import tack-backup-2026-07-07.json.gz            # merge (default)
+      tack import tack-backup-2026-07-07.json.gz --dry-run  # preview only
+      tack import tack-backup-2026-07-07.json.gz --replace  # restore this machine
+      ```
+    init: |
+      Create a new route.
+
+      ```bash
+      tack init auth-rewrite
+      ```
+    link: |
+      #### `tack link add`
+
+      Add a reference link to a tack. The URL is always recorded as a link —
+      even when it points at a PR/MR — so links and deliverables stay
+      explicit. Use `tack deliverable` to set the change request directly.
+
+      If the URL is already attached to another tack, the command prints a
+      `warning: url already on ...` to stderr (see `tack deliverable`). The link is
+      still added.
+
+      ```bash
+      tack link add auth-rewrite t1 "Design doc" https://docs.example.com/auth
+      tack link add auth-rewrite t1 "Slack thread" https://slack.com/archives/C123/p456
+      ```
+
+      #### `tack link rm`
+
+      Remove a link from a tack by URL. Fails if no link with that URL exists.
+
+      ```bash
+      tack link rm auth-rewrite t1 https://slack.com/archives/C123/p456
+      ```
+    list: |
+      List all routes with open/total tack counts, and the title where one is set.
+      `--json` emits the same rows as an array of `{slug, title, group, total,
+      open}`.
+
+      ```bash
+      tack list
+      tack list --json
+      ```
+    merge-routes: |
+      Fold several whole routes into one new route — the whole-route analogue
+      of `tack move`. Creates `<new-slug>` (which must not already exist),
+      moves every tack from every source into it, and deletes the emptied
+      source files.
+
+      Unlike a sequence of `tack move` calls, the destination t-IDs are
+      assigned in **chronological order** — by each tack's `done_at`, falling
+      back to its source route's `created_at` for open tacks — so the merged
+      route reads in the order the work actually happened rather than the
+      order the routes were listed. All per-tack metadata (`status`,
+      `done_at`, `deliverable`, `links`, `before`, `after`, and route-local
+      `depends_on`, remapped to the new IDs) is preserved. Session history
+      carries over too — a session that spanned several sources is unified
+      into one entry (earliest `started_at`, tack refs remapped).
+
+      The new route's `created_at` defaults to the earliest source route's,
+      so its age reflects the real span of the work; `--created-at
+      YYYY-MM-DD` overrides it. `--group` sets the group (otherwise the first
+      source group carries over), as does the first source `title`. Every
+      source `description` carries over, joined by a `---` rule in source
+      order, since the sources are deleted and a body left behind would be
+      gone for good. Rewrite the merged prose afterward with `tack describe`.
+
+      ```bash
+      tack merge-routes infrastructure-documentation machine-image-docs env-aware-compliance core-vpc-layout --group standards-and-security
+      ```
+
+      If a route *outside* the merge set has a route-level `depends_on`
+      pointing at a source, the merge refuses rather than leave a dangling
+      reference; `--break-deps` authorizes repointing those references at
+      `<new-slug>`.
+    move: |
+      Move a tack from one route to another, preserving all metadata
+      (`status`, `done_at`, `deliverable`, `links`, `before`, `after`). The
+      moved tack gets the next sequential ID in the destination; the source
+      ID is not reused.
+
+      Because tack IDs are route-local, `depends_on` references cannot cross
+      route boundaries. If the source tack has any incoming or outgoing edge
+      to a tack that isn't moving, the operation refuses and lists each
+      offending edge so you can either break it with `tack depends rm` or
+      move the dependent chain together.
+
+      ```bash
+      tack move scratch/t3 auth-rewrite                  # one tack
+      tack move scratch/t3 auth-rewrite --include-dependents  # t3 + everything that depends on t3
+      ```
+
+      With `--include-dependents`, the move set expands to the transitive
+      closure of tacks within the source route that depend on the target.
+      Their `depends_on` arrays are rewritten to the new IDs in the
+      destination. The cross-boundary refusal still applies — if a tack
+      that's staying behind depends on a moving tack, the move fails.
+    recent: |
+      List routes by most recent activity, with open/total counts and the
+      `updated_at` timestamp. Filter with `--count` (cap the number of routes) and
+      `--since` (a `YYYY-MM-DD` date or ISO 8601 date-time). `--json` emits the same
+      rows as an array.
+
+      ```bash
+      tack recent
+      tack recent --count 5
+      tack recent --since 2026-05-01 --json
+      ```
+    reconcile: |
+      Ask the git forge which deliverables have merged and close the tacks holding
+      them. Without a slug the sweep covers every route.
+
+      This is the only tack command that touches a network. It reaches GitHub and
+      GitLab through `gh` and `glab`, so it uses the login those already have and
+      never sees a credential of yours. A tack is only queried when it is open and
+      its deliverable is a pull or merge request — issues, epics, milestones, and
+      commits don't merge, so they are left alone.
+
+      The recorded `done_at` is the forge's merge timestamp, not the moment you ran
+      the sweep, so catching up a week later still dates the work correctly.
+
+      ```bash
+      tack reconcile                 # every route
+      tack reconcile auth-rewrite    # one route
+      tack reconcile --dry-run       # report what would close, write nothing
+      ```
+
+      A missing `gh`/`glab`, an unreadable change request, or a URL from a forge tack
+      can't read fails the command naming the URL. Skipping quietly would be
+      indistinguishable from "nothing merged".
+    remove: |
+      Delete a tack from a route. Use this for accidents — duplicates, test tacks,
+      wrong route. If other tacks depend on the target, the operation fails unless
+      `--force` is passed; with `--force`, the references are stripped from dependents.
+
+      ```bash
+      tack remove auth-rewrite t3
+      tack remove auth-rewrite t1 --force   # t2 depended on t1; its depends_on is stripped
+      ```
+    rename: |
+      Rename a route. The route file is renamed, the `slug` field inside the YAML
+      is updated, and the route's `id` is preserved. Fails if `<new-slug>` already
+      exists, if `<old-slug>` does not exist, or if another route's `depends_on`
+      references `<old-slug>` (clear the reference first, then rename).
+
+      ```bash
+      tack rename oss-quality opensource-contributions
+      ```
+
+      Note on the old slug: any write targeting it errors with `Route not found`,
+      and a session whose branch or checkout is still named for it stops resolving
+      a route. The old name is **not** resurrected, so there's no risk of a split
+      route — rename the branch too, or open the route by its new slug.
+    rm: |
+      Delete a route. Requires `--force` to confirm — without it the confirmation goes
+      to stderr and the command exits non-zero, having deleted nothing.
+
+      ```bash
+      tack rm auth-rewrite --force
+      ```
+    serve: |
+      #### `tack serve`
+
+      Serve your routes as web documents on `http://127.0.0.1:8788/`, in the
+      foreground until you stop it. Three views: an index of every route, one route
+      at `/route/<slug>`, and a whole group at `/group/<slug>`. A tack is an anchor
+      inside its route document, so `/route/auth-rewrite#t3` lands on t3 with the
+      rest of the route around it.
+
+      The server holds nothing. Every request re-reads `~/.tack/routes/`, so a
+      document can never disagree with `tack status`, and an edit shows up on
+      reload with no restart. It binds loopback only and serves `GET` only — these
+      are your private work notes, and the bind address is deliberately not
+      configurable.
+
+      ```bash
+      tack serve
+      tack serve --port 9001
+      ```
+
+      Every path serves two representations of the same thing, picked by `Accept`:
+      the document for a browser, and JSON in the same shape as `tack list --json`
+      for anything reading it programmatically. HTML is the default, so a bare `*/*`
+      gets the page; errors follow the same negotiation, so a JSON client never has
+      to parse an HTML error.
+
+      ```bash
+      curl -H 'accept: application/json' http://127.0.0.1:8788/route/auth-rewrite
+      curl -H 'accept: application/json' http://127.0.0.1:8788/group/platform
+      ```
+
+      A route's description is stored as markdown, and the document renders it. Raw
+      HTML in the source is escaped rather than passed through, and links are limited
+      to `http`/`https` — a description isn't always something you typed by hand
+      (`tack describe --file -` takes an issue body straight off a forge), and this
+      page can write.
+
+      A group document doesn't anchor tacks in place: several routes share it and
+      each numbers from `t1`, so every tack there links back to its own route
+      document, where the anchor means one thing.
+
+      A route document carries a folded-shut editor for the route's title and
+      description — the two fields that are prose rather than tracked state. Saving
+      posts back to the server and goes through the same code path as `tack title`
+      and `tack describe`, so the page can't record anything the CLI would refuse.
+      Emptying a field clears it. Everything else stays read-only: tacks, statuses,
+      and deliverables are the CLI's to change.
+
+      Writes are refused when the request carries an `Origin` that isn't loopback,
+      which is what stops a page on another site from posting to your server behind
+      your back.
+
+      In a terminal that supports OSC 8 hyperlinks (iTerm2, WezTerm, kitty, ghostty,
+      VS Code, GNOME Terminal), `tack status` renders the route slug and each tack id
+      as links into these documents. Piped or redirected output stays plain text.
+      Set `TACK_HYPERLINKS=0` to turn the links off, `1` to force them on, and
+      `TACK_SERVE_PORT` to point them at a server on another port.
+
+      Links are emitted without checking whether the server is up — a liveness probe
+      on every `tack status` would cost a round trip to pre-answer what the browser
+      reports for free when you click.
+
+      #### `tack serve install|uninstall|status`
+
+      Keep the server running without a terminal parked on it: `install` writes and
+      loads a launchd user agent on macOS or a systemd user unit on Linux, both
+      restarting on their own and starting at login. `status` reports which
+      supervisor is present, whether the unit is installed, and whether it's loaded.
+
+      Run `tack install-cli` first. The unit invokes `~/.local/bin/tack`, not the
+      versioned plugin path, so upgrading the plugin doesn't leave the unit pointing
+      at a directory that no longer exists.
+
+      A supervisor starts the unit outside any shell, so it inherits no PATH —
+      launchd gives an agent `/usr/bin:/bin:/usr/sbin:/sbin`, which reaches neither
+      `/opt/homebrew/bin` nor an nvm version directory. The unit therefore carries a
+      copy of the PATH from the shell that ran `install`. That copy is a snapshot: move
+      node and re-run `tack serve install` to refresh it.
+
+      ```bash
+      tack serve install
+      tack serve status
+      tack serve uninstall
+      ```
+
+      On a platform with neither supervisor, `install` prints the manual `tack serve`
+      invocation instead of failing.
+    start: |
+      Start a tack. Fails if any declared dependency isn't `done`. The error
+      names two ways forward:
+
+      - **The work is actually parallel.** The declared edge no longer reflects
+        reality — drop it: `tack depends rm <slug> <tack-id> <dep-id>`. The
+        schema then matches what's happening.
+      - **You want the inconsistent state intentionally.** Keep the edge and
+        write the status anyway: `tack status set <slug> <tack-id> in_progress`.
+        Rare — preserves the dependency record for later audit while letting
+        both tacks be in flight.
+
+      ```bash
+      tack start auth-rewrite t1
+      ```
+
+      When run inside a Claude Code session (the `CLAUDE_CODE_SESSION_ID`
+      environment variable is set), `start` also binds that session to the tack —
+      the same link `tack session <slug> <session-id> --tack <tack-id>` writes.
+      That's what lets the fleet view (beacon) show which tack a session is
+      driving, with nothing extra to run. Outside a Claude session it's a no-op.
+    status: |
+      #### `tack status`
+
+      Show route details. Without a slug, shows a summary of all routes. Dropped
+      tacks are hidden by default; pass `--all` to include them. `--json` emits the
+      route object (or, without a slug, the route summary array) for scripting.
+
+      ```bash
+      tack status auth-rewrite
+      tack status auth-rewrite --all
+      tack status
+      tack status auth-rewrite --json
+      ```
+
+      #### `tack status set`
+
+      Set a tack's status directly, with no guards. Valid statuses: `pending`,
+      `in_progress`, `done`, `blocked`, `dropped`. When the new status is `done`
+      and `done_at` is not already set, it is stamped to the current time.
+
+      Use this as the escape hatch for representing states the guarded commands
+      ([start], [done], [drop]) refuse to produce — reverting a `done` tack to
+      `pending`, putting a tack into `blocked`, etc.
+
+      ```bash
+      tack status set auth-rewrite t1 blocked
+      tack status set auth-rewrite t1 pending   # revert a premature mark-done
+      ```
+    title: |
+      Set, show, or clear a route's title: a human-readable name for work whose slug
+      is terse by design. The title is displayed alongside the slug and never in
+      place of it, so the slug stays the key you type back into the CLI.
+
+      ```bash
+      tack title auth-rewrite "Q3 auth rewrite"   # set or change the title
+      tack title auth-rewrite --clear             # remove it
+      tack title auth-rewrite                     # print the current title (exits non-zero if none)
+      ```
+
+      `tack list` prints the title after the counts. `tack list --json` serializes the
+      full route, so a dashboard reads `title` there alongside every other field.
+    todo: |
+      #### `tack todo done`
+
+      Complete a todo item.
+
+      ```bash
+      tack todo done auth-rewrite t1 b1
+      ```
+
+      #### `tack todo rm`
+
+      Delete a todo item.
+
+      ```bash
+      tack todo rm auth-rewrite t1 a2
+      ```
+    tree: |
+      Browse routes and tacks as a navigable tree. Paths use `/`-separated segments
+      with progressive drill-down. Supports glob wildcards (`*`, `?`) for querying
+      across routes and tacks.
+
+      **Depth levels:** 1 = routes only (default), 2 = routes + tacks, 3 = full details.
+
+      **`--json`** returns the structured data behind the view instead of the
+      rendered tree, so the output drops straight into `jq` and other tooling. The
+      shape follows the navigation depth: no path → an array of full route objects;
+      a slug → that route; `slug/tack` → that tack; `slug/tack/aspect` → an object
+      holding the aspect value. Glob paths return a flat array of matches whose shape
+      varies by pattern depth (routes, `{slug, tack}`, or `{slug, tackId, aspect,
+      value}`). `--json` always emits full objects, so `-d` is ignored alongside it.
+
+      ```bash
+      # Browse all routes
+      tack tree
+
+      # Drill into a route
+      tack tree auth-rewrite
+
+      # Drill into a tack
+      tack tree auth-rewrite/t1
+
+      # Drill into an aspect
+      tack tree auth-rewrite/t1/deliverable
+
+      # Expand all routes with tacks
+      tack tree -d 2
+
+      # Full detail on everything
+      tack tree -d 3
+
+      # Pipe a route's tacks into jq
+      tack tree auth-rewrite --json | jq '.tacks[] | select(.status == "in_progress")'
+      ```
+
+      **Glob queries** (quote the path to prevent shell expansion):
+
+      ```bash
+      # All deliverables (** matches across levels)
+      tack tree '**/deliverable'
+
+      # Everything under a route
+      tack tree 'ai-sdlc/**'
+
+      # All t1 tacks
+      tack tree '*/t1'
+
+      # Deliverables in routes matching a prefix
+      tack tree 'vault-*/*/deliverable'
+
+      # All dependency chains
+      tack tree '**/depends_on'
+
+      # Routes matching a pattern
+      tack tree 'fix-*'
+      ```
+
+      `*` matches within a single path segment, `**` matches across segment
+      boundaries, `?` matches a single character.
+
+      **Tab completion** resolves each level progressively — routes append `/` so you
+      can keep drilling without retyping.
+  examples:
+    tree:
+      - run: tack tree
+        note: Browse every route.
+      - run: tack tree '*/*/deliverable'
+        note: Every deliverable — the glob matches across levels.
+      - run: tack tree my-route -d 2
+        note: Drill into one route, two levels deep.
+    find:
+      - run: tack find --url https://github.com/owner/repo/pull/42
+        note: Which tack references this URL, in any deliverable or link.
+      - run: tack find --path
+        note: Which routes cover the checkout you're standing in.
+    reconcile:
+      - run: tack reconcile --dry-run
+        note: Ask the forge which deliverables have merged, without closing anything.

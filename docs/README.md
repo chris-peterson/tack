@@ -69,7 +69,7 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 ## Reference
 
 - [SPEC](/spec) — the requirements, with formal IDs; [v1](/spec/v1) is the frozen contract the CLI implements
-- [CLI reference](/cli) — every command, subcommand, and flag
+- [CLI reference](/cli) — every command, subcommand, and flag, grouped by what you're doing. Generated from what `tack --help` documents, so it can't drift from the binary
 - [Examples & visualizations](/examples) — sample routes, and the views (Sankey, dependency graph, Gantt) derived from them
 - **Skills** — [`/tack:start`](/skills/start), [`/tack:end`](/skills/end), and [`/tack:tack`](/skills/tack), sourced from each `SKILL.md`
 - [Hooks](/hooks) — what the plugin does without being asked, and the scripts each hook runs
