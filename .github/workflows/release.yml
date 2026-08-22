@@ -3,12 +3,11 @@ name: Release
 # Delegates to shipyard's reusable release workflow. secrets: inherit passes
 # MARKETPLACE_DISPATCH_TOKEN through.
 #
-# The bump level is the only input: shipyard derives the version from plugin.yml,
-# retitles CHANGELOG.md's `## Unreleased` section to it, commits, and tags *that*
-# commit — so plugin.json at the tag reports the version the tag names.
+# shipyard derives the version from plugin.yml, retitles CHANGELOG.md's
+# `## Unreleased` section to it, commits, and tags *that* commit — so plugin.json
+# at the tag reports the version the tag names.
 #
-# Write the notes before dispatching. Reading what landed is what tells you the
-# bump, so the notes and the level are one judgment:
+# Write the notes first — reading what landed is how you pick the level:
 #   git log $(git describe --tags --abbrev=0)..main --no-merges
 
 on:

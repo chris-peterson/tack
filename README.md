@@ -138,7 +138,7 @@ Frozen means additive-only: new optional fields, commands, flags, and `--json` k
 
 Compatibility runs one way. A release reads what earlier ones wrote, but the schema rejects fields it doesn't know, so downgrading after a newer release has written a field into your routes leaves them unreadable until you upgrade again.
 
-Full contract: the COMPAT requirements in [`spec/v1/SPEC.md`](spec/v1/SPEC.md).
+Full contract: the COMPAT requirements in [`SPEC.md`](SPEC.md).
 
 ## Design Principles
 

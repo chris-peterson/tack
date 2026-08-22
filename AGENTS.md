@@ -52,7 +52,7 @@ tack is not a project management system. It answers three questions:
 
 | Gate | Local | What it catches |
 |---|---|---|
-| Build + tests | `just test` | Behavior regressions; a published `examples/` fixture that no longer validates; any change to a command, subcommand, or flag, against the `spec/v1/cli-usage.txt` snapshot |
+| Build + tests | `just test` | Behavior regressions; a published `examples/` fixture that no longer validates; any change to a command, subcommand, or flag, against the `spec/cli-usage.txt` snapshot |
 | Completion coverage | `just completions-check` | A command added to `src/cli.ts` and forgotten in `src/completions.ts` |
 | shellcheck | `just lint-shell` | Defects in the hooks and the URL library |
 
@@ -61,24 +61,23 @@ than the whole suite. When a usage change is intended, re-record the grammar wit
 `just usage-snapshot` in the same commit — the snapshot diff is how a reviewer
 sees a grammar change.
 
-`.github/workflows/project.yml` is the single writer of every generated
-artifact it commits: `plugin.json`, `hooks/hooks.json`, `plugin.yml`'s
-`describe:` block, `docs/cli.md`, `spec/v1/cli.yml`, and the `dist/` that
-`bin/tack` runs. It builds, regenerates, and commits the result to the branch,
-so a committed artifact matches its source and the diff a reviewer approves is
-the change that lands. The other rendered pages are git-ignored and rebuilt on
-deploy. `just peek-projection` shows what it would write, leaving the projected
-paths in your tree to restore.
+`.github/workflows/project.yml` writes every generated artifact: `plugin.json`,
+`hooks/hooks.json`, `plugin.yml`'s `describe:` block, `docs/cli.md`,
+`spec/cli.yml`, and the `dist/` that `bin/tack` runs. It builds, regenerates,
+and commits the result to the branch, so a committed artifact matches its source
+and the diff a reviewer approves is the change that lands. The other rendered
+pages are git-ignored and rebuilt on deploy. `just peek-projection` shows what it
+would write, leaving the projected paths in your tree to restore.
 
-`spec/v1/cli.yml` is CI's recording of the grammar; `spec/v1/cli-usage.txt` is
-the one you re-record by hand, and the one a test fails on.
-
-So a push can leave CI's checks sitting on a commit you didn't write. The
+A push therefore leaves CI's checks sitting on a commit you didn't write. The
 projection lands on top of your work, and GitHub withholds workflow runs from a
 commit pushed with `GITHUB_TOKEN` — its guard against a pushing job retriggering
-itself. `build.yml` therefore also triggers when `Project` completes, and posts
-its result onto the commit the projection pushed. A branch that shows no checks
-for a moment is that projection landing, not a broken build.
+itself. So `build.yml` also triggers when `Project` completes, and its `report`
+job posts a `Build` status — green or red — onto the commit the projection
+pushed. A branch whose checks arrive a beat late is that projection landing.
+
+`spec/cli.yml` is CI's recording of the grammar; `spec/cli-usage.txt` is
+the one you re-record by hand, and the one a test fails on.
 
 ## Naming Conventions
 

@@ -81,7 +81,7 @@ docs:
 cli:
   invoke: node dist/cli.js
   engine: usage-lines
-  manifest: spec/v1/cli.yml
+  manifest: spec/cli.yml
   lede: |
     Tack ids display as `t<N>`. Anywhere a command takes a `<tack-id>`,
     `<dep-id>`, or a `--depends-on` entry, the bare number works too — `t7` and
@@ -156,8 +156,6 @@ cli:
       tack before auth-rewrite t1 "Read compliance requirements"
       ```
     deliverable: |
-      #### `tack deliverable`
-
       Set the change request for a tack. The label is derived from the URL —
       `<repo>#<n>` for a GitHub PR/issue, `<repo>!<n>` for a GitLab MR,
       `<repo>@<sha7>` for a commit; unrecognized URLs keep the URL as the label.
@@ -300,7 +298,7 @@ cli:
       tack export --out-file ~/backups/tack.json.gz --compress
       ```
     find: |
-      #### `tack find`
+      #### `tack find --url`
 
       Find every tack that references a URL, in any deliverable or link. `--json`
       emits the matches as an array.
@@ -310,7 +308,7 @@ cli:
       tack find --url https://github.com/org/repo/pull/42 --json
       ```
 
-      #### `tack find`
+      #### `tack find --path`
 
       Find the routes covering a repo checkout. It resolves the directory's `origin`
       remote (default the current directory) to a repo and returns every route whose
@@ -515,8 +513,6 @@ cli:
       tack rm auth-rewrite --force
       ```
     serve: |
-      #### `tack serve`
-
       Serve your routes as web documents on `http://127.0.0.1:8788/`, in the
       foreground until you stop it. Three views: an index of every route, one route
       at `/route/<slug>`, and a whole group at `/group/<slug>`. A tack is an anchor
@@ -623,8 +619,6 @@ cli:
       That's what lets the fleet view (beacon) show which tack a session is
       driving, with nothing extra to run. Outside a Claude session it's a no-op.
     status: |
-      #### `tack status`
-
       Show route details. Without a slug, shows a summary of all routes. Dropped
       tacks are hidden by default; pass `--all` to include them. `--json` emits the
       route object (or, without a slug, the route summary array) for scripting.
@@ -744,19 +738,3 @@ cli:
 
       **Tab completion** resolves each level progressively — routes append `/` so you
       can keep drilling without retyping.
-  examples:
-    tree:
-      - run: tack tree
-        note: Browse every route.
-      - run: tack tree '*/*/deliverable'
-        note: Every deliverable — the glob matches across levels.
-      - run: tack tree my-route -d 2
-        note: Drill into one route, two levels deep.
-    find:
-      - run: tack find --url https://github.com/owner/repo/pull/42
-        note: Which tack references this URL, in any deliverable or link.
-      - run: tack find --path
-        note: Which routes cover the checkout you're standing in.
-    reconcile:
-      - run: tack reconcile --dry-run
-        note: Ask the forge which deliverables have merged, without closing anything.

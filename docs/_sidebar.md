@@ -3,7 +3,8 @@
   - [Architecture](/spec?id=architecture)
   - [Data Model](/spec?id=data-model)
   - [Requirement Categories](/spec?id=requirement-categories)
-  - [Compatibility](/spec?id=compatibility)
+  - [Requirements](/spec?id=requirements)
+  - [Compatibility](/spec?id=compat-compatibility)
   - [Anti-Requirements](/spec?id=anti-requirements)
 - Skills
   - [start](/skills/start)

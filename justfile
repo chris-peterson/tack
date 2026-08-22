@@ -1,5 +1,4 @@
-spec := "v1"
-shipyard := "uvx --from 'git+https://github.com/chris-peterson/shipyard@v2' shipyard"
+shipyard :="uvx --from 'git+https://github.com/chris-peterson/shipyard@v2' shipyard"
 
 # Show available recipes
 default:
@@ -10,19 +9,19 @@ run *args:
     npm start -- {{args}}
 
 # Run tests
-test:
+test: build
     npm test
 
 # Validate every published example against the JSON Schema
 validate-schema: build
     node --test dist/schema.test.js
 
-# Show the current spec
+# Show the spec
 spec:
-    @cat spec/{{spec}}/SPEC.md
+    @cat SPEC.md
 
 # build.yml: ts — build, run tests, verify completions
-ts: build test completions-check
+ts: test completions-check
 
 # Compile src/ to dist/, which the tests run against
 build:
@@ -39,8 +38,8 @@ lint-shell:
 
 # Re-record the CLI grammar snapshot after an intended usage change
 usage-snapshot: build
-    printf '# tack CLI grammar snapshot — the public command/flag surface, compared against\n# `tack --help` by src/cli.test.ts. A diff here is a grammar change.\n# Re-record with `just usage-snapshot` when the change is intended.\n' > spec/{{spec}}/cli-usage.txt
-    node dist/cli.js --help >> spec/{{spec}}/cli-usage.txt
+    printf '# tack CLI grammar snapshot — the public command/flag surface, compared against\n# `tack --help` by src/cli.test.ts. A diff here is a grammar change.\n# Re-record with `just usage-snapshot` when the change is intended.\n' > spec/cli-usage.txt
+    node dist/cli.js --help >> spec/cli-usage.txt
 
 # Preview the docs site locally — dirties the tracked docs/cli.md
 docs:
