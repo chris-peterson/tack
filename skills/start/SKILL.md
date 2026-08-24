@@ -135,10 +135,9 @@ tack link add {slug} t1 "{repo} {ref}" "{issue_url}"
 
 Omit the `tack link add` when no URL was given.
 
-**Don't run `tack session`.** The `session-nudge` hook binds the session to the
-route from its own stdin, which is the only place the session id is reliably
-available — `$CLAUDE_SESSION_ID` is not exported to the shell. Creating the route
-here is what lets the hook resolve it by branch-slug match on the next prompt.
+**Don't run `tack session`.** The `tack init` and `tack add` calls above already
+record the session on the route, from `CLAUDE_CODE_SESSION_ID`, so a `tack
+session` call here writes what they just wrote.
 
 Branch-slug match is what resolves the route on later turns, so the branch you
 just cut is what keeps this session findable. **When the work has no branch of
