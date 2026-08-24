@@ -1052,10 +1052,10 @@ so session→route attribution does not depend on the agent remembering to run
 `tack session`.
 
 **[HOOK-04a]** Resolution per [HOOK-04] shall repeat on every prompt until it
-binds, rather than running once per session. A session opened with the `start`
-skill has no route at its first prompt — the skill creates one mid-turn — so a
-once-per-session probe would look before the route exists and never look again,
-leaving the session unattributed for its whole life.
+binds, rather than running once per session. A route becomes resolvable mid-session
+— the `start` skill creates one and cuts its branch inside a turn, and a branch can
+be cut or renamed at any later point — so a once-per-session probe would look
+before the branch it resolves by exists, and never look again.
 
 **[HOOK-04b]** When no route resolves, the hook shall emit a nudge naming the
 `start` skill as the way to open one, at most once per session. The nudge shall
@@ -1112,9 +1112,11 @@ performed by a bundled script rather than re-derived per invocation.
 fetched default branch rather than from whatever is checked out, except where
 the user states the work builds on the current branch.
 
-**[SESSION-05]** The `start` skill shall not run `tack session`. Session binding is
-the hook's responsibility per [HOOK-04], which is the only place the session id
-is reliably available.
+**[SESSION-05]** The `start` skill shall not run `tack session`. The `init` and
+`add` calls it already makes record the session on the route from
+`CLAUDE_CODE_SESSION_ID` per [CLI-02] and [CLI-04], so a separate binding call
+writes what the CLI just wrote. [HOOK-04] covers the session the skill cannot:
+one that resolves onto a route it did not create.
 
 **[SESSION-06]** The plugin shall provide an `end` skill that closes a work session
 by reading the end state fresh, holding the durability floor of the FLOOR
