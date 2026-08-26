@@ -110,19 +110,6 @@ did.
 Uncommitted work in the tree carries over to the new branch. When the tree is
 dirty with changes that belong somewhere else, say so and ask before branching.
 
-**When another live session already holds this checkout**, one tree can't serve
-both: its index and HEAD are shared, so each session's commits sweep up the
-other's in-flight files. The `checkout-collision` hook names the occupants on
-the first prompt. Give this work its own tree with `EnterWorktree {slug}`, which
-switches this session into it and branches from the default branch by default
-(`worktree.baseRef: fresh`), so step 1's base is handled.
-
-Tell the user you did, and what it means for them: which sessions hold the
-original checkout, and the path and branch this session now works in. They are
-steering several windows, and one of them silently changing directory is its own
-way to lose track of work. `ExitWorktree` is theirs to ask for, not yours to
-call — Claude Code prompts to keep or remove the tree when the session ends.
-
 **2. The tack route.** The route persists across conversations and is the source
 of truth for work-in-progress state that `/tack:end` and every fleet reader work
 from. Create it and link the brief:
@@ -140,9 +127,8 @@ record the session on the route, from `CLAUDE_CODE_SESSION_ID`, so a `tack
 session` call here writes what they just wrote.
 
 Branch-slug match is what resolves the route on later turns, so the branch you
-just cut is what keeps this session findable. **When the work has no branch of
-its own** — it stays on the default branch, or a worktree's branch is named for
-something else — the hook falls back to a route named for the checkout, so give
+just cut is what keeps this session findable. **When the work stays on the
+default branch**, the hook falls back to a route named for the checkout, so give
 the route the project's name and it still resolves.
 
 **Don't set a session label.** A bound route is what a fleet view reads to label

@@ -23,10 +23,10 @@ suite:
   dependencies:
     - name: anchor
       required: false
-      reason: supplies the commit, CR, merge, and release commands end reports as owed
+      reason: supplies the commit, review, merge, and release commands end reports as owed
     - name: logbook
       required: false
-      reason: supplies the deferred-note count and the harvest command end reports
+      reason: supplies the deferred-note sessions and the retro command end reports
   # User-invoked skills, plus hooks that read the agent's Bash output
   # (PostToolUse) and act at session start.
   activations: [agent, user, session]
