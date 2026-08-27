@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Removed
+
+- **The worktree reap in `/tack:end`, and the `EnterWorktree` step in `/tack:start`.** 1.4.0 added them; `tack` no longer treats worktrees as its bookkeeping. `/tack:start` cuts a branch in the checkout it was invoked from, and `/tack:end` neither lists nor removes trees. A tree you cut yourself is yours to remove — `git worktree remove <path>` when you're done with it.
+
 ## 1.4.0
 
 ### Added
