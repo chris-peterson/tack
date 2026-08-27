@@ -2,19 +2,21 @@
   <defs>
     <linearGradient id="beat" x1="0" y1="1" x2="1" y2="0">
       <stop offset="0%" stop-color="#bd93f9"/>
-      <stop offset="55%" stop-color="#8be9fd"/>
+      <stop offset="45%" stop-color="#bd93f9"/>
+      <stop offset="78%" stop-color="#8be9fd"/>
       <stop offset="100%" stop-color="#50fa7b"/>
     </linearGradient>
     <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0%" stop-color="#50fa7b" stop-opacity="0.5"/>
+      <stop offset="0%" stop-color="#50fa7b" stop-opacity="0.38"/>
       <stop offset="100%" stop-color="#50fa7b" stop-opacity="0"/>
     </radialGradient>
+    <clipPath id="tile"><rect width="64" height="64" rx="14"/></clipPath>
   </defs>
 
   <rect width="64" height="64" rx="14" fill="#282a36"/>
 
-  <!-- Destination glow -->
-  <circle cx="54" cy="12" r="16" fill="url(#glow)"/>
+  <!-- Destination glow, clipped to the tile so it can't spill past the corner -->
+  <circle cx="54" cy="12" r="11" fill="url(#glow)" clip-path="url(#tile)"/>
 
   <!-- Tacking beat (scaled from assets/icon.svg 32→64) -->
   <path d="M 10 54 L 26 40 L 18 26 L 38 20 L 30 10 L 54 12"
