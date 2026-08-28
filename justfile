@@ -27,8 +27,9 @@ ts: test completions-check
 build:
     npm run build
 
-# Preview the projection CI would commit, writing it into your tree
-peek-projection: build
+# read what the projection job would commit, without keeping it; `git restore .` discards
+# build first: gen-cli-manifest interrogates the built CLI
+check: build
     {{shipyard}} generate
     git --no-pager diff --stat
 

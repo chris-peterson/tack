@@ -66,7 +66,7 @@ sees a grammar change.
 `spec/cli.yml`, and the `dist/` that `bin/tack` runs. It builds, regenerates,
 and commits the result to the branch, so a committed artifact matches its source
 and the diff a reviewer approves is the change that lands. The other rendered
-pages are git-ignored and rebuilt on deploy. `just peek-projection` shows what it
+pages are git-ignored and rebuilt on deploy. `just check` shows what it
 would write, leaving the projected paths in your tree to restore.
 
 A push therefore leaves CI's checks sitting on a commit you didn't write. The

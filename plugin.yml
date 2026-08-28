@@ -11,6 +11,14 @@ icon: assets/icon.svg
 license: MIT
 keywords: [tack, routes, wip, session, ai, development, tracking, deliverables, dependencies]
 
+validate:
+  accept:
+    - warning: root
+      path: CLAUDE.md
+      because: >-
+        CLAUDE.md at the root is this repo's own agent instructions, not context
+        the plugin ships. It points at AGENTS.md, which every agent reads.
+
 # → marketplace.json entry
 marketplace:
   category: productivity
