@@ -9,8 +9,9 @@
 - Skills
   - [start](/skills/start)
   - [end](/skills/end)
-  - [tack](/skills/tack)
 - [Hooks](/hooks)
+- Guides
+  - [Working a tack route](/guides/routes)
 - [CLI Reference](/cli)
   - [Routes](/cli?id=routes)
   - [Tacks](/cli?id=tacks)

@@ -33,7 +33,7 @@ pv = os.environ["PLUGIN_VERSION"]
 msg = (
     f"PLEASE TELL THE USER (do not skip): the {n} CLI on PATH reports "
     f"version {cv}, but the {n} plugin is at {pv}. Refresh the shell "
-    f"wrapper before relying on the CLI — typically `/{n}:{n} install-cli`, "
+    f"wrapper before relying on the CLI — typically `/{n}:install-{n}`, "
     f"or `git pull` in the local source checkout if the wrapper points "
     f"there. Until refreshed, CLI invocations may run stale code."
 )

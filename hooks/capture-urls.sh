@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PostToolUse hook for Bash — detects PR/MR/issue URLs in command output and,
-# for any the store doesn't already track, nudges the agent to ensure a
-# route/tack mapping exists via the tack skill.
+# for any the store doesn't already track, nudges the agent to record it on the
+# active route, with the commands that do it.
 #
 # Reads the tool result JSON from stdin. Outputs a reminder string to stdout if
 # an untracked PR/MR/issue URL is found.

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Removed
+
+- **`/tack:tack` is gone.** Route work happens at the `tack` CLI, and the hooks now carry what the skill was there to tell the agent: the `UserPromptSubmit` hook names the session's route in one line, and the URL nudges carry the `tack deliverable` / `tack link add` commands that record what they spotted. The reasoning behind those calls — resolving an ambiguous route, binding the session to a tack, backfill dates, moving tacks between routes — lives in `guides/routes.md`, which the nudges point at.
+
+### Added
+
+- **`/tack:install-tack` puts the `tack` wrapper and its zsh completions on your PATH**, replacing `/tack:tack install-cli`. It runs the bundled binary, so it works before `tack` is installed and re-points a wrapper left behind by an older plugin version. The session-start freshness hook now sends you here.
+
 ## 1.4.1
 
 ### Removed

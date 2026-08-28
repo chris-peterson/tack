@@ -6,7 +6,7 @@
 
 ## In action
 
-You stepped away mid-refactor and burned through the context window. Next morning, `/tack:tack` replays exactly where you stopped — no re-explaining:
+You stepped away mid-refactor and burned through the context window. Next morning, a fresh session picks the route back up from disk — no re-explaining:
 
 <div class="cw-session" data-cw-session="session"></div>
 
@@ -16,7 +16,7 @@ The two moves you reach for most — resuming a route and capturing a deliverabl
 
 ## The CLI
 
-The plugin bundles the CLI. To make `tack` callable from any shell, run `/tack:tack install-cli` once — it drops a `tack` wrapper at `~/.local/bin/tack` and installs the zsh completions. Without the plugin, the same binary is on npm as `tack`.
+The plugin bundles the CLI. To make `tack` callable from any shell, run `/tack:install-tack` once — it drops a `tack` wrapper at `~/.local/bin/tack` and installs the zsh completions. Without the plugin, the same binary is on npm as `tack`.
 
 ```bash
 tack init auth-rewrite
@@ -71,6 +71,6 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 - [SPEC](/spec) — the frozen contract the CLI implements, with formal requirement IDs
 - [CLI reference](/cli) — every command, subcommand, and flag, grouped by what you're doing; the usage lines are generated from `tack --help`
 - [Examples & visualizations](/examples) — sample routes, and the views (Sankey, dependency graph, Gantt) derived from them
-- **Skills** — [`/tack:start`](/skills/start), [`/tack:end`](/skills/end), and [`/tack:tack`](/skills/tack), sourced from each `SKILL.md`
+- **Skills** — [`/tack:start`](/skills/start) and [`/tack:end`](/skills/end), sourced from each `SKILL.md`
 - [Hooks](/hooks) — what the plugin does without being asked, and the scripts each hook runs
 - [Coverage](/status) — which requirements are implemented, and where

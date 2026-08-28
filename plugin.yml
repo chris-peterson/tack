@@ -27,8 +27,8 @@ suite:
     - name: logbook
       required: false
       reason: supplies the deferred-note count and the harvest command end reports
-  # User-invoked skills, plus hooks that read the agent's Bash output
-  # (PostToolUse) and act at session start.
+  # User-invoked skills and a command, plus hooks that read the agent's Bash
+  # output (PostToolUse) and act at session start.
   activations: [agent, user, session]
   gloss: To tack is to change course; tack remembers every course you've held.
   pitch: "Keep losing your place between sessions? It remembers what you were doing so you don't re-explain it every time."
@@ -36,7 +36,7 @@ suite:
   cmds:
     - ["/tack:start", "Open a session — read the ticket, cut the branch, bind the route"]
     - ["/tack:end", "Close it — record what landed, report what's still owed"]
-    - ["/tack:tack", "Resume — what you were doing, and where you stopped"]
+    - ["/tack:install-tack", "Put the `tack` CLI on your PATH, with zsh completions"]
   # Skill-anchored previews of the flagship flows, shown live on the docs site;
   # the session: below is the at-a-glance flow the hub also reads.
   # >>> shipyard:describe — generated from source by `shipyard gen-describe`; do not edit >>>
@@ -44,21 +44,22 @@ suite:
     skills:
       end: 'Close a work session: read what actually landed, refuse to close on work that isn''t durable yet, record the deliverable on the tack route, hand off the retro, and report the commands still owed rather than sequencing them.'
       start: 'Open a work session: read the linked issue or CR thread in full, derive one slug, cut the branch, and bind the tack route.'
-      tack: Track AI-assisted development work with the `tack` route tracker, spanning session boundaries.
     hooks:
       capture-urls: PostToolUse — Detects PR/MR/issue URLs in Bash tool output and nudges the agent to ensure a tack route mapping exists for each.
       cli-freshness: SessionStart — Detects when the installed tack CLI wrapper is stale relative to the plugin version and nudges to refresh it.
       hooks: 'Hook wiring: SessionStart→cli-freshness; UserPromptSubmit→session-nudge; PostToolUse→capture-urls (Bash), landing-nudge (Bash).'
       landing-nudge: PostToolUse — Detects a change-request description landing and prompts the handoff report the end skill defines, so it isn't produced from recall.
       session-nudge: UserPromptSubmit — Detects untracked PR/MR/issue URLs in user messages, resolves and records the session's tack route, and recommends opening one when none resolves.
+    commands:
+      install-tack: Install or refresh the tack CLI wrapper and its zsh completions on PATH
   # <<< shipyard:describe <<<
   examples:
-    - label: "/tack:tack"
+    - label: "where was I?"
       ac: "--orient"
       frames:
-        - { t: you, text: "/tack:tack" }
-        - { t: claude, text: "Picking up the route this branch is on: auth-rewrite. 3 of 5 tacks done — next is the client SDK, and t4 is blocked on the middleware PR." }
-        - { t: status, text: "resolves the active route and replays where you left off" }
+        - { t: you, text: "where did the middleware work get to?" }
+        - { t: claude, text: "This branch is on the auth-rewrite route. 3 of 5 tacks done — next is the client SDK, and t4 is blocked on the middleware PR." }
+        - { t: status, text: "the route the prompt hook resolved, replayed from disk" }
     - label: "record a deliverable"
       ac: "--green"
       frames:
@@ -68,7 +69,7 @@ suite:
   session:
     - { t: note, text: "Mid-refactor across two repos; the context window is filling up." }
     - { t: event, text: "a fresh session, next morning" }
-    - { t: cmd, cmd: "/tack:tack", out: "Replays the route — 3 of 5 tasks done, next is the client SDK." }
+    - { t: cmd, cmd: "tack tree auth-rewrite", out: "Replays the route — 3 of 5 tasks done, next is the client SDK." }
 
 docs:
   code_languages: [typescript, yaml, bash]

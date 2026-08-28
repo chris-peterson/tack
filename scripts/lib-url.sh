@@ -3,6 +3,10 @@
 # hooks/capture-urls.sh), which source this by relative path.
 # Source this; don't execute it.
 
+# The agent-facing reference the nudges point at, resolved from this file's own
+# location so it holds under any plugin root.
+TACK_GUIDE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/guides/routes.md"
+
 # The pattern both hooks use to spot a GitHub PR/issue or GitLab MR/issue/
 # epic/milestone URL. GitLab serves issues from both /-/issues/<n> and the newer
 # /-/work_items/<n>; both are live, so both are matched.
@@ -17,11 +21,11 @@ URL_PATTERN='https://(github\.com/[^/]+/[^/]+/(pull|issues)|gitlab\.[^[:space:]\
 
 # url_nudges <text> <source-label>
 #
-# Print a nudge for each PR/MR/issue URL in <text> that no tack tracks yet, so
-# the agent ensures a route/tack mapping exists (which — since `tack init`/`add`
-# record the session — also attributes this session to the route). A URL that a
-# tack already references is skipped, so the hooks stop nagging about work
-# that's already recorded.
+# Print a nudge for each PR/MR/issue URL in <text> that no tack tracks yet,
+# carrying the commands that record it (which — since `tack init`/`add` record
+# the session — also attributes this session to the route). A URL that a tack
+# already references is skipped, so the hooks stop nagging about work that's
+# already recorded.
 #
 # When `tack` isn't on PATH the tracked-check can't run, so we nudge
 # unconditionally — a stray reminder beats a silently-dropped mapping.
@@ -46,7 +50,7 @@ url_nudges() {
         continue
       fi
     fi
-    out="${out}${source_label} ${url} — not tracked by any tack yet. Use the tack skill to record it on the active route (deliverable for PR/MR, link otherwise), creating the route/tack if none exists. The skill owns route resolution."$'\n'
+    out="${out}${source_label} ${url} — not tracked by any tack yet. Record it on the active route: the route is the one named for the branch, else for the checkout's directory; \`tack tree <slug>\` lists its tacks. Then \`tack deliverable <slug> <tack-id> <url>\` for a PR/MR, or \`tack link add <slug> <tack-id> <label> <url>\` for an issue, epic, or milestone. With no route yet, \`tack init <slug>\` and \`tack add <slug> <summary>\` open one. Ambiguity, session binding, and the rest: ${TACK_GUIDE}"$'\n'
   done <<EOF
 $urls
 EOF

@@ -16,7 +16,7 @@ claude plugin install tack@chris-peterson
 The plugin bundles the CLI. To make `tack` callable from any shell, run once:
 
 ```text
-/tack:tack install-cli
+/tack:install-tack
 ```
 
 This drops a `tack` wrapper at `~/.local/bin/tack` (use `--dir <path>` to override) **and** installs the zsh completion script to `~/.zsh/completions/_tack`. Run `exec zsh` to pick up completions.

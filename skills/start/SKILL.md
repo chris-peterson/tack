@@ -18,10 +18,10 @@ wanted.
 
 ## Gate: is a session already open here?
 
-Every prompt carries tack's own resolution line, injected by its
-`UserPromptSubmit` hook. Read it before running anything:
+tack's `UserPromptSubmit` hook says which way this fell, once per session. Read
+its line before running anything:
 
-- **A route resolves** (the branch or the project is named for one). The
+- **A route resolves** — `Tack route for this session: <slug> (recorded)`. The
   session is open. Report it in one line and stop. A second route over work
   already tracked is what makes every reader of those routes double-count it.
 - **No route resolves** (`neither the branch nor the project name matches a
@@ -185,6 +185,7 @@ empty makes the close guess.
 
 ## Related
 
-`/tack:end` closes what this opens. `/tack:tack` owns route resolution for a
-session that never ran this — note that `tack start` is a CLI subcommand that
+`/tack:end` closes what this opens. `${CLAUDE_PLUGIN_ROOT}/guides/routes.md`
+carries route resolution for a session that never ran this, plus how a URL gets
+recorded once one is open — note that `tack start` is a CLI subcommand that
 moves a tack to `in_progress`, a different thing from this skill.

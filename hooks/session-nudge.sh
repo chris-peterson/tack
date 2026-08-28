@@ -2,8 +2,8 @@
 # UserPromptSubmit hook — two responsibilities:
 #   1. Detect PR/MR/issue URLs pasted by the user that no tack tracks yet, and
 #      nudge the agent to ensure a route/tack mapping exists.
-#   2. Resolve the tack route for the current repo/branch. If one exists, record
-#      the session on it; if not, recommend opening one.
+#   2. Resolve the tack route for the current repo/branch. If one exists, name it
+#      and record the session on it; if not, recommend opening one.
 #
 # Resolution retries every prompt until it binds, rather than running once per
 # session. A session that opens with `/tack:start` has no route at its first
@@ -80,6 +80,11 @@ if [ ! -f "$bound_file" ] && command -v tack >/dev/null 2>&1; then
     if [ -n "$session_id" ]; then
       tack session "$resolved_slug" "$session_id" >/dev/null 2>&1 || true
       touch "$bound_file"
+      # Naming the route is the whole reason the agent can answer "where was
+      # I?" without being asked to go look. Once per session: the bound_file
+      # above is what keeps this block from running again.
+      output="${output}Tack route for this session: \`${resolved_slug}\` (recorded). \`tack tree ${resolved_slug}\` replays where the work stands. Once it is clear which tack this session drives, bind it: \`tack session ${resolved_slug} \$CLAUDE_CODE_SESSION_ID --tack <tack-id>\`. Route reasoning: ${TACK_GUIDE}
+"
     fi
   elif [ ! -f "$nudged_file" ]; then
     touch "$nudged_file"

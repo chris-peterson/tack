@@ -54,9 +54,5 @@ completions-check:
 try:
     claude --plugin-dir .
 
-# Launch an interactive session with the plugin loaded and open the tack skill
-tack:
-    claude --plugin-dir . "/tack:tack"
-
 install:
     claude plugin install tack

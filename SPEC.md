@@ -7,9 +7,10 @@ that work-in-progress survives context exhaustion, crashes, and session
 boundaries.
 
 The schema is the primary deliverable. The CLI encapsulates schema operations
-as a deterministic primitive. A separate Claude Code plugin bundles hooks and a
-skill that layer reasoning on top — picking the active route, prompting on
-ambiguity, capturing URLs — using the CLI as its only write path.
+as a deterministic primitive. A separate Claude Code plugin bundles hooks, two
+session skills, and a guide that layer reasoning on top — picking the active
+route, prompting on ambiguity, capturing URLs — using the CLI as its only write
+path.
 
 ## Architecture
 
@@ -24,11 +25,11 @@ flowchart LR
 
     subgraph plugin ["Claude Code plugin"]
         hooks["hooks"]
-        skill["tack skill"]
-        hooks --> skill
+        agent["agent"]
+        hooks --> agent
     end
 
-    skill --> cli
+    agent --> cli
 ```
 
 The CLI and YAML schema are the durable, tool-agnostic layer — the CLI does
@@ -928,17 +929,20 @@ a reader at once a listing tells them something was left out.
 
 ### AGENT — Agent Integration
 
-The CLI encapsulates schema operations; the skill encapsulates reasoning.
-Inference (what's active, which route to attach to, when to prompt) lives in
-the skill and uses CLI primitives. Hooks emit reminders (see HK); the skill
-acts on them.
+The CLI encapsulates schema operations; the agent supplies the reasoning.
+Inference (what's active, which route to attach to, when to prompt) is the
+agent's, and uses CLI primitives. Hooks emit reminders (see HK) carrying the
+commands that act on them; a bundled guide carries the reasoning behind the
+calls.
 
-**[AGENT-01]** The agent shall be implemented as a Claude Code skill that reads
-and writes tack route files using the CLI defined in the CLI category.
+**[AGENT-01]** The agent shall read and write tack route files only through the
+CLI defined in the CLI category. The plugin shall carry the reasoning the agent
+applies as hook reminder text plus a bundled guide those reminders name by path,
+so acting on a reminder costs no resident context.
 
-**[AGENT-02]** When a session begins, the plugin's skill shall load all active
-routes (routes with at least one tack whose status is not `done` or `dropped`)
-to build context about current work.
+**[AGENT-02]** The agent shall read the route named for the session per
+[HOOK-04d] when it needs the state of the work, rather than loading every active
+route ahead of a question about one.
 
 **[AGENT-03]** The agent shall maintain the answer to "what am I working on?"
 for the current working directory by running the following resolution
@@ -1018,24 +1022,26 @@ the answer anywhere else. There is no per-directory marker to write.
 Hooks are scaffolding around the agent. They surface signals the agent might
 otherwise miss (URLs in tool output, URLs in user prompts, version drift),
 and they emit reminder text the agent reads as additional context. Hooks
-never write to route files directly; the skill performs all writes via the
+never write to route files directly; the agent performs all writes via the
 CLI per [AGENT-05] and [AGENT-06].
 
 **[HOOK-01]** A `SessionStart` hook shall compare the installed CLI wrapper's
 version to the plugin's `version` per [CLI-29]. When they differ, the hook
-shall emit a one-line note suggesting `tack install-cli`. The hook shall
-silently no-op when `tack` is not on `PATH` and shall never block session
-start.
+shall emit a one-line note suggesting the plugin's install command
+(`/tack:install-tack`), which runs `tack install-cli` from the newly installed
+plugin root. The hook shall silently no-op when `tack` is not on `PATH` and
+shall never block session start.
 
 **[HOOK-02]** A `PostToolUse` hook scoped to the `Bash` tool shall scan tool
 output for PR/MR and issue URLs (the recognized forges are defined in
 [CLI-37]). For each match, the hook shall first check whether a tack already
 tracks the URL by running `tack find --url <url>` ([CLI-23]); a URL already mapped
 emits no reminder, so the hooks stop nagging about work that is already
-recorded. Only an untracked URL shall emit reminder text, instructing the
-agent to ensure a route/tack mapping exists via the tack skill per [AGENT-05] or
-[AGENT-06] depending on URL type. When `tack` is not on `PATH` the tracked-check
-cannot run, so the hook shall emit the reminder unconditionally.
+recorded. Only an untracked URL shall emit reminder text, carrying the commands
+that record it per [AGENT-05] or [AGENT-06] depending on URL type, and the path
+of the guide per [AGENT-01] for the cases those commands do not settle. When
+`tack` is not on `PATH` the tracked-check cannot run, so the hook shall emit the
+reminder unconditionally.
 
 **[HOOK-03]** A `UserPromptSubmit` hook shall scan the user's prompt for
 PR/MR and issue URLs ([CLI-37]) and emit the same kind of reminder as
@@ -1069,10 +1075,16 @@ resolves the same route as one sent from the root. Resolution shall read route
 filenames directly rather than shelling out per prompt: both steps are a
 filename test, and this runs on every prompt of every session.
 
+**[HOOK-04d]** When a route resolves, the hook shall name it in the agent's
+context once per session, alongside the command that replays the route's state
+and the call that binds the session to a tack per [AGENT-09]. Naming it is what
+lets a session answer where the work stands without a resident skill holding the
+resolution procedure.
+
 **[HOOK-05]** Hook reminders are advisory: the *judgment-laden* writes — which
-slug and tack a URL maps to — shall be made by the agent via the tack skill,
-not by the hook, so that context the hook cannot see is applied and those
-schema writes go through one path. The hook may perform deterministic reads
+slug and tack a URL maps to — shall be made by the agent, not by the hook, so
+that context the hook cannot see is applied and those schema writes go through
+one path. The hook may perform deterministic reads
 (the `tack find` tracked-check per [HOOK-02]) and the route-level session record
 per [HOOK-04], which need no such judgment.
 
@@ -1099,9 +1111,9 @@ by deriving one slug, cutting the branch that carries it, and creating the route
 the work is recorded against.
 
 **[SESSION-02]** Before doing anything else, the `start` skill shall check whether a
-route already resolves for the session per [HOOK-04]. When one does, the skill
-shall report it in one line and stop, so a second route is never opened over work
-already tracked.
+route already resolves for the session, reading the line [HOOK-04d] emits. When one
+does, the skill shall report it in one line and stop, so a second route is never
+opened over work already tracked.
 
 **[SESSION-03]** The `start` skill shall derive the slug from, in order of
 precedence: user-provided text, the title of a linked issue or change request,
