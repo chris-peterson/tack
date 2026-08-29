@@ -79,6 +79,16 @@ pushed. A branch whose checks arrive a beat late is that projection landing.
 `spec/cli.yml` is CI's recording of the grammar; `spec/cli-usage.txt` is
 the one you re-record by hand, and the one a test fails on.
 
+Releases are dispatched, not tagged by hand: run the **Release** workflow with a
+bump level, and shipyard derives the version from `plugin.yml`, retitles
+`CHANGELOG.md`'s `## Unreleased` section, commits, tags that commit, and
+publishes. Write the notes into `## Unreleased` first — reading what landed is
+what picks the level:
+
+```bash
+git log $(git describe --tags --abbrev=0)..main --no-merges
+```
+
 ## Naming Conventions
 
 The word "tack" is used at two levels:
