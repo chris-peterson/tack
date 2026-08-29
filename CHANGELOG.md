@@ -42,8 +42,6 @@
 
 ## 1.2.0
 
-# v1.2.0
-
 Restores route files that 1.1.2 refused to load, and stops one bad file from taking down every command that lists.
 
 ### Fixed
@@ -70,8 +68,6 @@ Restores route files that 1.1.2 refused to load, and stops one bad file from tak
 
 ## 1.1.2
 
-# v1.1.2
-
 Closes three paths where text tack did not author could be read as instructions, and adds length limits to the route schema.
 
 ### Breaking
@@ -93,8 +89,6 @@ Closes three paths where text tack did not author could be read as instructions,
 ### Other
 
 - The docs site home page is generated from `plugin.yml` instead of hand-written, so the version tag, install block, and per-artifact tables stay in step with the plugin.
-
-## 1.1.1
 
 ## 1.1.1
 
