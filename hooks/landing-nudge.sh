@@ -7,27 +7,25 @@
 # owed. The `end` skill owns that block; the failure this hook removes is
 # producing it only when the agent happens to remember to.
 #
-# Stdin: JSON with "tool_input.command", "session_id" fields.
+# Stdin: JSON with "tool_response.stdout" and "session_id".
 # Stdout: reminder text, which reaches the agent as tool feedback.
 
 set -euo pipefail
 
 input=$(cat)
-command_text=$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
 session_id=$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null || true)
-
-[ -z "$command_text" ] && exit 0
 [ -z "$session_id" ] && exit 0
 
-has() { printf '%s' "$command_text" | grep -Fq -- "$1"; }
-
-# The description write, per forge: `gh pr edit --body-file` on GitHub, a
-# `description=@<file>` PUT on GitLab. Both are file-passed, which is what
-# separates them from `gh issue create --body-file` and from a comment.
-landing=0
-if has "gh pr " && has "--body-file"; then landing=1; fi
-if has "merge_requests" && has "description=@"; then landing=1; fi
-[ "$landing" -eq 1 ] || exit 0
+# anchor stating it described a CR. The suite's plugins collaborate by printing
+# one self-contained line on stdout, which reaches this hook as
+# `tool_response.stdout`; the contract is in the marketplace repo at
+# `authoring/plugin-contract.md`.
+#
+# Matching what anchor *says* rather than the shape of the command it ran is
+# what lets anchor change forge CLIs or rename a flag without silently taking
+# this nudge out.
+output=$(printf '%s' "$input" | jq -r '.tool_response.stdout // empty' 2>/dev/null || true)
+printf '%s' "$output" | grep -qE '^codes\.bridgeai\.anchor/cr\.described([[:space:]]|$)' || exit 0
 
 # Once per session, and only charged when the nudge actually fires — a session
 # that revises the description twice is still at one handoff point.
