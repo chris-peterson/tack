@@ -39,6 +39,44 @@ marketplace:
 # on by the time it reports. Declaring either would put a key in the catalog
 # with nothing behind it.
 events:
+  # Keys are bare here: `name:` above supplies the `codes.bridgeai.tack/`
+  # prefix, so a producer cannot typo its own.
+  publishes:
+    - key: session.started
+      when: >-
+        a Claude session was bound to a route for the first time. Emitted by the
+        CLI, from whichever command did the binding — `init`, `add`, `start`, or
+        `session` itself — so it fires without a skill having to remember to.
+        One per session: a later bind, including a pivot to a second route,
+        continues work already started and announces nothing.
+      emitted_by: src/cli.ts (bindSession), via src/announce.ts
+      fields:
+        session: the Claude session id the binding is for
+        route: the route slug it was bound to
+        tack:
+          describe: >-
+            the route-scoped tack id the session is driving, where the binding
+            named one. Absent on a route-level bind, which is what the prompt
+            hook writes before the work has a tack.
+          optional: true
+    - key: session.ended
+      when: >-
+        the close reported the session's work finished. Emitted by `tack session
+        end`, which the `end` skill calls; it reports the work closing out
+        rather than the conversation ending, so a subscriber can move into a
+        retro while the session is still live. Nothing is announced on teardown,
+        which arrives too late to act on.
+      emitted_by: src/cli.ts (session end), via src/announce.ts
+      fields:
+        session: the Claude session id whose work closed out
+        route: the route slug it was bound to
+        tacks: >-
+          the route-scoped tack ids this session drove, in touch order. Empty
+          where the session bound no tack, which reports a session that closed
+          having recorded nothing.
+        deliverables: >-
+          the deliverable URLs those tacks hold, which is what the session
+          produced. Empty where none was recorded.
   subscribes:
     - key: codes.bridgeai.anchor/cr.created
       handled_by: hooks/capture-urls.sh, hooks/landing-nudge.sh

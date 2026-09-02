@@ -78,7 +78,12 @@ if [ ! -f "$bound_file" ] && command -v tack >/dev/null 2>&1; then
     # call (it knows which of the route's tacks this session is driving). The
     # `|| true` keeps a tack write failure from ever breaking the user's prompt.
     if [ -n "$session_id" ]; then
-      tack session "$resolved_slug" "$session_id" >/dev/null 2>&1 || true
+      # TACK_ANNOUNCE=0: this bind cannot announce the session's start to
+      # anyone. Its output is discarded just below, and a UserPromptSubmit
+      # hook's stdout reaches the agent as context rather than as a Bash tool
+      # response, which is the only thing a subscriber reads. Suppressing it
+      # here leaves the announcement for the first bind the agent makes itself.
+      TACK_ANNOUNCE=0 tack session "$resolved_slug" "$session_id" >/dev/null 2>&1 || true
       touch "$bound_file"
       # Naming the route is the whole reason the agent can answer "where was
       # I?" without being asked to go look. Once per session: the bound_file

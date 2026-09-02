@@ -164,6 +164,17 @@ that already happens downstream with better material.
 what a fleet view reads to decide this session is done. Writing a separate status
 gives the same field a second source that goes stale the moment the route moves.
 
+**Announce the close**, so a sibling tracking the session learns its work
+finished rather than inferring it:
+
+```bash
+tack session end {slug} $CLAUDE_CODE_SESSION_ID
+```
+
+It writes nothing — the announcement carries the tacks this session drove and
+their deliverables, read off the route step 3 just wrote, which is why it runs
+after that step rather than before. Skip it on a session with no route.
+
 ## 5. Report unfinished tasks
 
 Close with one table in `/tack:start`'s shape — the state read in step 1 and the

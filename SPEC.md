@@ -542,6 +542,9 @@ per [ROUTE-09]. If the session ID already exists, it shall not duplicate. When
 array is moved to the end rather than duplicated, so the last entry is always
 the session's current focus and a pivot back to an earlier tack makes it
 current again. The CLI shall fail if `<tack-id>` does not exist in the route.
+`tack session` carries a subcommand ([CLI-58]), so a missing argument on either
+of its forms shall report group-scoped per [CLI-41] rather than dumping the
+global usage text.
 
 **[CLI-18]** `tack list [--json]` and `tack status [slug] [--json]` — When
 `--json` is passed, the CLI shall output the result as JSON instead of the
@@ -924,6 +927,15 @@ recognize — discard text somebody wrote. So the report exists to make the edit
 possible without reading the schema, which means naming the file to open, the
 path within it, and the rule that path breaks. It is also what [STORE-09] points
 a reader at once a listing tells them something was left out.
+
+**[CLI-58]** `tack session end <slug> <session-id>` — When invoked, the CLI
+shall announce the session's work closing out per [EVENTS-05] and shall write
+nothing to the route. A session's end is not state a route carries: the payload
+is read off the route as it already stands, which is why the close calls this
+after recording the deliverable rather than before. It shall then display that
+route per [CLI-16], as the binding form does, so the two forms of `tack session`
+differ only in the write. The CLI shall fail with a group-scoped error per
+[CLI-41] when either argument is absent.
 
 ---
 
@@ -1458,6 +1470,58 @@ point the links at a server running on another port.
 listening. A liveness probe would cost a round trip on every `tack status` to
 pre-answer a question the browser answers when the link is followed; a link to
 a server that is down fails at click time, which is the cheaper failure.
+
+---
+
+### EVENTS — What tack Announces
+
+tack states the facts it causes so a sibling plugin can react to them, rather
+than being called by name or having its files read. The transport is the suite's
+interop contract, whose reader-side rules are [HOOK-09] and [HOOK-10]; these
+requirements cover tack as a publisher. Every key tack publishes is declared in
+`plugin.yml`, which is what lets the suite catalog show a key nobody hears.
+
+**[EVENTS-01]** An announcement shall be one self-contained line on the emitting
+command's stdout: the key `codes.bridgeai.tack/<entity>.<event>`, whitespace,
+then a compact JSON object. The `<entity>.<event>` half shall be lowercase
+alphanumerics — the grammar excludes the hyphen a name like `mode-changed` would
+want, which the suite's other publisher rejects and its other subscriber does not
+match, so a hyphenated key would publish into silence. A value carrying a newline
+shall be escaped within the JSON string rather than breaking the line.
+
+**[EVENTS-02]** When a Claude session is bound to a route, the CLI shall announce
+`session.started` carrying the session id, the route slug, and the bound tack id
+where the binding named one. It is emitted from whichever command did the
+binding — [CLI-02], [CLI-04], [CLI-07], or [CLI-17] — so the announcement does
+not depend on a skill remembering to make it.
+
+**[EVENTS-03]** `session.started` shall be announced at most once per session id.
+The gate shall be the announcement rather than the binding, because the two come
+apart: [HOOK-04] binds the session on every prompt, and gating on the first
+binding would spend the session's start on a bind no subscriber can read. A bind
+to a second route continues work already started and announces nothing.
+
+**[EVENTS-04]** Where `TACK_ANNOUNCE=0` is set, the CLI shall announce nothing
+and shall leave the announcement available to a later invocation. The variable
+is how a caller states that its output reaches no one: [HOOK-04]'s bind discards
+the CLI's output, and a `UserPromptSubmit` hook's stdout is the agent's context
+rather than a tool response, which is the only thing a subscriber reads.
+
+**[EVENTS-05]** `tack session end` ([CLI-58]) shall announce `session.ended`
+carrying the session id, the route slug, the route-scoped tack ids that session
+drove in touch order, and the deliverable URLs those tacks hold. Both arrays
+shall be present and empty where the session bound no tack or recorded no
+deliverable, which reports a session that closed having recorded nothing rather
+than omitting the fact. It reports the work closing out, not the conversation
+ending — Claude Code's own teardown fires too late for a subscriber to act on, so
+tack announces nothing there.
+
+**[EVENTS-06]** A publish shall never fail the command that triggered it. An
+announcement runs after the work it describes has landed, so a malformed key, a
+body that will not encode, and an unwritable debounce marker shall each leave the
+command's own exit status untouched. A repeated announcement is the accepted
+outcome of that choice: the contract makes every announcement safe to repeat, and
+no ordering guarantee holds between subscribers.
 
 ---
 

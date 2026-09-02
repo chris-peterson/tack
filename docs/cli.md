@@ -689,6 +689,8 @@ tack link rm auth-rewrite t1 https://slack.com/archives/C123/p456
 
 ```text
 tack session <slug> <session-id> [--tack <tack-id>]
+tack session end <slug> <session-id>
+    Announce the session's work closing out (writes nothing)
 ```
 
 ## Documents

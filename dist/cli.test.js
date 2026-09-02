@@ -411,6 +411,121 @@ describe("tack start auto-binds the current Claude session (beacon fleet join)",
         assert.doesNotMatch(yaml, /sessions:/);
     });
 });
+describe("the session lifecycle tack publishes", () => {
+    // The announcement is a line on the CLI's own stdout, which is how a sibling
+    // reads it — as a Bash call's `tool_response.stdout`. So these assert on what
+    // the command printed, not on what the route file holds.
+    // TMPDIR per case as well as TACK_HOME: the once-per-session marker lives
+    // there, so cases sharing a session id would otherwise debounce each other
+    // and the suite would depend on its own order.
+    function store() {
+        const home = mkdtempSync(join(tmpdir(), "tack-publish-"));
+        const e = { ...process.env, TACK_HOME: home, TMPDIR: home };
+        delete e.CLAUDE_CODE_SESSION_ID;
+        return { home, e };
+    }
+    function run(e, ...args) {
+        return execFileSync("node", [cli, ...args], { env: e, encoding: "utf-8" });
+    }
+    it("announces session.started on the first binding, with the tack it bound", () => {
+        const { e } = store();
+        run(e, "init", "pub");
+        run(e, "add", "pub", "Work");
+        const out = run(e, "session", "pub", "sess-1", "--tack", "1");
+        // `--tack 1` normalizes to t1 on the way in; the announcement carries the
+        // id the route actually holds.
+        assert.match(out, /^codes\.bridgeai\.tack\/session\.started \{"session":"sess-1","route":"pub","tack":"t1"\}$/m);
+    });
+    it("announces nothing on a second binding for the same session", () => {
+        const { e } = store();
+        run(e, "init", "pub");
+        run(e, "add", "pub", "Work");
+        run(e, "session", "pub", "sess-1");
+        const out = run(e, "session", "pub", "sess-1", "--tack", "t1");
+        assert.doesNotMatch(out, /session\.started/);
+    });
+    it("treats a pivot to a second route as continuing, not starting", () => {
+        const { e } = store();
+        run(e, "init", "one");
+        run(e, "init", "two");
+        run(e, "session", "one", "sess-1");
+        assert.doesNotMatch(run(e, "session", "two", "sess-1"), /session\.started/);
+    });
+    it("omits the tack field on a route-level binding", () => {
+        const { e } = store();
+        run(e, "init", "pub");
+        const out = run(e, "session", "pub", "sess-1");
+        assert.match(out, /session\.started \{"session":"sess-1","route":"pub"\}$/m);
+    });
+    it("announces from whichever command did the binding", () => {
+        const { e } = store();
+        // init is the first thing a route-opening session runs, so it is the bind
+        // that fires — no skill has to remember to announce.
+        assert.match(run({ ...e, CLAUDE_CODE_SESSION_ID: "sess-init" }, "init", "pub"), /session\.started/);
+    });
+    it("stays silent when TACK_ANNOUNCE=0 says nobody can hear it", () => {
+        const { e } = store();
+        run(e, "init", "pub");
+        const out = run({ ...e, TACK_ANNOUNCE: "0" }, "session", "pub", "sess-1");
+        assert.doesNotMatch(out, /session\.started/);
+    });
+    it("leaves the announcement for the next binding when one was suppressed", () => {
+        // What the prompt hook's opt-out buys: its bind is invisible to everyone,
+        // so the first bind the agent makes is still the session's announced start.
+        const { e } = store();
+        run(e, "init", "pub");
+        run({ ...e, TACK_ANNOUNCE: "0" }, "session", "pub", "sess-1");
+        assert.match(run(e, "session", "pub", "sess-1"), /session\.started/);
+    });
+    it("announces session.ended with the tacks the session drove and their deliverables", () => {
+        const { e } = store();
+        run(e, "init", "pub");
+        run(e, "add", "pub", "Work");
+        run(e, "session", "pub", "sess-1", "--tack", "t1");
+        run(e, "deliverable", "pub", "t1", "https://github.com/o/r/pull/7");
+        const out = run(e, "session", "end", "pub", "sess-1");
+        assert.match(out, /^codes\.bridgeai\.tack\/session\.ended \{"session":"sess-1","route":"pub","tacks":\["t1"\],"deliverables":\["https:\/\/github\.com\/o\/r\/pull\/7"\]\}$/m);
+    });
+    it("reports empty arrays for a session that recorded nothing", () => {
+        const { e } = store();
+        run(e, "init", "pub");
+        run(e, "session", "pub", "sess-1");
+        const out = run(e, "session", "end", "pub", "sess-1");
+        assert.match(out, /"tacks":\[\],"deliverables":\[\]/);
+    });
+    it("writes nothing to the route on session end", () => {
+        const { home, e } = store();
+        run(e, "init", "pub");
+        run(e, "add", "pub", "Work");
+        run(e, "session", "pub", "sess-1", "--tack", "t1");
+        const before = readFileSync(join(home, "routes", "pub.yaml"), "utf-8");
+        run(e, "session", "end", "pub", "sess-1");
+        assert.equal(readFileSync(join(home, "routes", "pub.yaml"), "utf-8"), before);
+    });
+    it("renders the route it announced, as the bare form does", () => {
+        const { e } = store();
+        run(e, "init", "pub");
+        run(e, "add", "pub", "Work");
+        run(e, "session", "pub", "sess-1", "--tack", "t1");
+        const out = run(e, "session", "end", "pub", "sess-1");
+        assert.match(out, /^# pub$/m);
+        assert.match(out, /t1: Work/);
+    });
+    it("refuses either form group-scoped rather than dumping the global usage", () => {
+        // `session` carries a subcommand now, so [CLI-41] covers both of its forms;
+        // one falling back to the global usage text was the asymmetry.
+        const { e } = store();
+        run(e, "init", "pub");
+        const ended = spawnSync("node", [cli, "session", "end", "pub"], { env: e, encoding: "utf-8" });
+        assert.equal(ended.status, 1);
+        assert.match(ended.stderr, /tack session end: expected <slug> <session-id>/);
+        assert.doesNotMatch(ended.stdout, /Usage:/);
+        const bound = spawnSync("node", [cli, "session", "pub"], { env: e, encoding: "utf-8" });
+        assert.equal(bound.status, 1);
+        assert.match(bound.stderr, /tack session: expected <slug> <session-id>/);
+        assert.doesNotMatch(bound.stdout, /Usage:/);
+    });
+});
 describe("route/tack creation records the current Claude session", () => {
     it("tack init records the session on the new route (route-level, no tack)", () => {
         const home = mkdtempSync(join(tmpdir(), "tack-init-sess-"));

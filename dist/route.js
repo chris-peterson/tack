@@ -801,6 +801,20 @@ export function mergeTacks(slug, sourceId, targetId) {
     save(route);
     return target;
 }
+// The tack ids a session is driving on a route, in touch order, with whatever
+// each one has recorded as its deliverable. What a session produced, which is
+// the payload `session.ended` carries.
+//
+// The route comes back with them so a caller renders what it announced off one
+// read rather than loading the file twice.
+export function sessionWork(slug, sessionId) {
+    const route = load(slug);
+    const ids = route.sessions?.find((s) => s.id === sessionId)?.tacks ?? [];
+    const deliverables = ids
+        .map((id) => route.tacks.find((t) => t.id === id)?.deliverable?.url)
+        .filter((url) => Boolean(url));
+    return { route, tacks: [...ids], deliverables };
+}
 export function recordSession(slug, sessionId, tackId) {
     const route = load(slug);
     if (!route.sessions)
