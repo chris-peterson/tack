@@ -19,31 +19,40 @@ TACK_GUIDE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/guides/routes.md"
 # the character here means a payload never reaches it in the first place.
 URL_PATTERN='https://(github\.com/[^/]+/[^/]+/(pull|issues)|gitlab\.[^[:space:]\\]*/-/(merge_requests|issues|work_items|epics|milestones))/[0-9]+'
 
-# The suite's interop announcement for a CR anchor opened. One self-contained
-# line on the publisher's stdout, payload as bare `KEY=value` tokens; the
-# contract lives in the marketplace repo at `authoring/plugin-contract.md`.
+# The suite's interop announcements for a change request. One self-contained
+# line on the publisher's stdout: the key, then a compact JSON object. The
+# contract and anchor's own declaration are the reference:
+# https://github.com/chris-peterson/claude-marketplace/blob/main/authoring/plugin-contract.md
+#
+# Both events carry the same `uri`, and either one means a change request is
+# there to be tracked, so tack matches them together rather than caring which
+# fired. anchor announces one or the other per run, never both.
 #
 # This is the precise half of URL detection, and it earns its place rather than
 # duplicating the scrape: URL_PATTERN recognizes `github.com` and `gitlab.*`
 # hosts only, so a self-hosted forge is invisible to it. An announcement carries
-# its own `CR_URL` and is seen whatever the host.
-ANNOUNCE_CR_OPENED='^codes\.bridgeai\.anchor/cr\.opened([[:space:]]|$)'
+# its own `uri` and is seen whatever the host.
+ANNOUNCED_CR='^codes\.bridgeai\.anchor/cr\.(created|updated)[[:space:]]'
 
 # announced_cr_urls <text>
 #
-# Print the `CR_URL` of each `cr.opened` announcement in <text>, one per line.
+# Print the `uri` of each change-request announcement in <text>, one per line.
 #
 # An announced value is exactly as untrusted as a scraped one — both arrive in a
 # Bash tool's stdout — so it is held to the shape URL_PATTERN enforces: https,
-# no whitespace, no backslash. The backslash is the one that matters, for the
-# reason given above: these URLs reach a string that is printed into the agent's
-# context, and a `\n` riding inside one forges a line there.
+# no whitespace, no backslash. The JSON body makes the announcement itself
+# newline-proof, but says nothing about what a *decoded* value may hold, and
+# these URLs reach a string printed into the agent's context.
+#
+# A body that will not parse is skipped rather than reported: the contract puts
+# that on the publisher, and a malformed line from a sibling must not take a
+# hook down.
 announced_cr_urls() {
   printf '%s' "$1" \
-    | grep -E "$ANNOUNCE_CR_OPENED" \
-    | tr ' ' '\n' \
-    | grep -oE '^CR_URL=https://[^[:space:]\\]+' \
-    | sed 's/^CR_URL=//' \
+    | grep -E "$ANNOUNCED_CR" \
+    | sed 's/^[^[:space:]]*[[:space:]]//' \
+    | jq -r 'try (.uri // empty) catch empty' 2>/dev/null \
+    | grep -E '^https://[^[:space:]\\]+$' \
     || true
 }
 

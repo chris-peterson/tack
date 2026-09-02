@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# PostToolUse(Bash) hook — when a CR description lands, prompt the handoff
-# report rather than leaving it to recall.
+# PostToolUse(Bash) hook — when a change request becomes reviewable, prompt the
+# handoff report rather than leaving it to recall.
 #
-# Writing the description is the moment the session first has a reviewable
-# thing, and the moment the user needs one block: where it stands and what's
-# owed. The `end` skill owns that block; the failure this hook removes is
-# producing it only when the agent happens to remember to.
+# That moment is when the session first has a reviewable thing, and when the
+# user needs one block: where it stands and what's owed. The `end` skill owns
+# that block; the failure this hook removes is producing it only when the agent
+# happens to remember to.
 #
 # Stdin: JSON with "tool_response.stdout" and "session_id".
 # Stdout: reminder text, which reaches the agent as tool feedback.
@@ -16,16 +16,23 @@ input=$(cat)
 session_id=$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null || true)
 [ -z "$session_id" ] && exit 0
 
-# anchor stating it described a CR. The suite's plugins collaborate by printing
-# one self-contained line on stdout, which reaches this hook as
-# `tool_response.stdout`; the contract is in the marketplace repo at
-# `authoring/plugin-contract.md`.
+# anchor saying it opened or changed a change request. The suite's plugins
+# collaborate by printing one self-contained line on stdout, which reaches this
+# hook as `tool_response.stdout`; anchor declares both events in its own
+# `plugin.yml` and the format is the contract's:
+# https://github.com/chris-peterson/claude-marketplace/blob/main/authoring/plugin-contract.md
+#
+# Both keys, because a run announces one or the other and never both: a fresh CR
+# reports `cr.created` and only a pre-existing one reports `cr.updated`. Either
+# is the handoff point, so matching `cr.updated` alone would take the nudge out
+# for every new CR, which is the common case.
 #
 # Matching what anchor *says* rather than the shape of the command it ran is
 # what lets anchor change forge CLIs or rename a flag without silently taking
-# this nudge out.
+# this nudge out. The body is not read here — that a CR is reviewable is the
+# whole signal, and the fields belong to whoever records it.
 output=$(printf '%s' "$input" | jq -r '.tool_response.stdout // empty' 2>/dev/null || true)
-printf '%s' "$output" | grep -qE '^codes\.bridgeai\.anchor/cr\.described([[:space:]]|$)' || exit 0
+printf '%s' "$output" | grep -qE '^codes\.bridgeai\.anchor/cr\.(created|updated)[[:space:]]' || exit 0
 
 # Once per session, and only charged when the nudge actually fires — a session
 # that revises the description twice is still at one handoff point.

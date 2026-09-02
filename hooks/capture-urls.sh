@@ -3,7 +3,7 @@
 # for any the store doesn't already track, nudges the agent to record it on the
 # active route, with the commands that do it.
 #
-# Two sources feed it. A sibling plugin's `codes.bridgeai.<plugin>/cr.opened`
+# Two sources feed it. A sibling plugin's `cr.created` / `cr.updated`
 # announcement names the CR outright (the suite's interop contract, in the
 # marketplace repo at `authoring/plugin-contract.md`), and the URL scrape finds
 # one whatever produced it. Neither subsumes the other: the announcement is seen
