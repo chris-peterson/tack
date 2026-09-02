@@ -3,9 +3,9 @@
 Tracking status of the requirements declared in [`SPEC.md`](SPEC.md).
 Updated after each `/sextant:spec-status` or `/sextant:spec-sync` run.
 
-**Last audit:** 2026-08-28
+**Last audit:** 2026-09-02
 **Spec version:** v1
-**Coverage:** 190 / 190 source-verified normative behaviors (100%) — 0 Partial, 0 Missing, 0 Contradicts
+**Coverage:** 196 / 196 source-verified normative behaviors (100%) — 0 Partial, 0 Missing, 0 Contradicts
 
 ## Status by category
 
@@ -24,12 +24,24 @@ Updated after each `/sextant:spec-status` or `/sextant:spec-sync` run.
 | BRIEF-01..04 (linked artifact) | 4 | All Covered | `skills/start/SKILL.md` ("Read the linked artifact in full"): whole-thread fetch, the fragment-anchors-a-position rule, and stating back what the thread settled |
 | DURABILITY-01..04 (the floor) | 4 | All Covered | `skills/end/SKILL.md` step 2: the three levels, the ask-never-block rule, the draft-flag stall, and the dead-end exemption |
 | FALLBACK-01..05 (absent companions) | 5 | All Covered | FALLBACK-01/02 in `skills/end/SKILL.md` preamble (read the skill listing; name raw `gh`/`glab`/`git` when no forge skill resolves), FALLBACK-03 in its step 4 + footer rule, FALLBACK-04 in `skills/start/SKILL.md`'s handoff rule (incl. the `tack.handoff` override); FALLBACK-05 both skills state which step was dropped rather than skipping silently |
-| HOOK-01..06 (hooks; +HOOK-04a..d) | 10 | All Covered | HOOK-02/HOOK-03 gate the URL reminder on `tack find` (already-tracked URLs stay silent; untracked ones nudge to create the mapping), shared in `scripts/lib-url.sh`; HOOK-04 resolves the route by branch slug then project name and records the session route-level (`hooks/session-nudge.sh`, tests in `src/hooks.test.ts`), HOOK-04c reads route filenames directly and matches the checkout root's basename so a subdirectory resolves the same route, HOOK-04a retries every prompt until bound (`.bound` marker in `hooks/session-nudge.sh`) so a route created mid-turn by `start` is still attributed, HOOK-04b debounces only the nudge text (`.nudged` marker) and suppresses it on a prompt that already opens a session or outside a git repo, HOOK-04d names the resolved route in context once per session alongside the replay and bind commands (`hooks/session-nudge.sh`); HOOK-05 permits the hook's deterministic reads (`tack find`) and the route-level session write while keeping URL→tack mapping with the agent; HOOK-06 the change-request-description handoff prompt (`hooks/landing-nudge.sh`); HOOK-01 sends a stale wrapper to `/tack:install-tack` (`commands/install-tack.md`, `hooks/cli-freshness.sh`) |
+| HOOK-01..10 (hooks; +HOOK-04a..d, HOOK-07a..b) | 16 | All Covered | HOOK-02/HOOK-03 gate the URL reminder on `tack find` (already-tracked URLs stay silent; untracked ones nudge to create the mapping), shared in `scripts/lib-url.sh`; HOOK-02 also takes announced URIs from the same output (`announced_trackable_urls` in `scripts/lib-url.sh`, deduped and capped with the scrape in `hooks/capture-urls.sh`); HOOK-04 resolves the route by branch slug then project name and records the session route-level (`hooks/session-nudge.sh`, tests in `src/hooks.test.ts`), HOOK-04c reads route filenames directly and matches the checkout root's basename so a subdirectory resolves the same route, HOOK-04a retries every prompt until bound (`.bound` marker in `hooks/session-nudge.sh`) so a route created mid-turn by `start` is still attributed, HOOK-04b debounces only the nudge text (`.nudged` marker) and suppresses it on a prompt that already opens a session or outside a git repo, HOOK-04d names the resolved route in context once per session alongside the replay and bind commands (`hooks/session-nudge.sh`); HOOK-05 permits the hook's deterministic reads (`tack find`), the route-level session write, and the determined merge close, while keeping URL→tack mapping with the agent; HOOK-06 the handoff prompt, now keyed on the announced change-request pair rather than the forge command's shape (`hooks/landing-nudge.sh`); HOOK-07/HOOK-07a/HOOK-07b the merge close, its report-instead-of-write cases (no match, several matches, no CLI, already closed), and the merge-time validation (`hooks/record-landed.sh`, `announced_merges`/`announced_date_ok` in `scripts/lib-url.sh`, 15 tests in `src/hooks.test.ts` driving a `tack` stub); HOOK-08 the release report (`announced_releases`, same hook); HOOK-09/HOOK-10 the announcement line shape and the untrusted-value rule (`announced_urls`/`announced_pairs`/`ANNOUNCED_URL_SHAPE` in `scripts/lib-url.sh`); HOOK-01 sends a stale wrapper to `/tack:install-tack` (`commands/install-tack.md`, `hooks/cli-freshness.sh`) |
 | REPO-01..07 (repo db) | 7 | All Covered | `~/.tack/repos.yaml` repo database (`src/repos.ts`): REPO-02 remote normalization, REPO-06 capture from deliverable/link URLs, REPO-07 capture from `init` cwd origin; tests in `src/repos.test.ts`, `src/cli.test.ts` |
 | SERVE-01..14 (document server; +SERVE-02a) | 15 | All Covered | SERVE-04's 500 is scoped to the requested route's own document; the index and group pages render what they could read and name the rest (`scanAll` + the `renderIndex` banner in `src/serve.ts`). `src/serve.ts` (`serve`, `handle`, `renderIndex`/`renderRoute`/`renderGroup`, `prefersJson`, `loopbackHost`, `sameOrigin`, `markdown`, `hyperlinkBase`) and `src/service.ts` (`install`/`uninstall`/`status`, `renderPlist`/`renderUnit`); SERVE-02a group documents link out rather than anchoring in place; SERVE-09 OSC 8 links rendered by `formatRoute`/`formatTack` in `src/display.ts` from the base `src/cli.ts` resolves; SERVE-12/SERVE-13 the edit form and its `Origin` check; 28 tests in `src/serve.test.ts`, 5 in `src/service.test.ts`. SERVE-08's launchd/systemd load-unload round trip is exercised by hand, not by the suite |
 | COMPAT-01..06 (compatibility) | 6 | All Covered | The contract itself is prose in `SPEC.md`, summarized in `README.md`; the parts with a gate: COMPAT-02's closed schema (`additionalProperties: false` throughout `schema/route.schema.json`), COMPAT-05's grammar snapshot (`spec/cli-usage.txt` vs `tack --help`, asserted in `src/cli.test.ts`), COMPAT-06's archive version guard (`SCHEMA_VERSION` in `src/backup.ts`, refusal tested in `src/cli.test.ts`). COMPAT-01/03/04 are declarations a reviewer applies, with no code path to point at |
 
 ## Audit history
+
+### 2026-09-02 — Coverage refresh (spec-status)
+
++6 IDs (HOOK-07, HOOK-07a, HOOK-07b, HOOK-08, HOOK-09, HOOK-10), coverage 190 →
+196, all Covered, no needs-decision rows. The new IDs state the merge close
+`hooks/record-landed.sh` performs and the announcement contract the hooks read;
+HOOK-02, HOOK-05, HOOK-06 and the category preamble were reworded to match —
+HOOK-06 had specified the `gh`/`glab` command shape that announcement matching
+replaced, and HOOK-05 now enumerates the merge close alongside the writes it
+already permitted. SESSION-08 reworded with the retirement of logbook: the
+`end` skill's footer is `route` / `retro`, the deferred-note count having had no
+supplier once that plugin went.
 
 ### 2026-08-28 — Coverage refresh (spec-status)
 

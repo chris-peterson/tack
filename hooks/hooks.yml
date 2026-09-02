@@ -14,3 +14,7 @@ hooks:
     matcher: Bash
     command: 'bash ${CLAUDE_PLUGIN_ROOT}/hooks/landing-nudge.sh'
     description: Detects a change-request description landing and prompts the handoff report the end skill defines, so it isn't produced from recall.
+  - event: PostToolUse
+    matcher: Bash
+    command: 'bash ${CLAUDE_PLUGIN_ROOT}/hooks/record-landed.sh'
+    description: Closes the tack holding a change request a sibling announced as merged, dated by the forge, and reports a published release for attaching to the tack that shipped.

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Removed
+
+- **The `notes` line in `/tack:end`'s report, and with it the last of the logbook integration.** The deferred-note count and the harvest command that line named were logbook's, so the field had no supplier once that plugin was retired. The close's footer is `route` and `retro`.
+
+### Added
+
+- **A merged change request closes its tack by itself.** When anchor announces a merge, tack finds the tack holding that CR, closes it, and dates it from the forge's own merge time, which promotes the CR from a link to the deliverable. anchor used to make that write by calling the `tack` CLI from inside its merge skill, so it only happened on a machine that had tack; now it follows from the announcement, and a route stops needing `tack reconcile` to catch up on a merge you were there for. Where the announcement leaves the tack undetermined — no tack holds the CR, several do, or the merge time won't validate — the close is reported with the command that makes it rather than guessed at.
+- **A published release is reported for attaching to the tack that shipped.** Which tack a release covers isn't something a release can say, so this one names the release and its tag and leaves the `tack link add` to you.
+- **An issue filed on a self-hosted forge is recorded like any other.** The URL scrape recognizes `github.com` and `gitlab.*` hosts only; anchor's `issue.created` announcement carries its own address, so the nudge to record it arrives whatever the host.
+
 ## 1.5.0
 
 ### Removed

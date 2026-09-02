@@ -3,10 +3,11 @@
 # for any the store doesn't already track, nudges the agent to record it on the
 # active route, with the commands that do it.
 #
-# Two sources feed it. A sibling plugin's `cr.created` / `cr.updated`
-# announcement names the CR outright (the suite's interop contract, in the
-# marketplace repo at `authoring/plugin-contract.md`), and the URL scrape finds
-# one whatever produced it. Neither subsumes the other: the announcement is seen
+# Two sources feed it. A sibling plugin's announcement names the artifact
+# outright (the suite's interop contract, in the marketplace repo at
+# `authoring/plugin-contract.md`) — a change request from `cr.created` /
+# `cr.updated`, an issue from `issue.created` — and the URL scrape finds one
+# whatever produced it. Neither subsumes the other: the announcement is seen
 # on any forge host, including a self-hosted one the scrape's pattern doesn't
 # recognize, while the scrape is what catches a `gh pr view`, a paste, or a
 # script that announces nothing.
@@ -28,7 +29,7 @@ output=$(echo "$input" | jq -r '.tool_response.stdout // empty' 2>/dev/null)
 # an announcement and a URL the scrape also matches. url_nudges_for dedupes, so
 # a URL in both sources is nudged once.
 candidates=$(printf '%s\n%s' \
-  "$(announced_cr_urls "$output")" \
+  "$(announced_trackable_urls "$output")" \
   "$(printf '%s' "$output" | grep -oE "$URL_PATTERN" || true)")
 
 # `%s`, not `%b`: the nudge carries a URL harvested from tool output, and `%b`
