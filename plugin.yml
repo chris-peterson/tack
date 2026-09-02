@@ -24,6 +24,26 @@ marketplace:
   category: productivity
   homepage: https://chris-peterson.github.io/tack/#/
 
+# → the suite's event catalog. A consumer names only the key it depends on:
+# restating the publisher's fields would make N copies of one schema, each free
+# to drift. Keys are fully qualified, because they belong to someone else.
+#
+# Both hooks take both keys. anchor announces one or the other per run and never
+# both, so a fresh change request reports only cr.created — matching cr.updated
+# alone would go silent for every new CR.
+events:
+  subscribes:
+    - key: codes.bridgeai.anchor/cr.created
+      handled_by: hooks/capture-urls.sh, hooks/landing-nudge.sh
+      reason: >-
+        records the change request on the session's route, and prompts the
+        handoff report the end skill defines
+    - key: codes.bridgeai.anchor/cr.updated
+      handled_by: hooks/capture-urls.sh, hooks/landing-nudge.sh
+      reason: >-
+        records the change request on the session's route, and prompts the
+        handoff report the end skill defines
+
 # → marketplace SPA; keys mirror the SPA's PLUGINS object.
 suite:
   cli: true
