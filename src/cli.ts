@@ -10,7 +10,8 @@ import * as backup from "./backup.js";
 import * as reconcile from "./reconcile.js";
 import * as serve from "./serve.js";
 import * as service from "./service.js";
-import { TACK_STATUSES, type TackStatus } from "./types.js";
+import { TACK_STATUSES, type TackStatus, type Route } from "./types.js";
+import { announce, announceOnce } from "./announce.js";
 import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind, formatRepos, treeData } from "./display.js";
 import { ZSH_COMPLETION } from "./completions.js";
 
@@ -52,6 +53,7 @@ Usage:
   tack link add <slug> <tack-id> <label> <url>
   tack link rm <slug> <tack-id> <url>
   tack session <slug> <session-id> [--tack <tack-id>]
+  tack session end <slug> <session-id>   Announce the session's work closing out (writes nothing)
   tack find --url <url> [--json]     Find tacks referencing a URL (in any deliverable or link)
   tack find --path [<dir>] [--json]  Find routes covering a repo checkout (default cwd)
   tack repo [<partial>] [--json]     Look up repo remote(s) by name; no arg lists all
@@ -108,7 +110,26 @@ function warnUrlCollision(url: string, slug: string, tackId: string): void {
 // `start` additionally binds the specific tack it just started.
 function recordSessionIfPresent(slug: string, tackId?: string): void {
   const sid = process.env.CLAUDE_CODE_SESSION_ID;
-  if (sid) route.recordSession(slug, sid, tackId);
+  if (sid) bindSession(slug, sid, tackId);
+}
+
+// Record the binding, and announce the session's start the first time one is
+// heard of.
+//
+// `announceOnce` owns the once-per-session gate rather than the route file
+// doing it, because a binding and an announcement are not the same event: the
+// prompt hook binds on every prompt with nobody able to hear it. The announced
+// tack is read back off the binding rather than taken from the argument, since
+// a bare `<N>` normalizes to `t<N>` on the way in and a subscriber wants the id
+// the route actually holds.
+function bindSession(slug: string, sessionId: string, tackId?: string): Route {
+  const r = route.recordSession(slug, sessionId, tackId);
+  announceOnce("session.started", sessionId, {
+    session: sessionId,
+    route: slug,
+    tack: r.sessions?.find((s) => s.id === sessionId)?.tacks?.at(-1),
+  });
+  return r;
 }
 
 type Source = { path: string; kind: "shim" | "node" };
@@ -823,8 +844,36 @@ function run(): void {
         options: { tack: { type: "string" } },
         allowPositionals: true,
       });
-      if (!sessionPositionals[0] || !sessionPositionals[1]) usage();
-      const r = route.recordSession(
+
+      // Both forms have one shape: refuse group-scoped per [CLI-41], act on the
+      // session, announce the fact, then render the route. What differs is
+      // inherent — the bare form writes the binding, `end` writes nothing,
+      // since a session's end is not state a route carries.
+      //
+      // `end` reports the conversation's *work* finishing rather than the
+      // conversation itself: Claude Code's own teardown fires too late for a
+      // subscriber to act on, which is why this is a verb the close calls.
+      if (sessionPositionals[0] === "end") {
+        const endSlug = sessionPositionals[1];
+        const endSession = sessionPositionals[2];
+        if (!endSlug || !endSession) {
+          groupError("session end", "expected <slug> <session-id>");
+        }
+        const work = route.sessionWork(endSlug, endSession);
+        announce("session.ended", {
+          session: endSession,
+          route: endSlug,
+          tacks: work.tacks,
+          deliverables: work.deliverables,
+        });
+        console.log(formatRoute(work.route));
+        break;
+      }
+
+      if (!sessionPositionals[0] || !sessionPositionals[1]) {
+        groupError("session", "expected <slug> <session-id>");
+      }
+      const r = bindSession(
         sessionPositionals[0],
         sessionPositionals[1],
         sessionValues.tack as string | undefined,

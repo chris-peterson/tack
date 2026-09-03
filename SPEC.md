@@ -542,6 +542,9 @@ per [ROUTE-09]. If the session ID already exists, it shall not duplicate. When
 array is moved to the end rather than duplicated, so the last entry is always
 the session's current focus and a pivot back to an earlier tack makes it
 current again. The CLI shall fail if `<tack-id>` does not exist in the route.
+`tack session` carries a subcommand ([CLI-58]), so a missing argument on either
+of its forms shall report group-scoped per [CLI-41] rather than dumping the
+global usage text.
 
 **[CLI-18]** `tack list [--json]` and `tack status [slug] [--json]` — When
 `--json` is passed, the CLI shall output the result as JSON instead of the
@@ -925,6 +928,15 @@ possible without reading the schema, which means naming the file to open, the
 path within it, and the rule that path breaks. It is also what [STORE-09] points
 a reader at once a listing tells them something was left out.
 
+**[CLI-58]** `tack session end <slug> <session-id>` — When invoked, the CLI
+shall announce the session's work closing out per [EVENTS-05] and shall write
+nothing to the route. A session's end is not state a route carries: the payload
+is read off the route as it already stands, which is why the close calls this
+after recording the deliverable rather than before. It shall then display that
+route per [CLI-16], as the binding form does, so the two forms of `tack session`
+differ only in the write. The CLI shall fail with a group-scoped error per
+[CLI-41] when either argument is absent.
+
 ---
 
 ### AGENT — Agent Integration
@@ -1020,10 +1032,12 @@ the answer anywhere else. There is no per-directory marker to write.
 ### HOOK — Hooks
 
 Hooks are scaffolding around the agent. They surface signals the agent might
-otherwise miss (URLs in tool output, URLs in user prompts, version drift),
-and they emit reminder text the agent reads as additional context. Hooks
-never write to route files directly; the agent performs all writes via the
-CLI per [AGENT-05] and [AGENT-06].
+otherwise miss (URLs in tool output, URLs in user prompts, a sibling plugin's
+announcements, version drift), and they emit reminder text the agent reads as
+additional context. No hook writes a route file directly: a hook that records
+anything does it by running the CLI, and only for the writes [HOOK-05]
+enumerates as determined. Every write needing judgment the hook cannot exercise
+is the agent's, per [AGENT-05] and [AGENT-06].
 
 **[HOOK-01]** A `SessionStart` hook shall compare the installed CLI wrapper's
 version to the plugin's `version` per [CLI-29]. When they differ, the hook
@@ -1034,8 +1048,13 @@ shall never block session start.
 
 **[HOOK-02]** A `PostToolUse` hook scoped to the `Bash` tool shall scan tool
 output for PR/MR and issue URLs (the recognized forges are defined in
-[CLI-37]). For each match, the hook shall first check whether a tack already
-tracks the URL by running `tack find --url <url>` ([CLI-23]); a URL already mapped
+[CLI-37]), and shall take from the same output the URI of each announcement
+naming an artifact a route should hold — the change-request pair of [HOOK-06],
+and `issue.created` — per [HOOK-09]. Neither source subsumes the other, for the
+reason [HOOK-09] states, and the two shall be deduplicated and capped together
+so one URL carried by both is reminded about once. For each URL, the hook shall
+first check whether a tack already tracks it by running `tack find --url <url>`
+([CLI-23]); a URL already mapped
 emits no reminder, so the hooks stop nagging about work that is already
 recorded. Only an untracked URL shall emit reminder text, carrying the commands
 that record it per [AGENT-05] or [AGENT-06] depending on URL type, and the path
@@ -1084,17 +1103,72 @@ resolution procedure.
 **[HOOK-05]** Hook reminders are advisory: the *judgment-laden* writes — which
 slug and tack a URL maps to — shall be made by the agent, not by the hook, so
 that context the hook cannot see is applied and those schema writes go through
-one path. The hook may perform deterministic reads
-(the `tack find` tracked-check per [HOOK-02]) and the route-level session record
-per [HOOK-04], which need no such judgment.
+one path. A hook may perform deterministic reads (the `tack find` tracked-check
+per [HOOK-02]) and these writes, each determined by what the hook already holds:
+the route-level session record per [HOOK-04], and the close of the one open tack
+a merged change request identifies per [HOOK-07]. Where the same signal leaves
+the tack undetermined, the hook reports instead of writing, per [HOOK-07a].
 
 **[HOOK-06]** A `PostToolUse` hook scoped to the `Bash` tool shall detect a
-change-request description being written — `gh pr … --body-file` on GitHub, a
-`merge_requests` call carrying `description=@` on GitLab — and emit reminder
-text asking for the handoff report of [SESSION-08]. The hook shall fire at most once
-per session, and only when the detection matched, so a session that revises a
-description twice is still at one handoff point. The reminder shall state that
-it previews the close rather than performing it.
+change request becoming reviewable — a sibling plugin's `cr.created` or
+`cr.updated` announcement per [HOOK-09] — and emit reminder text asking for the
+handoff report of [SESSION-08]. Both keys shall be matched: a publisher
+announces one or the other per run and never both, so a fresh change request
+reports only `cr.created`, and matching `cr.updated` alone would take the
+reminder out for every new one. The hook shall fire at most once per session,
+and only when the detection matched, so a session that revises a description
+twice is still at one handoff point. The reminder shall state that it previews
+the close rather than performing it.
+
+**[HOOK-07]** When a sibling plugin announces a change request merged
+(`cr.merged` per [HOOK-09]), a `PostToolUse` hook scoped to the `Bash` tool
+shall close the tack holding that change request, dating it from the announced
+merge time rather than the moment the announcement was read, so a route records
+when the work landed. The tack is identified by running `tack find --url`
+([CLI-23]) against the announced URI, and the close runs `tack done --date`
+([CLI-05]), which promotes the change request from a link to the tack's
+deliverable by that requirement's single-PR/MR rule. This is the same fact
+`tack reconcile` ([CLI-56]) writes from forge state, learned by announcement
+instead of by polling; a merge the forge completes with no session running is
+still `reconcile`'s to catch.
+
+**[HOOK-07a]** Where the announcement does not determine the tack, the hook of
+[HOOK-07] shall write nothing and shall emit reminder text naming the merge and
+the command that records it: when no tack references the announced URI (carrying
+the backfill call of [CLI-04] as well), when more than one tack does, and when
+`tack` is not on `PATH`. A tack already `done` or `dropped` shall be left as it
+is, so a re-announced merge does not move `done_at`.
+
+**[HOOK-07b]** If an announced merge time is not one of the timestamp forms
+[CLI-05] accepts, then the hook of [HOOK-07] shall write nothing and shall
+report the change request with the placeholder in place of the value, rather
+than dating the close to when the announcement was read.
+
+**[HOOK-08]** When a sibling plugin announces a release published
+(`release.created` per [HOOK-09]), the hook of [HOOK-07] shall emit reminder
+text naming the release, its tag, and the `tack link add` call ([CLI-13]) that
+attaches it, and shall write nothing. Which tack shipped in a release is not in
+the announcement and one release covers however many landed in it, so the
+attachment is the agent's per [HOOK-05].
+
+**[HOOK-09]** A sibling plugin's announcement is one line on the emitting tool
+call's stdout: a fully-qualified routing key, whitespace, then a compact JSON
+object. A hook reading one shall match the key anchored at the start of a line,
+so a key named mid-sentence is prose rather than a signal; shall hold every
+announced URI to the shape of [HOOK-10]; and shall skip a body that does not
+parse rather than failing, so a malformed line from a sibling cannot take down a
+hook that runs on every Bash call. The keys tack acts on are the change-request
+pair of [HOOK-06], `cr.merged` per [HOOK-07], `release.created` per [HOOK-08],
+and `issue.created` per [HOOK-02]. An announcement is not redundant with the URL
+scrape of [HOOK-02]: the scrape recognizes only the forge hosts of [CLI-37], so
+a self-hosted forge is invisible to it, while an announcement carries its own
+URI whatever the host.
+
+**[HOOK-10]** An announced value shall be treated as exactly as untrusted as a
+scraped one: both arrive on a Bash tool's stdout and both reach a string printed
+into the agent's context, and an announced URI also reaches a route file. A URI
+shall therefore be required to be `https` with no whitespace and no backslash
+before it is reported or written, whatever key carried it.
 
 ---
 
@@ -1140,7 +1214,7 @@ release on its own initiative. Naming the next command is its deliverable;
 sequencing is the user's.
 
 **[SESSION-08]** The `end` skill's entire user-facing output shall be one table of
-`change | state | next` rows plus a `route` / `retro` / `notes` footer, emitted
+`change | state | next` rows plus a `route` / `retro` footer, emitted
 as rendered markdown with live forge links. Steps preceding it shall run without
 narration.
 
@@ -1396,6 +1470,58 @@ point the links at a server running on another port.
 listening. A liveness probe would cost a round trip on every `tack status` to
 pre-answer a question the browser answers when the link is followed; a link to
 a server that is down fails at click time, which is the cheaper failure.
+
+---
+
+### EVENTS — What tack Announces
+
+tack states the facts it causes so a sibling plugin can react to them, rather
+than being called by name or having its files read. The transport is the suite's
+interop contract, whose reader-side rules are [HOOK-09] and [HOOK-10]; these
+requirements cover tack as a publisher. Every key tack publishes is declared in
+`plugin.yml`, which is what lets the suite catalog show a key nobody hears.
+
+**[EVENTS-01]** An announcement shall be one self-contained line on the emitting
+command's stdout: the key `codes.bridgeai.tack/<entity>.<event>`, whitespace,
+then a compact JSON object. The `<entity>.<event>` half shall be lowercase
+alphanumerics — the grammar excludes the hyphen a name like `mode-changed` would
+want, which the suite's other publisher rejects and its other subscriber does not
+match, so a hyphenated key would publish into silence. A value carrying a newline
+shall be escaped within the JSON string rather than breaking the line.
+
+**[EVENTS-02]** When a Claude session is bound to a route, the CLI shall announce
+`session.started` carrying the session id, the route slug, and the bound tack id
+where the binding named one. It is emitted from whichever command did the
+binding — [CLI-02], [CLI-04], [CLI-07], or [CLI-17] — so the announcement does
+not depend on a skill remembering to make it.
+
+**[EVENTS-03]** `session.started` shall be announced at most once per session id.
+The gate shall be the announcement rather than the binding, because the two come
+apart: [HOOK-04] binds the session on every prompt, and gating on the first
+binding would spend the session's start on a bind no subscriber can read. A bind
+to a second route continues work already started and announces nothing.
+
+**[EVENTS-04]** Where `TACK_ANNOUNCE=0` is set, the CLI shall announce nothing
+and shall leave the announcement available to a later invocation. The variable
+is how a caller states that its output reaches no one: [HOOK-04]'s bind discards
+the CLI's output, and a `UserPromptSubmit` hook's stdout is the agent's context
+rather than a tool response, which is the only thing a subscriber reads.
+
+**[EVENTS-05]** `tack session end` ([CLI-58]) shall announce `session.ended`
+carrying the session id, the route slug, the route-scoped tack ids that session
+drove in touch order, and the deliverable URLs those tacks hold. Both arrays
+shall be present and empty where the session bound no tack or recorded no
+deliverable, which reports a session that closed having recorded nothing rather
+than omitting the fact. It reports the work closing out, not the conversation
+ending — Claude Code's own teardown fires too late for a subscriber to act on, so
+tack announces nothing there.
+
+**[EVENTS-06]** A publish shall never fail the command that triggered it. An
+announcement runs after the work it describes has landed, so a malformed key, a
+body that will not encode, and an unwritable debounce marker shall each leave the
+command's own exit status untouched. A repeated announcement is the accepted
+outcome of that choice: the contract makes every announcement safe to repeat, and
+no ordering guarantee holds between subscribers.
 
 ---
 

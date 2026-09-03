@@ -37,6 +37,7 @@ Usage:
   tack link add <slug> <tack-id> <label> <url>
   tack link rm <slug> <tack-id> <url>
   tack session <slug> <session-id> [--tack <tack-id>]
+  tack session end <slug> <session-id>   Announce the session's work closing out (writes nothing)
   tack find --url <url> [--json]     Find tacks referencing a URL (in any deliverable or link)
   tack find --path [<dir>] [--json]  Find routes covering a repo checkout (default cwd)
   tack repo [<partial>] [--json]     Look up repo remote(s) by name; no arg lists all

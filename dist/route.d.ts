@@ -74,6 +74,11 @@ export declare function addLink(slug: string, tackId: string, label: string, url
 export declare function removeLink(slug: string, tackId: string, url: string): Tack;
 export declare function editTack(slug: string, tackId: string, summary: string): Tack;
 export declare function mergeTacks(slug: string, sourceId: string, targetId: string): Tack;
+export declare function sessionWork(slug: string, sessionId: string): {
+    route: Route;
+    tacks: string[];
+    deliverables: string[];
+};
 export declare function recordSession(slug: string, sessionId: string, tackId?: string): Route;
 export declare function recent(opts?: {
     count?: number;

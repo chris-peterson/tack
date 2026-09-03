@@ -126,6 +126,10 @@ Match the record to reality rather than to intent:
 - **A deliverable is a landed thing.** An open CR is a `link`; a merged CR or a
   pushed commit is the `deliverable`. Recording an open CR as the deliverable
   closes the route while the work is still out for review.
+- **A merge made this session is already recorded.** The `record-landed` hook
+  closes the tack when a sibling announces the merge, dated from the forge, and
+  promotes the CR to the deliverable. Step 1's `tack status` read is what shows
+  it: a tack already `done` and holding that CR needs nothing here.
 - **Blocked beats done.** When the work waits on a reviewer, an approval gate, or
   another team, `tack status set … blocked` records the reason the route stays
   open. Silence reads as forgotten.
@@ -141,16 +145,11 @@ Match the record to reality rather than to intent:
 
 ## 4. Hand off the retro
 
-Hand off to whatever retrospective skill this session has, and let it decide
-whether the session earned one. It reads the session's own captured notes
-first, so re-deriving that judgment here would duplicate work that already
-happens downstream with better material.
+Hand off to whatever retrospective skill this session has (generally `/retro`),
+and let it decide whether the session earned one. It reads the session's own
+captured notes first, so re-deriving that judgment here would duplicate work
+that already happens downstream with better material.
 
-- **Prefer a bare skill name over a plugin-namespaced one** (`retro` over
-  `logbook:retro`). A bare skill is usually the user's own, fuller retro
-  workflow installed locally; a plugin's namespaced skill is the generic
-  fallback behind it, not the default to reach for first. Naming a specific
-  plugin here would skip that local skill every time both are installed.
 - **Don't recap the retro's material.** The worker reads this session's
   transcript, so listing what it has material on is output the user pays for and
   the worker never sees.
@@ -161,14 +160,22 @@ happens downstream with better material.
   Then the user types it, and the seeds go with the ask so the worker doesn't
   start cold — name the specific moments worth a note, not the topic.
 
-Notes deferred by *earlier* sessions, where the retro tool reports them, are one
-`notes` line in step 5's block, not a paragraph of their own.
-
 **Set no session signal here.** The route's state, which step 3 just wrote, is
 what a fleet view reads to decide this session is done. Writing a separate status
 gives the same field a second source that goes stale the moment the route moves.
 
-## 5. Report what's still owed
+**Announce the close**, so a sibling tracking the session learns its work
+finished rather than inferring it:
+
+```bash
+tack session end {slug} $CLAUDE_CODE_SESSION_ID
+```
+
+It writes nothing — the announcement carries the tacks this session drove and
+their deliverables, read off the route step 3 just wrote, which is why it runs
+after that step rather than before. Skip it on a session with no route.
+
+## 5. Report unfinished tasks
 
 Close with one table in `/tack:start`'s shape — the state read in step 1 and the
 commands that advance it. This is the skill's whole output:
@@ -180,7 +187,6 @@ commands that advance it. This is the skill's whole output:
 | [cleat#7](https://…/pull/7) | merged · `a91c204` | — |
 
 **route** cleat t5 open, #3 and the commit as links · **retro** launched in a new tab
-**notes** 3 sessions hold deferred notes — `/logbook:retro <id>`
 ```
 
 - **Emit it as markdown, not inside a fence.** The example above is fenced so
@@ -191,8 +197,8 @@ commands that advance it. This is the skill's whole output:
   end, a read-only close) drops the table and keeps the footer.
 - **`next` is commands in the order they run**, arrow-separated, no
   explanations. Nothing left to run is `—`.
-- **The footer is `route`, `retro`, `notes`**, bold-labelled, one line each, and
-  any field with nothing to say is dropped.
+- **The footer is `route` and `retro`**, bold-labelled, one line each, and any
+  field with nothing to say is dropped.
 - **Live links, not dead tokens.** The change cell carries a linked forge
   reference (`cleat#3`, `ai-tools!23`), never a bare number or a raw URL, and
   shas go in backticks at 7 characters. Name absent signals as absent (`no

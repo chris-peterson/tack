@@ -28,10 +28,55 @@ marketplace:
 # restating the publisher's fields would make N copies of one schema, each free
 # to drift. Keys are fully qualified, because they belong to someone else.
 #
-# Both hooks take both keys. anchor announces one or the other per run and never
-# both, so a fresh change request reports only cr.created — matching cr.updated
-# alone would go silent for every new CR.
+# Both CR hooks take both of the opening keys. anchor announces one or the other
+# per run and never both, so a fresh change request reports only cr.created —
+# matching cr.updated alone would go silent for every new CR.
+#
+# Listed here is what tack acts on, not everything it can hear. anchor also
+# announces cr.ready and commit.pushed: the first is the draft flag coming off,
+# which landing-nudge already covers from the CR keys, and the second fires on
+# every push, where the end skill reads git directly for a state that has moved
+# on by the time it reports. Declaring either would put a key in the catalog
+# with nothing behind it.
 events:
+  # Keys are bare here: `name:` above supplies the `codes.bridgeai.tack/`
+  # prefix, so a producer cannot typo its own.
+  publishes:
+    - key: session.started
+      when: >-
+        a Claude session was bound to a route for the first time. Emitted by the
+        CLI, from whichever command did the binding — `init`, `add`, `start`, or
+        `session` itself — so it fires without a skill having to remember to.
+        One per session: a later bind, including a pivot to a second route,
+        continues work already started and announces nothing.
+      emitted_by: src/cli.ts (bindSession), via src/announce.ts
+      fields:
+        session: the Claude session id the binding is for
+        route: the route slug it was bound to
+        tack:
+          describe: >-
+            the route-scoped tack id the session is driving, where the binding
+            named one. Absent on a route-level bind, which is what the prompt
+            hook writes before the work has a tack.
+          optional: true
+    - key: session.ended
+      when: >-
+        the close reported the session's work finished. Emitted by `tack session
+        end`, which the `end` skill calls; it reports the work closing out
+        rather than the conversation ending, so a subscriber can move into a
+        retro while the session is still live. Nothing is announced on teardown,
+        which arrives too late to act on.
+      emitted_by: src/cli.ts (session end), via src/announce.ts
+      fields:
+        session: the Claude session id whose work closed out
+        route: the route slug it was bound to
+        tacks: >-
+          the route-scoped tack ids this session drove, in touch order. Empty
+          where the session bound no tack, which reports a session that closed
+          having recorded nothing.
+        deliverables: >-
+          the deliverable URLs those tacks hold, which is what the session
+          produced. Empty where none was recorded.
   subscribes:
     - key: codes.bridgeai.anchor/cr.created
       handled_by: hooks/capture-urls.sh, hooks/landing-nudge.sh
@@ -43,6 +88,23 @@ events:
       reason: >-
         records the change request on the session's route, and prompts the
         handoff report the end skill defines
+    - key: codes.bridgeai.anchor/cr.merged
+      handled_by: hooks/record-landed.sh
+      reason: >-
+        closes the tack holding the change request and dates it from the forge's
+        own merge time, which is the write anchor's merge skill used to make by
+        calling the CLI
+    - key: codes.bridgeai.anchor/release.created
+      handled_by: hooks/record-landed.sh
+      reason: >-
+        reports the release for attaching to the tack that shipped — the
+        announcement can't say which tack, since a release covers however many
+        landed in it
+    - key: codes.bridgeai.anchor/issue.created
+      handled_by: hooks/capture-urls.sh
+      reason: >-
+        records the issue on the session's route, on a forge host the URL scrape
+        has no pattern for
 
 # → marketplace SPA; keys mirror the SPA's PLUGINS object.
 suite:
@@ -52,9 +114,6 @@ suite:
     - name: anchor
       required: false
       reason: supplies the commit, CR, merge, and release commands end reports as owed
-    - name: logbook
-      required: false
-      reason: supplies the deferred-note count and the harvest command end reports
   # User-invoked skills and a command, plus hooks that read the agent's Bash
   # output (PostToolUse) and act at session start.
   activations: [agent, user, session]
@@ -75,8 +134,9 @@ suite:
     hooks:
       capture-urls: PostToolUse — Detects PR/MR/issue URLs in Bash tool output and nudges the agent to ensure a tack route mapping exists for each.
       cli-freshness: SessionStart — Detects when the installed tack CLI wrapper is stale relative to the plugin version and nudges to refresh it.
-      hooks: 'Hook wiring: SessionStart→cli-freshness; UserPromptSubmit→session-nudge; PostToolUse→capture-urls (Bash), landing-nudge (Bash).'
+      hooks: 'Hook wiring: SessionStart→cli-freshness; UserPromptSubmit→session-nudge; PostToolUse→capture-urls (Bash), landing-nudge (Bash), record-landed (Bash).'
       landing-nudge: PostToolUse — Detects a change-request description landing and prompts the handoff report the end skill defines, so it isn't produced from recall.
+      record-landed: PostToolUse — Closes the tack holding a change request a sibling announced as merged, dated by the forge, and reports a published release for attaching to the tack that shipped.
       session-nudge: UserPromptSubmit — Detects untracked PR/MR/issue URLs in user messages, resolves and records the session's tack route, and recommends opening one when none resolves.
     commands:
       install-tack: Install or refresh the tack CLI wrapper and its zsh completions on PATH

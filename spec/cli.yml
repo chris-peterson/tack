@@ -277,6 +277,13 @@ commands:
     flags:
     - name: --tack
       arg: tack-id
+  subcommands:
+  - name: end
+    usages:
+    - summary: Announce the session's work closing out (writes nothing)
+      args:
+      - name: slug
+      - name: session-id
 - name: find
   usages:
   - summary: Find tacks referencing a URL (in any deliverable or link)

@@ -459,10 +459,21 @@ _tack() {
       esac
       ;;
     session)
-      # tack session <slug> <session-id> [--tack <tack-id>]
+      # tack session <slug> <session-id> [--tack <tack-id>] | end <slug> <session-id>
       case "$CURRENT" in
-        3) _tack_routes ;;
-        4) _message 'session-id' ;;
+        3) _alternative 'subcommands:subcommand:((end\:"announce the work closing out"))' 'routes:route:_tack_routes' ;;
+        4)
+          if [[ "\${words[3]}" == "end" ]]; then
+            _tack_routes
+          else
+            _message 'session-id'
+          fi
+          ;;
+        5)
+          if [[ "\${words[3]}" == "end" ]]; then
+            _message 'session-id'
+          fi
+          ;;
         *)
           if [[ "\${words[CURRENT-1]}" == "--tack" ]]; then
             _tack_tack_ids "\${words[3]}"
