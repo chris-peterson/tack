@@ -334,21 +334,6 @@ describe("rename", () => {
       /same/i,
     );
   });
-
-  it("refuses when another route's depends_on references the old slug", async () => {
-    const { writeFileSync, readFileSync } = await import("node:fs");
-    const yaml = await import("yaml");
-    route.init("rename-target");
-    route.init("rename-referer");
-    const refererPath = join(tmp, "routes", "rename-referer.yaml");
-    const data = yaml.parse(readFileSync(refererPath, "utf-8")) as any;
-    data.depends_on = ["rename-target"];
-    writeFileSync(refererPath, yaml.stringify(data), "utf-8");
-    assert.throws(
-      () => route.rename("rename-target", "rename-target-new"),
-      /referenced by rename-referer/,
-    );
-  });
 });
 
 describe("setGroup / clearGroup", () => {
@@ -464,13 +449,6 @@ describe("markDone", () => {
     );
   });
 
-  it("returns pending after items", () => {
-    route.init("done-after");
-    route.addTack("done-after", "Task");
-    route.addAfter("done-after", "t1", "Deploy to prod");
-    const { pendingTodo } = route.markDone("done-after", "t1");
-    assert.deepEqual(pendingTodo, ["Deploy to prod"]);
-  });
 });
 
 describe("addTack backfill", () => {
@@ -765,96 +743,6 @@ describe("removeDeliverable", () => {
   });
 });
 
-describe("addBefore", () => {
-  it("adds a before todo with sequential ids", () => {
-    route.init("before-test");
-    route.addTack("before-test", "Task");
-    const t1 = route.addBefore("before-test", "t1", "Read the docs");
-    assert.equal(t1.before!.length, 1);
-    assert.equal(t1.before![0].id, "b1");
-    assert.equal(t1.before![0].text, "Read the docs");
-    assert.equal(t1.before![0].done, false);
-
-    const t2 = route.addBefore("before-test", "t1", "Set up env");
-    assert.equal(t2.before!.length, 2);
-    assert.equal(t2.before![1].id, "b2");
-  });
-});
-
-describe("addAfter", () => {
-  it("adds an after todo with sequential ids", () => {
-    route.init("after-test");
-    route.addTack("after-test", "Task");
-    const t1 = route.addAfter("after-test", "t1", "Notify team");
-    assert.equal(t1.after!.length, 1);
-    assert.equal(t1.after![0].id, "a1");
-    assert.equal(t1.after![0].text, "Notify team");
-    assert.equal(t1.after![0].done, false);
-
-    const t2 = route.addAfter("after-test", "t1", "Update docs");
-    assert.equal(t2.after!.length, 2);
-    assert.equal(t2.after![1].id, "a2");
-  });
-});
-
-describe("completeTodo", () => {
-  it("marks a before todo as done with date", () => {
-    route.init("todo-done-b");
-    route.addTack("todo-done-b", "Task");
-    route.addBefore("todo-done-b", "t1", "Prereq");
-    const t = route.completeTodo("todo-done-b", "t1", "b1");
-    assert.equal(t.before![0].done, true);
-    assert.ok(t.before![0].done_at);
-  });
-
-  it("marks an after todo as done with date", () => {
-    route.init("todo-done-a");
-    route.addTack("todo-done-a", "Task");
-    route.addAfter("todo-done-a", "t1", "Follow up");
-    const t = route.completeTodo("todo-done-a", "t1", "a1");
-    assert.equal(t.after![0].done, true);
-    assert.ok(t.after![0].done_at);
-  });
-
-  it("throws for nonexistent todo", () => {
-    route.init("todo-done-bad");
-    route.addTack("todo-done-bad", "Task");
-    assert.throws(
-      () => route.completeTodo("todo-done-bad", "t1", "b1"),
-      /not found/i
-    );
-  });
-});
-
-describe("dropTodo", () => {
-  it("removes a before todo", () => {
-    route.init("todo-drop-b");
-    route.addTack("todo-drop-b", "Task");
-    route.addBefore("todo-drop-b", "t1", "Will remove");
-    route.addBefore("todo-drop-b", "t1", "Will keep");
-    const t = route.dropTodo("todo-drop-b", "t1", "b1");
-    assert.equal(t.before!.length, 1);
-    assert.equal(t.before![0].id, "b2");
-  });
-
-  it("removes an after todo", () => {
-    route.init("todo-drop-a");
-    route.addTack("todo-drop-a", "Task");
-    route.addAfter("todo-drop-a", "t1", "Will remove");
-    const t = route.dropTodo("todo-drop-a", "t1", "a1");
-    assert.equal(t.after!.length, 0);
-  });
-
-  it("throws for nonexistent todo", () => {
-    route.init("todo-drop-bad");
-    route.addTack("todo-drop-bad", "Task");
-    assert.throws(
-      () => route.dropTodo("todo-drop-bad", "t1", "a99"),
-      /not found/i
-    );
-  });
-});
-
 describe("editTack", () => {
   it("updates a tack summary", () => {
     route.init("edit-test");
@@ -868,10 +756,10 @@ describe("editTack", () => {
     route.init("edit-preserve");
     route.addTack("edit-preserve", "Task");
     route.startTack("edit-preserve", "t1");
-    route.addBefore("edit-preserve", "t1", "Pre-work");
+    route.addLink("edit-preserve", "t1", "Design", "https://example.com/design");
     const t = route.editTack("edit-preserve", "t1", "New summary");
     assert.equal(t.status, "in_progress");
-    assert.equal(t.before!.length, 1);
+    assert.equal(t.links!.length, 1);
   });
 
   it("throws for nonexistent tack", () => {
@@ -881,20 +769,13 @@ describe("editTack", () => {
 });
 
 describe("mergeTacks", () => {
-  it("merges source links and todos into target", () => {
+  it("merges source links into target", () => {
     route.init("merge-test");
     route.addTack("merge-test", "Target task");
     route.addTack("merge-test", "Source task");
-    route.addBefore("merge-test", "t2", "Source prereq");
-    route.addAfter("merge-test", "t2", "Source followup");
     route.addLink("merge-test", "t2", "Doc", "https://example.com/doc");
 
     const t = route.mergeTacks("merge-test", "t2", "t1");
-    assert.equal(t.before!.length, 1);
-    assert.equal(t.before![0].id, "b1");
-    assert.equal(t.before![0].text, "Source prereq");
-    assert.equal(t.after!.length, 1);
-    assert.equal(t.after![0].text, "Source followup");
     assert.equal(t.links!.length, 1);
     assert.equal(t.links![0].label, "Doc");
 
@@ -938,19 +819,6 @@ describe("mergeTacks", () => {
 
     const t = route.mergeTacks("merge-dlv-both", "t2", "t1");
     assert.equal(t.deliverable!.label, "Target PR");
-  });
-
-  it("re-IDs todos to avoid conflicts", () => {
-    route.init("merge-reids");
-    route.addTack("merge-reids", "Target");
-    route.addTack("merge-reids", "Source");
-    route.addBefore("merge-reids", "t1", "Target prereq");
-    route.addBefore("merge-reids", "t2", "Source prereq");
-
-    const t = route.mergeTacks("merge-reids", "t2", "t1");
-    assert.equal(t.before!.length, 2);
-    assert.equal(t.before![0].id, "b1");
-    assert.equal(t.before![1].id, "b2");
   });
 
   it("throws when merging a tack into itself", () => {
@@ -1430,25 +1298,6 @@ describe("mergeRoutes", () => {
     assert.deepEqual(shared[0].tacks, ["t1", "t2"]);
   });
 
-  it("guards external route-level depends_on, repointing under --break-deps", async () => {
-    const { writeFileSync, readFileSync } = await import("node:fs");
-    const yaml = await import("yaml");
-    route.init("mr-ref-target");
-    route.init("mr-ref-outsider");
-    const path = join(tmp, "routes", "mr-ref-outsider.yaml");
-    const data = yaml.parse(readFileSync(path, "utf-8")) as any;
-    data.depends_on = ["mr-ref-target"];
-    writeFileSync(path, yaml.stringify(data), "utf-8");
-
-    assert.throws(
-      () => route.mergeRoutes("mr-ref-dst", ["mr-ref-target"]),
-      /depend on a source route/,
-    );
-
-    const result = route.mergeRoutes("mr-ref-dst", ["mr-ref-target"], { breakDeps: true });
-    assert.deepEqual(result.repointed, ["mr-ref-outsider"]);
-    assert.deepEqual(route.load("mr-ref-outsider").depends_on, ["mr-ref-dst"]);
-  });
 });
 
 describe("moveTack", () => {
@@ -1458,8 +1307,6 @@ describe("moveTack", () => {
     route.addTack("move-src", "Original task");
     route.setDeliverable("move-src", "t1", "PR #5", "https://github.com/acme/repo/pull/5");
     route.addLink("move-src", "t1", "Design", "https://example.com/design");
-    route.addBefore("move-src", "t1", "Read the spec");
-    route.addAfter("move-src", "t1", "Update docs");
     route.startTack("move-src", "t1");
 
     const result = route.moveTack("move-src", "t1", "move-dst");
@@ -1479,10 +1326,6 @@ describe("moveTack", () => {
     assert.equal(moved.deliverable!.url, "https://github.com/acme/repo/pull/5");
     assert.equal(moved.links!.length, 1);
     assert.equal(moved.links![0].url, "https://example.com/design");
-    assert.equal(moved.before!.length, 1);
-    assert.equal(moved.before![0].text, "Read the spec");
-    assert.equal(moved.after!.length, 1);
-    assert.equal(moved.after![0].text, "Update docs");
   });
 
   it("assigns the next sequential id in the destination", () => {
@@ -1849,8 +1692,8 @@ describe("length limits at the command boundary (issue #49)", () => {
     route.init("bound");
     route.addTack("bound", "a tack");
     assert.throws(
-      () => route.addAfter("bound", "t1", "x".repeat(1001)),
-      /note text is 1001 characters; the limit is 1000/,
+      () => route.editTack("bound", "t1", "x".repeat(501)),
+      /tack summary is 501 characters; the limit is 500/,
     );
   });
 
@@ -1861,10 +1704,10 @@ describe("length limits at the command boundary (issue #49)", () => {
   it("measures the length after the cleaning a write applies", () => {
     route.init("bound-ws");
     route.addTack("bound-ws", "a tack");
-    const padded = `${"x".repeat(997)}${" ".repeat(100)}yz`;
-    assert.equal(padded.length, 1099);
-    const tack = route.addAfter("bound-ws", "t1", padded);
-    assert.equal(tack.after![0].text.length, 1000);
+    const padded = `${"x".repeat(497)}${" ".repeat(100)}yz`;
+    assert.equal(padded.length, 599);
+    const tack = route.editTack("bound-ws", "t1", padded);
+    assert.equal(tack.summary.length, 500);
   });
 
   it("bounds a route title against its own smaller limit", () => {
@@ -1891,8 +1734,7 @@ describe("scanning a store that holds an unreadable file (issue #49)", () => {
     const path = join(tmp, "routes", `${slug}.yaml`);
     writeFileSync(
       path,
-      readFileSync(path, "utf-8").replace(/\n$/, "") +
-        `\n    after:\n      - id: a1\n        text: ${"x".repeat(1200)}\n        done: false\n`,
+      readFileSync(path, "utf-8").replace("summary: a tack", `summary: ${"x".repeat(600)}`),
     );
     route.clearInvalidRoutes();
   }
@@ -1909,7 +1751,7 @@ describe("scanning a store that holds an unreadable file (issue #49)", () => {
     const [skipped] = route.invalidRoutes();
     assert.equal(skipped.slug, "unreadable");
     assert.match(skipped.file, /routes\/unreadable\.yaml$/);
-    assert.match(skipped.errors[0], /\/tacks\/0\/after\/0\/text: must NOT have more than 1000/);
+    assert.match(skipped.errors[0], /\/tacks\/0\/summary: must NOT have more than 500/);
   });
 
   // The limit alone says what the rule is, not how far past it the file sits,
@@ -1917,7 +1759,7 @@ describe("scanning a store that holds an unreadable file (issue #49)", () => {
   it("says how long the offending value actually is", () => {
     writeBadRoute("unreadable");
     route.scanAll();
-    assert.match(route.invalidRoutes()[0].errors[0], /\(has 1200\)/);
+    assert.match(route.invalidRoutes()[0].errors[0], /\(has 600\)/);
   });
 
   it("reports one entry per file however many scans a run makes", () => {

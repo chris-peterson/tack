@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
 import { createRequire } from "node:module";
 import * as route from "./route.js";
-import type { Route, Tack, TodoItem } from "./types.js";
+import type { Route, Tack } from "./types.js";
 
 // beacon holds 8787 and these two sit side by side on one machine, so tack
 // takes the next port up.
@@ -173,14 +173,6 @@ function page(title: string, body: string): string {
 </body></html>`;
 }
 
-function todoList(items: TodoItem[] | undefined, label: string): string {
-  if (!items?.length) return "";
-  const rows = items
-    .map((i) => `<li>${i.done ? "&#10003;" : "&#9744;"} ${esc(i.text)}</li>`)
-    .join("");
-  return `<div class="meta">${label}<ul>${rows}</ul></div>`;
-}
-
 // In a route document a tack is an anchor you can link *to*; in a group
 // document it has to be a link *out*, because several routes render into one
 // page and every one of them would otherwise claim `id="t1"`. Linking to the
@@ -200,7 +192,6 @@ function tackCard(t: Tack, opts: { href?: string } = {}): string {
   <div class="row"><div>${id}${esc(t.summary)}</div>
   <span class="pill${done ? " done" : ""}">${esc(t.status)}</span></div>
   ${meta.length ? `<div class="meta">${meta.join(" &middot; ")}</div>` : ""}
-  ${todoList(t.before, "before")}${todoList(t.after, "after")}
 </div>`;
 }
 
@@ -238,12 +229,6 @@ export function renderRoute(
       r.group ? ` &middot; <a href="/group/${esc(r.group)}">${esc(r.group)}</a>` : ""
     }</p>`;
 
-  const deps = r.depends_on?.length
-    ? `<div class="meta">depends on routes: ${r.depends_on
-        .map((d) => `<a href="/route/${esc(d)}">${esc(d)}</a>`)
-        .join(", ")}</div>`
-    : "";
-
   const tacks = r.tacks.length
     ? r.tacks
         .map((t) =>
@@ -253,7 +238,7 @@ export function renderRoute(
     : `<p class="empty">No tacks yet.</p>`;
 
   return `${opts.crumb === false ? "" : `<div class="crumb"><a href="/">all routes</a></div>`}
-${head}${r.description ? `<div class="desc">${markdown(r.description)}</div>` : ""}${deps}
+${head}${r.description ? `<div class="desc">${markdown(r.description)}</div>` : ""}
 ${opts.editable === false ? "" : editForm(r)}
 <h2>Tacks</h2>${tacks}`;
 }

@@ -43,7 +43,6 @@ export declare function markDone(slug: string, tackId: string, opts?: {
     at?: string;
 }): {
     tack: Tack;
-    pendingTodo: string[];
     ambiguousDeliverable: Link[];
 };
 export declare function markDropped(slug: string, tackId: string): Tack;
@@ -64,10 +63,6 @@ export declare function setDeliverable(slug: string, tackId: string, label: stri
 export declare function removeDeliverable(slug: string, tackId: string, opts?: {
     toLink?: boolean;
 }): Tack;
-export declare function addBefore(slug: string, tackId: string, text: string): Tack;
-export declare function addAfter(slug: string, tackId: string, text: string): Tack;
-export declare function completeTodo(slug: string, tackId: string, todoId: string): Tack;
-export declare function dropTodo(slug: string, tackId: string, todoId: string): Tack;
 export declare function isPrOrMrUrl(url: string): boolean;
 export declare function deriveDeliverableLabel(url: string): string;
 export declare function addLink(slug: string, tackId: string, label: string, url: string): Tack;
@@ -139,12 +134,10 @@ export interface MergeRoutesResult {
             summary: string;
         }[];
     }[];
-    repointed: string[];
 }
 export declare function mergeRoutes(newSlug: string, srcSlugs: string[], opts?: {
     group?: string;
     createdAt?: string;
-    breakDeps?: boolean;
 }): MergeRoutesResult;
 export declare function removeTack(slug: string, tackId: string, opts?: {
     force?: boolean;

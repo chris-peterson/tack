@@ -45,7 +45,6 @@ Route (1 YAML file per route)
 ├── id (UUID), slug, created_at, updated_at
 ├── title (optional display name), description (optional markdown)
 ├── group (optional grouping slug)
-├── depends_on: [route slugs]
 ├── sessions[]
 │   └── id, started_at, tacks[] — route-scoped tack IDs the session is driving
 └── tacks[]
@@ -54,10 +53,6 @@ Route (1 YAML file per route)
     ├── depends_on: [tack IDs]
     ├── deliverable — the change request
     │   └── label, url
-    ├── before[] — pre-work todos
-    │   └── id (b1, b2, ...), text, done, done_at
-    ├── after[] — post-work todos
-    │   └── id (a1, a2, ...), text, done, done_at
     └── links[] — references (docs, issues, threads, etc.)
         └── label, url
 ```
@@ -76,7 +71,6 @@ Repo database (1 YAML file, ~/.tack/repos.yaml)
 | ROUTE | Route schema structure and constraints |
 | TACK | Tack fields, statuses, and ID sequencing |
 | DELIVER | Deliverable (single change request per tack) |
-| TODO | Todo items (before/after arrays with IDs) |
 | DEPENDS | Dependency tracking and enforcement |
 | LINKS | Link structure (label + url) |
 | STORE | Storage location, directory creation, validation, cwd pointer file |
@@ -114,8 +108,6 @@ Repo database (1 YAML file, ~/.tack/repos.yaml)
   routes may share the same group. Uses the same format as `slug` (lowercase,
   hyphenated). The field is purely organizational — the CLI does not enforce or
   validate group membership.
-- `depends_on` (array of strings) — slugs of routes that must complete before
-  this one can proceed
 - `title` (string) — a human-readable name for the route, free-form within the
   length limit [STORE-10] sets. It is displayed alongside the slug, never in
   place of it: the
@@ -208,19 +200,12 @@ change when the route is updated.
 - `depends_on` (array of strings) — IDs of tacks within the same route that
   must complete first
 - `deliverable` (object) — the change request this tack produces
-- `before` (array) — pre-work todo items
-- `after` (array) — post-work todo items
 - `links` (array) — external references
 
 **[TACK-03]** When `status` is set to `done`, the `done_at` field shall be set
 to the current ISO 8601 date-time if not already present. Callers may supply
 an explicit timestamp (date or date-time) per [CLI-05] to backfill already-merged
 work.
-
-**[TACK-04]** When `status` is set to `done`, if the tack has `after` items with
-`done: false`, those items shall be surfaced in the response so the calling
-agent can confirm or close them out. The CLI persists the status change before
-displaying the pending items; gating responsibility lies with the caller.
 
 **[TACK-05]** Tack IDs shall be unique within a route. When a new tack is
 added, its ID shall be `t<N>` where N is one greater than the highest existing
@@ -252,35 +237,7 @@ represents the change request (PR/MR) that the tack produces.
 
 ---
 
-### TODO — Todo Items
-
-**[TODO-01]** The system shall represent both `before` (pre-work) and `after`
-(post-work) todo items with the same item schema.
-
-**[TODO-02]** Each todo item shall contain the following required fields:
-- `id` (string) — scoped identifier: `b<N>` for before items, `a<N>` for
-  after items, where N is a sequential integer starting at 1
-- `text` (string) — description of the instruction
-- `done` (boolean) — whether the instruction has been completed
-
-**[TODO-03]** Each todo item shall contain the following optional fields:
-- `done_at` (string) — ISO 8601 date (`YYYY-MM-DD`) or date-time
-  (`YYYY-MM-DDTHH:MM:SSZ`) when completed. New writes use the full date-time;
-  bare dates remain valid on read.
-
-**[TODO-04]** When `done` is set to `true`, the `done_at` field shall be set to
-the current ISO 8601 date-time if not already present.
-
-**[TODO-05]** Todo IDs shall be unique within their respective array (before or
-after). When a new todo is added, its ID shall use the next sequential number
-for that array's prefix.
-
----
-
 ### DEPENDS — Dependencies
-
-**[DEPENDS-01]** Route-level `depends_on` shall be an array of route slugs
-(strings).
 
 **[DEPENDS-02]** Tack-level `depends_on` shall be an array of tack IDs within the
 same route.
@@ -289,10 +246,6 @@ same route.
 status other than `done`, the dependent tack's status shall not be set to
 `in_progress` — the operation shall fail with an error indicating which
 dependencies are unmet.
-
-**[DEPENDS-04]** Route-level dependencies shall be informational. The CLI shall
-display them in `tack status` output but shall not enforce them (the referenced
-route files may not exist locally).
 
 ---
 
@@ -343,13 +296,9 @@ it too, but at the price the CLI was observed paying: one unreadable file out of
 seventy-seven cost access to all seventy-seven, and every listing stayed broken
 until the YAML was repaired by hand.
 
-Two commands are exempt, and fail on the first file they cannot read:
-
-- `tack export` ([CLI-49]), whose archive is wrong rather than merely partial if
-  a route is missing from it;
-- `tack rename` ([CLI-35]) and `tack merge-routes` ([CLI-51]), which read every
-  route to find the ones whose `depends_on` would dangle. A file they could not
-  read is a file whose references they cannot rule out.
+One command is exempt, and fails on the first file it cannot read:
+`tack export` ([CLI-49]), whose archive is wrong rather than merely partial if a
+route is missing from it.
 
 `tack doctor` ([CLI-57]) reports the same set on demand.
 
@@ -368,7 +317,6 @@ argument is checked, so a missing route is reported as such.
 | `title` ([ROUTE-04]) | 200 | One line beside the slug in a listing |
 | `description` ([ROUTE-04]) | 20000 | Markdown prose — a forge issue body pasted whole |
 | `summary` ([TACK-02]) | 500 | One deliverable stated in a sentence or two |
-| `text` ([TODO-02]) | 1000 | A note written mid-session, which runs longer than a summary |
 | `label` ([DELIVER-02], [LINKS-01]) | 200 | Short display text |
 | `url` ([DELIVER-02], [LINKS-01]) | 2048 | The ceiling browsers and forges converge on |
 
@@ -414,8 +362,8 @@ so a fleet reader keyed on the session id attributes the session to the route
 with no separate `tack session` call. Outside a Claude session this is a no-op.
 
 **[CLI-03]** `tack status [slug] [--all]` — When invoked with a slug, the CLI
-shall display the route's tacks, their statuses, dependencies, deliverable,
-and any pending todo items. Tacks with status `dropped` shall be omitted by
+shall display the route's tacks, their statuses, dependencies, and
+deliverable. Tacks with status `dropped` shall be omitted by
 default; when `--all` is passed, dropped tacks shall be included. When invoked
 without a slug, the CLI shall display a summary of all routes.
 
@@ -446,8 +394,7 @@ does for `tack init`).
 shall set the specified tack's status to `done`. `done_at` shall be set to the
 current ISO 8601 date-time, or to the explicit value of `--date <ts>`
 (`YYYY-MM-DD` or full ISO 8601 date-time) when supplied — used to backfill
-work that merged on a prior date. If the tack has pending `after` items, they
-shall be displayed. If the tack has no deliverable and its `links` array
+work that merged on a prior date. If the tack has no deliverable and its `links` array
 contains exactly one PR/MR URL, that link shall be promoted to the tack's
 deliverable and removed from `links`. If the tack has no deliverable and the
 `links` array contains two or more PR/MR URLs, the CLI shall not promote any
@@ -494,19 +441,6 @@ no-op on the link (no duplicate), consistent with [CLI-13]. If the tack has no
 deliverable, the CLI shall fail with a clear message. The `rm` subcommand does
 not rename the set form of [CLI-08], which keeps its bare `<slug> <tack-id>
 <url>` positional grammar.
-
-**[CLI-09]** `tack before <slug> <tack-id> <text>` — When invoked, the CLI
-shall add a pre-work todo item to the specified tack with `done: false`.
-
-**[CLI-10]** `tack after <slug> <tack-id> <text>` — When invoked, the CLI
-shall add a post-work todo item to the specified tack with `done: false`.
-
-**[CLI-11]** `tack todo done <slug> <tack-id> <todo-id>` — When invoked, the
-CLI shall mark the specified todo item as `done: true` and set `done_at` to
-the current date per [TODO-04].
-
-**[CLI-12]** `tack todo rm <slug> <tack-id> <todo-id>` — When invoked, the CLI
-shall delete the specified todo item from its array.
 
 **[CLI-13]** `tack link add <slug> <tack-id> <label> <url>` — When invoked,
 the CLI shall add a link to the specified tack's `links` array. The URL
@@ -684,8 +618,7 @@ to `pending`, or putting a tack into `blocked`).
 shall rename the route file from `<old-slug>.yaml` to `<new-slug>.yaml` and
 update the `slug` field inside the file. The route's `id` ([ROUTE-08]) shall
 be preserved. The CLI shall fail if `<new-slug>` already exists as a route,
-if `<old-slug>` does not exist, or if any other route's `depends_on`
-references `<old-slug>` (per [DEPENDS-01]).
+or if `<old-slug>` does not exist.
 
 **[CLI-36]** `tack move <src-slug>/<tack-id> <dst-slug> [--include-dependents]`
 — When invoked, the CLI shall remove the specified tack from the source
@@ -833,7 +766,7 @@ with neither, the CLI shall report the route's current group — printing it and
 exiting zero if a group is set, or reporting that none is set and exiting
 non-zero.
 
-**[CLI-52]** `tack merge-routes <new-slug> <src-slug>... [--group <slug>] [--created-at <date>] [--break-deps]`
+**[CLI-52]** `tack merge-routes <new-slug> <src-slug>... [--group <slug>] [--created-at <date>]`
 — When invoked, the CLI shall create a new route `<new-slug>`, move every tack
 from every `<src-slug>` into it, and delete the emptied source route files. The
 CLI shall fail if `<new-slug>` already exists, if it names a source route, if
@@ -843,9 +776,8 @@ any `<src-slug>` is repeated or does not exist, or if no source is given.
 each tack's `done_at`, falling back to its source route's `created_at` for tacks
 without one, then the source route's `created_at` and original numeric ID as
 tiebreakers — following [TACK-05] sequencing over the combined set. All tack
-metadata — `summary`, `status`, `done_at`, `deliverable`, `links`, `before`,
-`after` — and route-local `depends_on` (remapped to the new IDs) shall be
-preserved.
+metadata — `summary`, `status`, `done_at`, `deliverable`, `links` — and
+route-local `depends_on` (remapped to the new IDs) shall be preserved.
 
 **[CLI-52b]** Session records ([ROUTE-09]) from every source shall carry over to
 the new route with their tack references remapped to the new IDs; a session
@@ -861,11 +793,6 @@ group otherwise. The `title` ([ROUTE-04]) shall be the first source route's titl
 Every source `description` shall carry over, joined in source order by a
 markdown horizontal rule, since the merge deletes the source files and a body
 left behind would be unrecoverable.
-
-**[CLI-52d]** When a route outside the merge set has a route-level `depends_on`
-([DEPENDS-01]) referencing a source route, the CLI shall refuse the merge to avoid
-dangling the reference, unless `--break-deps` is passed, which repoints those
-references at `<new-slug>`.
 
 **[CLI-53]** `tack title <slug> [<text>] [--clear]` — When invoked with a
 `<text>` argument, the CLI shall set the route's `title` field ([ROUTE-04]) to
@@ -1532,11 +1459,11 @@ agents, and tools that read the YAML or drive the CLI — none of which are in
 this repo and none of which can be updated in step with it. This section states
 what a `1.x` release lets them build on, and what it does not.
 
-**[COMPAT-01]** The following surfaces are frozen for the `1.x` series and
-shall change only additively ([COMPAT-02]):
+**[COMPAT-01]** The following surfaces are frozen for the `1.x` series. They
+change additively ([COMPAT-02]), or by retirement ([COMPAT-07]):
 
 - the route schema — the field names, types, and value formats given by ROUTE,
-  TACK, DEL, TODO, DEP, and LINK, as enforced by `schema/route.schema.json`
+  TACK, DEL, DEP, and LINK, as enforced by `schema/route.schema.json`
   ([STORE-04]);
 - where those files live — `~/.tack/routes/<slug>.yaml` ([STORE-01],
   [STORE-03]);
@@ -1575,11 +1502,14 @@ what its successors will. The export archive behaves the same way, refusing a
   It is Claude-Code-specific and reasons rather than stores; the CLI it drives
   is the frozen part.
 
-**[COMPAT-04]** The following require a major release: removing or renaming a
-schema field, command, subcommand, or flag; changing the type or meaning of an
-existing field; making an optional field required; changing what an exit code
-means; removing or renaming a `--json` key; and tightening validation so input
-a `1.x` release accepted is refused.
+**[COMPAT-04]** The following require a major release: renaming a schema field,
+command, subcommand, or flag; changing the type or meaning of an existing field;
+making an optional field required; changing what an exit code means; renaming a
+`--json` key; and tightening validation so input a `1.x` release accepted is
+refused for a value a caller would still write. Each leaves a caller writing
+what it always wrote and getting something else back.
+
+Removing a surface outright is [COMPAT-07] instead.
 
 **[COMPAT-05]** `spec/cli-usage.txt` shall hold the grammar frozen by
 [COMPAT-01] as `tack --help` emits it ([CLI-38]), and the test suite shall fail
@@ -1589,7 +1519,29 @@ act of declaring a grammar change intended, and the change's kind under
 
 **[COMPAT-06]** A `1.x` release shall read any route file ([COMPAT-01]) and
 import any export archive ([CLI-49]) written by an earlier `1.x` release,
-without a migration step.
+without a migration step — except for a field retired under [COMPAT-07], whose
+migration is the retirement's own precondition.
+
+**[COMPAT-07]** A surface with no live use may be **retired** in a minor
+release: removed from the schema, the CLI, and this document in one change.
+Retirement requires all three of
+
+- **measured disuse** — a count against the live store, stated in the change
+  that removes it, over every route file the store holds;
+- **a migration in the same change** — every remaining occurrence resolved
+  before the schema stops accepting the field, so no file that loaded before the
+  release fails to load after it;
+- **`tack doctor` naming the field** ([CLI-57]) when a route file carrying it
+  turns up anyway — restored from a backup, or written by a tool built against
+  an earlier release. A retired field is a known name, so the report says which
+  field retired and in which release, rather than the schema's own
+  `additionalProperties` error.
+
+The promise [COMPAT-01] makes is that a caller's working invocation keeps
+working. A surface nothing invokes makes that promise to nobody, and the cost of
+keeping it is paid by everyone reading the spec, the completions, and the tests.
+Retirement is bounded by the measurement: a count above zero that the migration
+cannot resolve makes the removal a major ([COMPAT-04]).
 
 ---
 

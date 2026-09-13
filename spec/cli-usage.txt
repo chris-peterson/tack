@@ -18,7 +18,7 @@ Usage:
   tack edit <slug> <tack-id> <summary>
   tack merge <slug> <source-id> <target-id>
   tack move <src-slug>/<tack-id> <dst-slug> [--include-dependents]
-  tack merge-routes <new-slug> <src-slug>... [--group <slug>] [--created-at <date>] [--break-deps]
+  tack merge-routes <new-slug> <src-slug>... [--group <slug>] [--created-at <date>]
   tack start <slug> <tack-id>
   tack done <slug> <tack-id> [--date <ts>]
   tack drop <slug> <tack-id>
@@ -28,10 +28,6 @@ Usage:
   tack remove <slug> <tack-id> [--force]
   tack deliverable <slug> <tack-id> <url> [--label <text>] [--force]   (label auto-derived from url by default)
   tack deliverable rm <slug> <tack-id> [--to-link]   (clear the deliverable, or --to-link to demote it into links)
-  tack before <slug> <tack-id> <text>
-  tack after <slug> <tack-id> <text>
-  tack todo done <slug> <tack-id> <todo-id>
-  tack todo rm <slug> <tack-id> <todo-id>
   tack depends add <slug> <tack-id> <dep-id>
   tack depends rm <slug> <tack-id> <dep-id>
   tack link add <slug> <tack-id> <label> <url>

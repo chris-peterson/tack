@@ -49,19 +49,6 @@ _tack_tack_ids() {
   fi
 }
 
-_tack_todo_ids() {
-  local slug="$1" tack_id="$2"
-  local tack_dir="\${TACK_HOME:-$HOME/.tack}/routes"
-  local route_file="$tack_dir/$slug.yaml"
-  [[ -f "$route_file" ]] || return
-  local -a ids
-  ids=( \${(f)"$(awk -v tid="$tack_id" '
-    /^  - id: / { current = $3 }
-    current == tid && /^      - id: [ab][0-9]/ { print $3 }
-  ' "$route_file")"} )
-  (( \${#ids} )) && compadd -a ids
-}
-
 _tack_link_urls() {
   local slug="$1" tack_id="$2"
   local tack_dir="\${TACK_HOME:-$HOME/.tack}/routes"
@@ -202,9 +189,6 @@ _tack() {
     'move:Move a tack to another route'
     'merge-routes:Consolidate whole routes into one'
     'deliverable:Set a deliverable on a tack'
-    'before:Add a pre-work todo'
-    'after:Add a post-work todo'
-    'todo:Manage todo items'
     'depends:Add or remove a tack dependency'
     'link:Add a link to a tack'
     'session:Record a session'
@@ -345,11 +329,11 @@ _tack() {
       esac
       ;;
     merge-routes)
-      # tack merge-routes <new-slug> <src-slug>... [--group <slug>] [--created-at <date>] [--break-deps]
+      # tack merge-routes <new-slug> <src-slug>... [--group <slug>] [--created-at <date>]
       case "$CURRENT" in
         3) _message 'new-slug' ;;
         *) _alternative 'routes:source route:_tack_routes' \
-             'flags:flag:((--group\:"Set the group on the new route" --created-at\:"Backdate created_at (YYYY-MM-DD)" --break-deps\:"Repoint external route deps"))' ;;
+             'flags:flag:((--group\:"Set the group on the new route" --created-at\:"Backdate created_at (YYYY-MM-DD)"))' ;;
       esac
       ;;
     deliverable)
@@ -370,23 +354,6 @@ _tack() {
           *) _arguments '--label[Override the derived label]:label:' '--force[Overwrite existing deliverable]' ;;
         esac
       fi
-      ;;
-    before|after)
-      # tack {before|after} <slug> <tack-id> <text>
-      case "$CURRENT" in
-        3) _tack_routes ;;
-        4) _tack_tack_ids "\${words[3]}" ;;
-        5) _message 'text' ;;
-      esac
-      ;;
-    todo)
-      # tack todo {done|rm} <slug> <tack-id> <todo-id>
-      case "$CURRENT" in
-        3) local -a subcmds; subcmds=('done:Complete a todo' 'rm:Delete a todo'); _describe 'subcommand' subcmds ;;
-        4) _tack_routes ;;
-        5) _tack_tack_ids "\${words[4]}" ;;
-        6) _tack_todo_ids "\${words[4]}" "\${words[5]}" ;;
-      esac
       ;;
     link)
       # tack link {add|rm} ...

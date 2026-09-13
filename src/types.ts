@@ -1,10 +1,3 @@
-export interface TodoItem {
-  id: string;
-  text: string;
-  done: boolean;
-  done_at?: string;
-}
-
 export interface Deliverable {
   label: string;
   url: string;
@@ -32,8 +25,6 @@ export interface Tack {
   done_at?: string;
   depends_on?: string[];
   deliverable?: Deliverable;
-  before?: TodoItem[];
-  after?: TodoItem[];
   links?: Link[];
 }
 
@@ -51,7 +42,6 @@ export interface Route {
   created_at: string;
   updated_at: string;
   group?: string;
-  depends_on?: string[];
   sessions?: Session[];
   tacks: Tack[];
 }

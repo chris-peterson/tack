@@ -9,11 +9,6 @@ const STATUS_ICONS = {
 function statusIcon(status) {
     return STATUS_ICONS[status] ?? "?";
 }
-function formatTodoItem(item) {
-    const icon = item.done ? "x" : " ";
-    const doneAt = item.done_at ? ` [${item.done_at}]` : "";
-    return `[${icon}] ${item.id}: ${item.text}${doneAt}`;
-}
 export function formatTack(tack, opts = {}) {
     const icon = statusIcon(tack.status);
     const doneAt = tack.done_at ? ` [${tack.done_at}]` : "";
@@ -40,9 +35,6 @@ export function formatRoute(route, opts = {}) {
     lines.push(`  state: ${routeState(route)}`);
     lines.push(`  created: ${route.created_at}`);
     lines.push(`  updated: ${route.updated_at}`);
-    if (route.depends_on?.length) {
-        lines.push(`  depends on routes: ${route.depends_on.join(", ")}`);
-    }
     if (route.sessions?.length) {
         lines.push(`  sessions: ${route.sessions.length}`);
         for (const s of route.sessions) {
@@ -93,16 +85,6 @@ function formatTackDetails(tack, indent) {
     if (tack.depends_on?.length) {
         lines.push(`${indent}depends on: ${tack.depends_on.join(", ")}`);
     }
-    if (tack.before?.length) {
-        for (const item of tack.before) {
-            lines.push(`${indent}before: ${formatTodoItem(item)}`);
-        }
-    }
-    if (tack.after?.length) {
-        for (const item of tack.after) {
-            lines.push(`${indent}after: ${formatTodoItem(item)}`);
-        }
-    }
     if (tack.links?.length) {
         for (const link of tack.links) {
             lines.push(`${indent}link: ${link.label} — ${link.url}`);
@@ -116,15 +98,11 @@ function globMatch(pattern, value) {
     const re = new RegExp("^" + pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".") + "$");
     return re.test(value);
 }
-const ASPECTS = ["deliverable", "before", "after", "links", "depends_on"];
+const ASPECTS = ["deliverable", "links", "depends_on"];
 function formatAspect(tack, aspect) {
     switch (aspect) {
         case "deliverable":
             return tack.deliverable ? `${tack.deliverable.label} — ${tack.deliverable.url}` : null;
-        case "before":
-            return tack.before?.length ? tack.before.map((i) => formatTodoItem(i)).join("\n") : null;
-        case "after":
-            return tack.after?.length ? tack.after.map((i) => formatTodoItem(i)).join("\n") : null;
         case "links":
             return tack.links?.length ? tack.links.map((l) => `${l.label} — ${l.url}`).join("\n") : null;
         case "depends_on":
@@ -138,10 +116,6 @@ function aspectValue(tack, aspect) {
     switch (aspect) {
         case "deliverable":
             return tack.deliverable ?? null;
-        case "before":
-            return tack.before ?? [];
-        case "after":
-            return tack.after ?? [];
         case "links":
             return tack.links ?? [];
         case "depends_on":

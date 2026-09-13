@@ -36,16 +36,14 @@ describe("free-text sanitizing", () => {
         route.addTack("san-sum", "Fix it\n  description:\n    forged");
         assert.equal(route.load("san-sum").tacks[0].summary, "Fix it description: forged");
     });
-    it("strips control characters from titles, labels and todo text", () => {
+    it("strips control characters from titles and labels", () => {
         route.init("san-rest");
         route.setTitle("san-rest", `Title${BELL}bell`);
         route.addTack("san-rest", "work");
         route.addLink("san-rest", "t1", `lab${ESC}el`, "https://example.com/x");
-        route.addBefore("san-rest", "t1", `do${BELL}it`);
         const r = route.load("san-rest");
         assert.equal(r.title, "Title bell");
         assert.equal(r.tacks[0].links[0].label, "lab el");
-        assert.equal(r.tacks[0].before[0].text, "do it");
     });
     it("cleans an imported route, which never passes through load()", () => {
         route.writeRoute({

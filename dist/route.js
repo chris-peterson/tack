@@ -83,10 +83,6 @@ function cleanBlock(s) {
 function cleanLine(s) {
     return s.replace(CONTROL_CHARS_AND_BREAKS, " ").replace(/\s+/g, " ").trim();
 }
-function cleanTodo(items) {
-    for (const i of items ?? [])
-        i.text = cleanLine(i.text);
-}
 // Mutates in place: the caller either just parsed this object or is about to
 // serialize it, and a copy would leave the original as the one that gets written.
 export function sanitizeRoute(route) {
@@ -100,8 +96,6 @@ export function sanitizeRoute(route) {
             t.deliverable.label = cleanLine(t.deliverable.label);
         for (const l of t.links ?? [])
             l.label = cleanLine(l.label);
-        cleanTodo(t.before);
-        cleanTodo(t.after);
     }
     return route;
 }
@@ -312,12 +306,6 @@ function nextTackNumber(route) {
 function nextTackId(route) {
     return `t${nextTackNumber(route)}`;
 }
-function nextTodoId(items, prefix) {
-    if (items.length === 0)
-        return `${prefix}1`;
-    const max = Math.max(...items.map((item) => parseInt(item.id.slice(1), 10)));
-    return `${prefix}${max + 1}`;
-}
 // Tack ids display as `t<N>`, but a bare `<N>` is the natural thing to type.
 // Normalize both forms to the canonical `t<N>` at the lookup boundary so every
 // subcommand that takes a tack id accepts `7` and `t7` interchangeably. Inputs
@@ -334,15 +322,6 @@ function findTack(route, tackId) {
         throw new Error(`Tack not found: ${id} in route ${route.slug}`);
     }
     return tack;
-}
-function findTodo(tack, todoId) {
-    const beforeItem = tack.before?.find((t) => t.id === todoId);
-    if (beforeItem)
-        return { item: beforeItem, list: "before" };
-    const afterItem = tack.after?.find((t) => t.id === todoId);
-    if (afterItem)
-        return { item: afterItem, list: "after" };
-    throw new Error(`Todo not found: ${todoId} in tack ${tack.id}`);
 }
 function checkDependencies(route, dependsOn) {
     for (const depId of dependsOn) {
@@ -442,13 +421,10 @@ export function markDone(slug, tackId, opts = {}) {
             ambiguousDeliverable = prLinks.map((l) => ({ label: l.label, url: l.url }));
         }
     }
-    const pendingTodo = (tack.after ?? [])
-        .filter((a) => !a.done)
-        .map((a) => a.text);
     save(route);
     if (promotedUrl)
         captureBestEffort(() => repos.recordUrl(promotedUrl));
-    return { tack, pendingTodo, ambiguousDeliverable };
+    return { tack, ambiguousDeliverable };
 }
 export function markDropped(slug, tackId) {
     const route = load(slug);
@@ -529,18 +505,7 @@ export function rename(oldSlug, newSlug) {
     if (existsSync(newPath)) {
         throw new Error(`Route already exists: ${newSlug}`);
     }
-    // Strict, unlike the listings: this sweep is what stops a rename from
-    // dangling another route's `depends_on`, and a file it could not read is a
-    // file whose references it cannot rule out. `tack doctor` names what to fix.
-    const all = loadAll();
-    const referers = all
-        .filter((r) => r.slug !== oldSlug && r.depends_on?.includes(oldSlug))
-        .map((r) => r.slug);
-    if (referers.length > 0) {
-        throw new Error(`Cannot rename ${oldSlug}: referenced by ${referers.join(", ")}. ` +
-            `Remove the reference from depends_on first.`);
-    }
-    const route = all.find((r) => r.slug === oldSlug);
+    const route = load(oldSlug);
     route.slug = newSlug;
     route.updated_at = now();
     const result = validate(route);
@@ -627,51 +592,6 @@ export function removeDeliverable(slug, tackId, opts = {}) {
         if (!tack.links)
             tack.links = [];
         tack.links.push({ label, url });
-    }
-    save(route);
-    return tack;
-}
-export function addBefore(slug, tackId, text) {
-    assertLineLength(text, "todoItem.text", "note text");
-    const route = load(slug);
-    const tack = findTack(route, tackId);
-    if (!tack.before)
-        tack.before = [];
-    const id = nextTodoId(tack.before, "b");
-    tack.before.push({ id, text, done: false });
-    save(route);
-    return tack;
-}
-export function addAfter(slug, tackId, text) {
-    assertLineLength(text, "todoItem.text", "note text");
-    const route = load(slug);
-    const tack = findTack(route, tackId);
-    if (!tack.after)
-        tack.after = [];
-    const id = nextTodoId(tack.after, "a");
-    tack.after.push({ id, text, done: false });
-    save(route);
-    return tack;
-}
-export function completeTodo(slug, tackId, todoId) {
-    const route = load(slug);
-    const tack = findTack(route, tackId);
-    const { item } = findTodo(tack, todoId);
-    item.done = true;
-    if (!item.done_at)
-        item.done_at = now();
-    save(route);
-    return tack;
-}
-export function dropTodo(slug, tackId, todoId) {
-    const route = load(slug);
-    const tack = findTack(route, tackId);
-    const { list } = findTodo(tack, todoId);
-    if (list === "before") {
-        tack.before = tack.before.filter((t) => t.id !== todoId);
-    }
-    else {
-        tack.after = tack.after.filter((t) => t.id !== todoId);
     }
     save(route);
     return tack;
@@ -773,22 +693,6 @@ export function mergeTacks(slug, sourceId, targetId) {
     }
     if (!target.deliverable && source.deliverable) {
         target.deliverable = source.deliverable;
-    }
-    if (source.before?.length) {
-        if (!target.before)
-            target.before = [];
-        for (const item of source.before) {
-            const id = nextTodoId(target.before, "b");
-            target.before.push({ ...item, id });
-        }
-    }
-    if (source.after?.length) {
-        if (!target.after)
-            target.after = [];
-        for (const item of source.after) {
-            const id = nextTodoId(target.after, "a");
-            target.after.push({ ...item, id });
-        }
     }
     if (source.links?.length) {
         if (!target.links)
@@ -1039,18 +943,6 @@ export function mergeRoutes(newSlug, srcSlugs, opts = {}) {
         throw new Error(`Route already exists: ${newSlug}`);
     }
     const sources = srcSlugs.map((s) => load(s));
-    // Route-level deps from outside the merge set that point at a source would
-    // dangle once the source is deleted. Refuse unless --break-deps authorizes
-    // repointing them at the new route (mirrors the rename referer guard).
-    // Strict for the reason rename() is: an unreadable file may hold the
-    // dependency this guard exists to catch.
-    const externalReferers = loadAll()
-        .filter((r) => !srcSet.has(r.slug) && r.depends_on?.some((d) => srcSet.has(d)))
-        .map((r) => r.slug);
-    if (externalReferers.length > 0 && !opts.breakDeps) {
-        throw new Error(`Cannot merge: ${externalReferers.join(", ")} depend on a source route. ` +
-            `Pass --break-deps to repoint those references to ${newSlug}.`);
-    }
     // Order every tack across all sources chronologically: by done_at, falling
     // back to the source route's created_at for open tacks, then source created_at
     // and original numeric id as tiebreakers.
@@ -1144,21 +1036,7 @@ export function mergeRoutes(newSlug, srcSlugs, opts = {}) {
         merged.description = descriptions.join("\n\n---\n\n");
     if (sessions.length)
         merged.sessions = sessions;
-    // Carry the sources' outward route-deps, dropping any that pointed within the
-    // merge set (those would become self-references).
-    const carriedDeps = [
-        ...new Set(sources.flatMap((s) => s.depends_on ?? []).filter((d) => !srcSet.has(d))),
-    ];
-    if (carriedDeps.length)
-        merged.depends_on = carriedDeps;
     save(merged);
-    const repointed = [];
-    for (const slug of externalReferers) {
-        const r = load(slug);
-        r.depends_on = [...new Set(r.depends_on.map((d) => (srcSet.has(d) ? newSlug : d)))];
-        save(r);
-        repointed.push(slug);
-    }
     for (const s of srcSlugs)
         remove(s);
     const report = sources.map((src) => ({
@@ -1169,7 +1047,7 @@ export function mergeRoutes(newSlug, srcSlugs, opts = {}) {
             summary: t.summary,
         })),
     }));
-    return { route: merged, sources: report, repointed };
+    return { route: merged, sources: report };
 }
 export function removeTack(slug, tackId, opts = {}) {
     const route = load(slug);

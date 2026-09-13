@@ -192,8 +192,6 @@ cli:
     - name: Deliverable
       about: What a tack produced, and how it gets closed.
       commands: [deliverable, reconcile]
-    - name: Todos
-      commands: [before, after, todo]
     - name: Links
       commands: [link]
     - name: Sessions
@@ -236,18 +234,6 @@ cli:
       tack add auth-rewrite "Vault role migration" \
         --done --date 2026-04-30 \
         --deliverable https://github.com/org/repo/pull/42
-      ```
-    after: |
-      Add a post-work todo.
-
-      ```bash
-      tack after auth-rewrite t1 "Notify security team"
-      ```
-    before: |
-      Add a pre-work todo.
-
-      ```bash
-      tack before auth-rewrite t1 "Read compliance requirements"
       ```
     deliverable: |
       Set the change request for a tack. The label is derived from the URL —
@@ -360,7 +346,7 @@ cli:
       Complete a tack. `done_at` is stamped with the current ISO 8601 date-time
       unless `--date <ts>` is given, in which case the supplied `YYYY-MM-DD` date
       or full ISO 8601 date-time is used instead — supports backfilling work that
-      merged earlier than today. Shows pending after-todos if any exist.
+      merged earlier than today.
 
       ```bash
       tack done auth-rewrite t1
@@ -751,22 +737,6 @@ cli:
 
       `tack list` prints the title after the counts. `tack list --json` serializes the
       full route, so a dashboard reads `title` there alongside every other field.
-    todo: |
-      #### `tack todo done`
-
-      Complete a todo item.
-
-      ```bash
-      tack todo done auth-rewrite t1 b1
-      ```
-
-      #### `tack todo rm`
-
-      Delete a todo item.
-
-      ```bash
-      tack todo rm auth-rewrite t1 a2
-      ```
     tree: |
       Browse routes and tacks as a navigable tree. Paths use `/`-separated segments
       with progressive drill-down. Supports glob wildcards (`*`, `?`) for querying

@@ -406,8 +406,7 @@ describe("a route file that will not load", () => {
         route.init(slug);
         route.addTack(slug, "a tack");
         const path = join(tmp, "routes", `${slug}.yaml`);
-        writeFileSync(path, readFileSync(path, "utf-8").replace(/\n$/, "") +
-            `\n    after:\n      - id: a1\n        text: ${"x".repeat(1200)}\n        done: false\n`);
+        writeFileSync(path, readFileSync(path, "utf-8").replace("summary: a tack", `summary: ${"x".repeat(600)}`));
     }
     it("leaves the index serving the routes it could read", async () => {
         route.init("readable");
@@ -434,7 +433,7 @@ describe("a route file that will not load", () => {
         await withServer(async (base) => {
             const res = await fetch(`${base}/route/unreadable`);
             assert.equal(res.status, 500);
-            assert.match(await res.text(), /must NOT have more than 1000 characters/);
+            assert.match(await res.text(), /must NOT have more than 500 characters/);
         });
     });
     it("still 404s a route that was never there", async () => {

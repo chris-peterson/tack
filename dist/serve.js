@@ -166,14 +166,6 @@ function page(title, body) {
 <footer>Rendered from <code>~/.tack/routes</code> on each request — <code>tack serve</code></footer>
 </body></html>`;
 }
-function todoList(items, label) {
-    if (!items?.length)
-        return "";
-    const rows = items
-        .map((i) => `<li>${i.done ? "&#10003;" : "&#9744;"} ${esc(i.text)}</li>`)
-        .join("");
-    return `<div class="meta">${label}<ul>${rows}</ul></div>`;
-}
 // In a route document a tack is an anchor you can link *to*; in a group
 // document it has to be a link *out*, because several routes render into one
 // page and every one of them would otherwise claim `id="t1"`. Linking to the
@@ -194,7 +186,6 @@ function tackCard(t, opts = {}) {
   <div class="row"><div>${id}${esc(t.summary)}</div>
   <span class="pill${done ? " done" : ""}">${esc(t.status)}</span></div>
   ${meta.length ? `<div class="meta">${meta.join(" &middot; ")}</div>` : ""}
-  ${todoList(t.before, "before")}${todoList(t.after, "after")}
 </div>`;
 }
 // A plain form, posting to the server, with no script behind it: the page has
@@ -222,18 +213,13 @@ export function renderRoute(r, opts = {}) {
     const head = `<div class="row"><h1>${name}</h1>
     <span class="pill${state === "done" ? " done" : ""}">${state}</span></div>
     <p class="sub">${esc(r.slug)} &middot; ${open} open / ${r.tacks.length} total${r.group ? ` &middot; <a href="/group/${esc(r.group)}">${esc(r.group)}</a>` : ""}</p>`;
-    const deps = r.depends_on?.length
-        ? `<div class="meta">depends on routes: ${r.depends_on
-            .map((d) => `<a href="/route/${esc(d)}">${esc(d)}</a>`)
-            .join(", ")}</div>`
-        : "";
     const tacks = r.tacks.length
         ? r.tacks
             .map((t) => tackCard(t, opts.linkTacks ? { href: `/route/${esc(r.slug)}#${esc(t.id)}` } : {}))
             .join("")
         : `<p class="empty">No tacks yet.</p>`;
     return `${opts.crumb === false ? "" : `<div class="crumb"><a href="/">all routes</a></div>`}
-${head}${r.description ? `<div class="desc">${markdown(r.description)}</div>` : ""}${deps}
+${head}${r.description ? `<div class="desc">${markdown(r.description)}</div>` : ""}
 ${opts.editable === false ? "" : editForm(r)}
 <h2>Tacks</h2>${tacks}`;
 }
