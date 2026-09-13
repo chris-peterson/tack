@@ -42,13 +42,6 @@
       "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
       "description": "Optional grouping slug for associating related routes. Multiple routes may share the same group."
     },
-    "depends_on": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "description": "Slugs of routes that must complete before this one"
-    },
     "sessions": {
       "type": "array",
       "items": {
@@ -104,20 +97,6 @@
         "deliverable": {
           "$ref": "#/definitions/deliverable"
         },
-        "before": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/todoItem"
-          },
-          "description": "Pre-work todo items"
-        },
-        "after": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/todoItem"
-          },
-          "description": "Post-work todo items"
-        },
         "links": {
           "type": "array",
           "items": {
@@ -142,35 +121,6 @@
           "maxLength": 2048,
           "format": "uri",
           "description": "Full URL of the change request"
-        }
-      }
-    },
-    "todoItem": {
-      "type": "object",
-      "required": ["id", "text", "done"],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^[ab][0-9]+$",
-          "description": "Scoped identifier (b1, b2, ... for before; a1, a2, ... for after)"
-        },
-        "text": {
-          "type": "string",
-          "maxLength": 1000,
-          "description": "Description of the instruction"
-        },
-        "done": {
-          "type": "boolean",
-          "description": "Whether the instruction has been completed"
-        },
-        "done_at": {
-          "type": "string",
-          "anyOf": [
-            {"format": "date"},
-            {"format": "date-time"}
-          ],
-          "description": "ISO 8601 date or date-time when completed. Bare YYYY-MM-DD is accepted for backward compatibility; new writes emit full date-time."
         }
       }
     },

@@ -448,14 +448,13 @@ describe("record-landed", () => {
     assert.match(out, /announced no usable merge time/);
   });
 
-  it("carries the CLI's own pending-todo report through", () => {
+  it("carries the CLI's own ambiguous-promotion report through", () => {
     const st = stub({
       find: [match("in_progress")],
-      doneOut: "t3 done\n\nPending todo items:\n  [ ] Notify security team\n",
+      doneOut: "t3 done\n\nMultiple PR/MR links present — no deliverable promoted. Pick one with:\n",
     });
     const { out } = run(merged(), st);
-    assert.match(out, /Pending todo items:/);
-    assert.match(out, /Notify security team/);
+    assert.match(out, /Multiple PR\/MR links/);
   });
 
   it("reports a failed write rather than swallowing it", () => {

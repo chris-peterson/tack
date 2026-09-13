@@ -501,8 +501,7 @@ describe("a route file that will not load", () => {
     const path = join(tmp, "routes", `${slug}.yaml`);
     writeFileSync(
       path,
-      readFileSync(path, "utf-8").replace(/\n$/, "") +
-        `\n    after:\n      - id: a1\n        text: ${"x".repeat(1200)}\n        done: false\n`,
+      readFileSync(path, "utf-8").replace("summary: a tack", `summary: ${"x".repeat(600)}`),
     );
   }
 
@@ -536,7 +535,7 @@ describe("a route file that will not load", () => {
     await withServer(async (base) => {
       const res = await fetch(`${base}/route/unreadable`);
       assert.equal(res.status, 500);
-      assert.match(await res.text(), /must NOT have more than 1000 characters/);
+      assert.match(await res.text(), /must NOT have more than 500 characters/);
     });
   });
 

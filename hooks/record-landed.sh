@@ -101,10 +101,10 @@ while IFS=$'\t' read -r uri merged_at; do
   # tool call. What it printed is reported either way.
   if written=$(tack 'done' "$slug" "$tack_id" --date "$merged_at" 2>&1); then
     report="${report}Recorded on the route: ${slug}/${tack_id} closed at ${merged_at}, ${uri} promoted to its deliverable (anchor announced the merge)."$'\n'
-    # `tack done` reports pending post-work todos and an ambiguous promotion on
-    # its own. Those are the user's to act on, so they travel with the report.
+    # `tack done` reports an ambiguous promotion on its own. That one is the
+    # user's to act on, so it travels with the report.
     case "$written" in
-      *"Pending todo items:"*|*"Multiple PR/MR links"*)
+      *"Multiple PR/MR links"*)
         report="${report}${written}"$'\n'
         ;;
     esac

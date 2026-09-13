@@ -75,6 +75,17 @@ function valueAt(data: unknown, pointer: string): unknown {
   return node;
 }
 
+// Fields [COMPAT-07] retired, and the release each left in. A file carrying one
+// is a file from before that release — restored from a backup, or written by a
+// tool built against an earlier one — so the report names the field and the
+// release instead of ajv's `additionalProperties` message, which says only that
+// something unknown is present.
+const RETIRED_FIELDS: Record<string, string> = {
+  before: "1.7",
+  after: "1.7",
+  depends_on: "1.7",
+};
+
 export function validate(data: unknown): { valid: boolean; errors: string[] } {
   const validator = getValidator();
   const valid = validator(data);
@@ -82,8 +93,23 @@ export function validate(data: unknown): { valid: boolean; errors: string[] } {
   if (valid) return { valid: true, errors: [] };
 
   const errors = (validator.errors ?? []).map(
-    (e: { instancePath?: string; message?: string; keyword?: string }) => {
+    (e: {
+      instancePath?: string;
+      message?: string;
+      keyword?: string;
+      params?: { additionalProperty?: string };
+    }) => {
       const path = e.instancePath || "/";
+      if (e.keyword === "additionalProperties") {
+        const field = e.params?.additionalProperty ?? "";
+        const since = RETIRED_FIELDS[field];
+        // Tack-level `depends_on` is live, so it is a known property there and
+        // never reaches this branch; only the retired route-level one does.
+        if (since) {
+          return `${path}: \`${field}\` was retired in ${since}; remove it to load this file`;
+        }
+        return `${path}: ${e.message}`;
+      }
       if (e.keyword !== "maxLength") return `${path}: ${e.message}`;
       const actual = valueAt(data, e.instancePath ?? "");
       const has = typeof actual === "string" ? ` (has ${actual.length})` : "";

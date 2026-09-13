@@ -37,26 +37,6 @@ describe("formatTack", () => {
     assert.ok(formatTack(tack).includes("deliverable: PR #42"));
   });
 
-  it("includes before items", () => {
-    const tack: Tack = {
-      id: "t1",
-      summary: "Task",
-      status: "pending",
-      before: [{ id: "b1", text: "Read docs", done: false }],
-    };
-    assert.ok(formatTack(tack).includes("before: [ ] b1: Read docs"));
-  });
-
-  it("includes after items", () => {
-    const tack: Tack = {
-      id: "t1",
-      summary: "Task",
-      status: "pending",
-      after: [{ id: "a1", text: "Deploy", done: false }],
-    };
-    assert.ok(formatTack(tack).includes("after: [ ] a1: Deploy"));
-  });
-
   it("includes links", () => {
     const tack: Tack = {
       id: "t1",

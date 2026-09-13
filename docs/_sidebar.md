@@ -17,7 +17,6 @@
   - [Tacks](/cli?id=tacks)
   - [Dependencies](/cli?id=dependencies)
   - [Deliverable](/cli?id=deliverable)
-  - [Todos](/cli?id=todos)
   - [Links](/cli?id=links)
   - [Sessions](/cli?id=sessions)
   - [Documents](/cli?id=documents)
