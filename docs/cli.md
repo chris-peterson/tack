@@ -385,7 +385,7 @@ tack done <slug> <tack-id> [--date <ts>]
 Complete a tack. `done_at` is stamped with the current ISO 8601 date-time
 unless `--date <ts>` is given, in which case the supplied `YYYY-MM-DD` date
 or full ISO 8601 date-time is used instead — supports backfilling work that
-merged earlier than today. Shows pending after-todos if any exist.
+merged earlier than today.
 
 ```bash
 tack done auth-rewrite t1
@@ -458,7 +458,7 @@ tack merge <slug> <source-id> <target-id>
 ### `tack merge-routes`
 
 ```text
-tack merge-routes <new-slug> <src-slug>... [--group <slug>] [--created-at <date>] [--break-deps]
+tack merge-routes <new-slug> <src-slug>... [--group <slug>] [--created-at <date>]
 ```
 
 Fold several whole routes into one new route — the whole-route analogue
@@ -601,55 +601,6 @@ tack reconcile --dry-run       # report what would close, write nothing
 A missing `gh`/`glab`, an unreadable change request, or a URL from a forge tack
 can't read fails the command naming the URL. Skipping quietly would be
 indistinguishable from "nothing merged".
-
-## Todos
-
-### `tack before`
-
-```text
-tack before <slug> <tack-id> <text>
-```
-
-Add a pre-work todo.
-
-```bash
-tack before auth-rewrite t1 "Read compliance requirements"
-```
-
-### `tack after`
-
-```text
-tack after <slug> <tack-id> <text>
-```
-
-Add a post-work todo.
-
-```bash
-tack after auth-rewrite t1 "Notify security team"
-```
-
-### `tack todo`
-
-```text
-tack todo done <slug> <tack-id> <todo-id>
-tack todo rm <slug> <tack-id> <todo-id>
-```
-
-#### `tack todo done`
-
-Complete a todo item.
-
-```bash
-tack todo done auth-rewrite t1 b1
-```
-
-#### `tack todo rm`
-
-Delete a todo item.
-
-```bash
-tack todo rm auth-rewrite t1 a2
-```
 
 ## Links
 

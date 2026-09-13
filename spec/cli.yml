@@ -143,7 +143,6 @@ commands:
       arg: slug
     - name: --created-at
       arg: date
-    - name: --break-deps
 - name: start
   usages:
   - args:
@@ -214,32 +213,6 @@ commands:
       - name: tack-id
       flags:
       - name: --to-link
-- name: before
-  usages:
-  - args:
-    - name: slug
-    - name: tack-id
-    - name: text
-- name: after
-  usages:
-  - args:
-    - name: slug
-    - name: tack-id
-    - name: text
-- name: todo
-  subcommands:
-  - name: done
-    usages:
-    - args:
-      - name: slug
-      - name: tack-id
-      - name: todo-id
-  - name: rm
-    usages:
-    - args:
-      - name: slug
-      - name: tack-id
-      - name: todo-id
 - name: depends
   subcommands:
   - name: add

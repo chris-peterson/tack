@@ -57,3 +57,42 @@ describe("the spec's length table matches the schema", () => {
         });
     }
 });
+// [COMPAT-07] retires a field by removing it from the schema, which leaves ajv
+// reporting only that something unknown is present. A route file predating the
+// retirement is the case the report has to be useful for.
+describe("a retired field is named, not reported as an unknown property", () => {
+    const route = (extra, tack = {}) => ({
+        id: "550e8400-e29b-41d4-a716-446655440099",
+        slug: "legacy",
+        created_at: "2026-03-15T10:00:00Z",
+        updated_at: "2026-04-01T09:30:00Z",
+        ...extra,
+        tacks: [{ id: "t1", summary: "a tack", status: "done", ...tack }],
+    });
+    it("names a tack-level after[] and the release that retired it", () => {
+        const result = validate(route({}, { after: [{ id: "a1", text: "x", done: false }] }));
+        assert.equal(result.valid, false);
+        assert.match(result.errors[0], /`after` was retired in 1\.7/);
+    });
+    it("names a tack-level before[] the same way", () => {
+        const result = validate(route({}, { before: [{ id: "b1", text: "x", done: false }] }));
+        assert.equal(result.valid, false);
+        assert.match(result.errors[0], /`before` was retired in 1\.7/);
+    });
+    it("names route-level depends_on, at the route's own path", () => {
+        const result = validate(route({ depends_on: ["other-route"] }));
+        assert.equal(result.valid, false);
+        assert.match(result.errors[0], /^\/: `depends_on` was retired in 1\.7/);
+    });
+    // The tack-level field is live, so it stays a known property and never
+    // reaches the retired-field branch that shares its name.
+    it("leaves tack-level depends_on valid", () => {
+        const result = validate(route({}, { depends_on: [] }));
+        assert.ok(result.valid, result.errors.join("\n"));
+    });
+    it("still reports a genuinely unknown property as one", () => {
+        const result = validate(route({ nonsense: 1 }));
+        assert.equal(result.valid, false);
+        assert.match(result.errors[0], /must NOT have additional properties/);
+    });
+});

@@ -32,7 +32,7 @@ Usage:
   tack edit <slug> <tack-id> <summary>
   tack merge <slug> <source-id> <target-id>
   tack move <src-slug>/<tack-id> <dst-slug> [--include-dependents]
-  tack merge-routes <new-slug> <src-slug>... [--group <slug>] [--created-at <date>] [--break-deps]
+  tack merge-routes <new-slug> <src-slug>... [--group <slug>] [--created-at <date>]
   tack start <slug> <tack-id>
   tack done <slug> <tack-id> [--date <ts>]
   tack drop <slug> <tack-id>
@@ -42,10 +42,6 @@ Usage:
   tack remove <slug> <tack-id> [--force]
   tack deliverable <slug> <tack-id> <url> [--label <text>] [--force]   (label auto-derived from url by default)
   tack deliverable rm <slug> <tack-id> [--to-link]   (clear the deliverable, or --to-link to demote it into links)
-  tack before <slug> <tack-id> <text>
-  tack after <slug> <tack-id> <text>
-  tack todo done <slug> <tack-id> <todo-id>
-  tack todo rm <slug> <tack-id> <todo-id>
   tack depends add <slug> <tack-id> <dep-id>
   tack depends rm <slug> <tack-id> <dep-id>
   tack link add <slug> <tack-id> <label> <url>
@@ -69,7 +65,7 @@ Usage:
   tack --help`);
     process.exit(exitCode);
 }
-// A subcommand-group verb (link, depends, todo, status) invoked without a valid
+// A subcommand-group verb (link, depends, status) invoked without a valid
 // subcommand reports the group-scoped problem on stderr instead of dumping the
 // global usage to stdout — see issue #17.
 function groupError(group, detail) {
@@ -442,16 +438,10 @@ function run() {
                 },
                 allowPositionals: true,
             });
-            const { tack, pendingTodo, ambiguousDeliverable } = route.markDone(rest[0], rest[1], {
+            const { tack, ambiguousDeliverable } = route.markDone(rest[0], rest[1], {
                 at: doneValues.date,
             });
             console.log(formatTack(tack));
-            if (pendingTodo.length) {
-                console.log("\nPending todo items:");
-                for (const text of pendingTodo) {
-                    console.log(`  [ ] ${text}`);
-                }
-            }
             if (ambiguousDeliverable.length) {
                 console.error(`\nMultiple PR/MR links present — no deliverable promoted. Pick one with:`);
                 for (const link of ambiguousDeliverable) {
@@ -516,7 +506,7 @@ function run() {
         }
         case "deliverable": {
             // `deliverable` is a set-verb by default; the `rm` subcommand clears or
-            // (with --to-link) demotes the deliverable, matching link/depends/todo.
+            // (with --to-link) demotes the deliverable, matching link/depends.
             if (rest[0] === "rm") {
                 const { values: rmValues, positionals: rmPositionals } = parseArgs({
                     args: rest.slice(1),
@@ -550,39 +540,6 @@ function run() {
             const tack = route.setDeliverable(dlvPositionals[0], dlvPositionals[1], dlvLabel, dlvUrl, { force: dlvValues.force });
             warnUrlCollision(dlvUrl, dlvPositionals[0], tack.id);
             console.log(formatTack(tack));
-            break;
-        }
-        case "before": {
-            if (rest.length < 3)
-                usage();
-            const tack = route.addBefore(rest[0], rest[1], rest[2]);
-            console.log(formatTack(tack));
-            break;
-        }
-        case "after": {
-            if (rest.length < 3)
-                usage();
-            const tack = route.addAfter(rest[0], rest[1], rest[2]);
-            console.log(formatTack(tack));
-            break;
-        }
-        case "todo": {
-            const subcommand = rest[0];
-            if (subcommand === "done") {
-                if (rest.length < 4)
-                    usage();
-                const tack = route.completeTodo(rest[1], rest[2], rest[3]);
-                console.log(formatTack(tack));
-            }
-            else if (subcommand === "rm") {
-                if (rest.length < 4)
-                    usage();
-                const tack = route.dropTodo(rest[1], rest[2], rest[3]);
-                console.log(formatTack(tack));
-            }
-            else {
-                groupError("todo", expectedOneOf(["done", "rm"], subcommand));
-            }
             break;
         }
         case "edit": {
@@ -632,7 +589,6 @@ function run() {
                 options: {
                     group: { type: "string" },
                     "created-at": { type: "string" },
-                    "break-deps": { type: "boolean" },
                 },
                 allowPositionals: true,
             });
@@ -642,7 +598,6 @@ function run() {
             const result = route.mergeRoutes(newSlug, srcSlugs, {
                 group: mergeValues.group,
                 createdAt: mergeValues["created-at"],
-                breakDeps: mergeValues["break-deps"],
             });
             recordSessionIfPresent(newSlug);
             const total = result.sources.reduce((n, s) => n + s.moved.length, 0);
@@ -651,9 +606,6 @@ function run() {
                 for (const m of s.moved) {
                     console.log(`  ${s.slug}/${m.srcId} → ${newSlug}/${m.dstId}: ${m.summary}`);
                 }
-            }
-            if (result.repointed.length > 0) {
-                console.log(`Repointed depends_on → ${newSlug} on: ${result.repointed.join(", ")}`);
             }
             console.log("");
             console.log(formatRoute(result.route));
