@@ -217,7 +217,8 @@ commands:
   subcommands:
   - name: add
     usages:
-    - args:
+    - summary: '(dep-id: t<N>, or <slug>/t<N> for another route)'
+      args:
       - name: slug
       - name: tack-id
       - name: dep-id

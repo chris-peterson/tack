@@ -499,6 +499,7 @@ reference; `--break-deps` authorizes repointing those references at
 
 ```text
 tack depends add <slug> <tack-id> <dep-id>
+    (dep-id: t<N>, or <slug>/t<N> for another route)
 tack depends rm <slug> <tack-id> <dep-id>
 ```
 
