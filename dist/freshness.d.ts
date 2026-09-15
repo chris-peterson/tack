@@ -14,8 +14,14 @@ export interface Drift {
     stale: Surface[];
 }
 export declare function drift(): Drift;
-/** One line, for the channel Claude Code renders to the user. */
-export declare function banner(d: Drift): string;
+/**
+ * One line, for the channel Claude Code renders to the user:
+ * `<source>: <resolution>  # <reasoning>`. Session banners stack, one per
+ * plugin with something to say, so the command to type sits where the eye
+ * lands and the rest goes after the marker. Detail belongs in the context,
+ * which has no line budget.
+ */
+export declare function banner(_d: Drift): string;
 /** The per-surface breakdown, for the model. */
 export declare function report(d: Drift): string;
 /**

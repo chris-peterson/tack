@@ -109,20 +109,19 @@ export function drift() {
     };
 }
 const REPAIR = "/tack:install-tack";
-/** One line, for the channel Claude Code renders to the user. */
-export function banner(d) {
-    const n = d.gone.length + d.stale.length;
-    const subject = n === 1 ? "the CLI wrapper" : `${n} installed entry points`;
-    const verb = n === 1 ? "points" : "point";
-    let what;
-    if (d.gone.length && d.stale.length)
-        what = "at a missing or outdated install";
-    else if (d.gone.length)
-        what = "at a path that no longer exists";
-    else
-        what = "at an older install";
-    return `tack: ${subject} ${verb} ${what} — run \`${REPAIR}\` to repair. ` +
-        `\`tack doctor\` names the path.`;
+/**
+ * One line, for the channel Claude Code renders to the user:
+ * `<source>: <resolution>  # <reasoning>`. Session banners stack, one per
+ * plugin with something to say, so the command to type sits where the eye
+ * lands and the rest goes after the marker. Detail belongs in the context,
+ * which has no line budget.
+ */
+export function banner(_d) {
+    // The reasoning is the same string every CLI's freshness banner uses, so a
+    // reader who has seen one has read them all. Which surfaces drifted, and
+    // whether they are stale or gone, changes nothing they would do about it —
+    // one command repairs every case — so that breakdown stays in the context.
+    return `tack: ${REPAIR}  # cli is outdated`;
 }
 /** The per-surface breakdown, for the model. */
 export function report(d) {
@@ -134,7 +133,8 @@ export function report(d) {
         lines.push(`${s.label} ${s.path} execs ${s.target}, an older install.`);
     }
     lines.push(`Until repaired, \`tack\` invocations run stale code or fail outright. ` +
-        `\`${REPAIR}\` rewrites the wrapper from the version now loaded.`);
+        `\`${REPAIR}\` rewrites the wrapper from the version now loaded, and ` +
+        `\`tack doctor\` names every pinned path on demand.`);
     return lines.join(" ");
 }
 /**

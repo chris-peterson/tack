@@ -450,8 +450,10 @@ describe("freshness", () => {
             target: "<dir>/.claude/plugins/cache/chris-peterson/tack/1.6.0/dist/cli.js",
         });
         const payload = JSON.parse(out);
-        assert.match(payload.systemMessage, /older install/);
-        assert.match(payload.systemMessage, /install-tack/);
+        // <source>: <resolution>  # <reasoning>, with the reasoning text shared
+        // across every CLI's freshness banner so it reads the same wherever it
+        // appears. What drifted stays in the context.
+        assert.equal(payload.systemMessage, "tack: /tack:install-tack  # cli is outdated");
         assert.match(payload.hookSpecificOutput.additionalContext, /1\.6\.0/);
     });
     it("puts the finding on systemMessage, not context alone", () => {
@@ -489,6 +491,9 @@ describe("freshness", () => {
         // it got that way, and that is where the CLI is most broken.
         const out = runFreshness({ target: "<dir>/src/tack/dist/cli.js", targetExists: false });
         const payload = JSON.parse(out);
-        assert.match(payload.systemMessage, /no longer exists/);
+        // Same banner whether a target is stale or gone — one command repairs
+        // both, so the distinction lives in the context.
+        assert.equal(payload.systemMessage, "tack: /tack:install-tack  # cli is outdated");
+        assert.match(payload.hookSpecificOutput.additionalContext, /does not exist/);
     });
 });
