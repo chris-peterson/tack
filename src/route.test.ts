@@ -1300,6 +1300,150 @@ describe("mergeRoutes", () => {
 
 });
 
+describe("cross-route dependencies", () => {
+  it("records a dependency on a tack in another route", () => {
+    route.init("xr-lib");
+    route.init("xr-app");
+    route.addTack("xr-lib", "Ship the library");
+    route.addTack("xr-app", "Consume it");
+
+    route.addDependency("xr-app", "t1", "xr-lib/t1");
+
+    assert.deepEqual(route.load("xr-app").tacks[0].depends_on, ["xr-lib/t1"]);
+    // The library's own file is untouched — the edge lives on the dependent.
+    assert.equal(route.load("xr-lib").tacks[0].depends_on, undefined);
+  });
+
+  it("stores a self-referencing slug in its bare form", () => {
+    route.init("xr-bare");
+    route.addTack("xr-bare", "First");
+    route.addTack("xr-bare", "Second");
+
+    route.addDependency("xr-bare", "t2", "xr-bare/t1");
+
+    assert.deepEqual(route.load("xr-bare").tacks[1].depends_on, ["t1"]);
+  });
+
+  it("rejects a dependency on a route that does not exist", () => {
+    route.init("xr-missing");
+    route.addTack("xr-missing", "Only");
+    assert.throws(
+      () => route.addDependency("xr-missing", "t1", "nope/t1"),
+      /no route nope/,
+    );
+  });
+
+  it("rejects a dependency on a missing tack in a route that exists", () => {
+    route.init("xr-there");
+    route.init("xr-here");
+    route.addTack("xr-there", "Only");
+    route.addTack("xr-here", "Only");
+    assert.throws(
+      () => route.addDependency("xr-here", "t1", "xr-there/t9"),
+      /Dependency not found/,
+    );
+  });
+
+  it("detects a cycle that spans two routes", () => {
+    route.init("xr-a");
+    route.init("xr-b");
+    route.addTack("xr-a", "A1");
+    route.addTack("xr-b", "B1");
+
+    route.addDependency("xr-b", "t1", "xr-a/t1");
+    assert.throws(
+      () => route.addDependency("xr-a", "t1", "xr-b/t1"),
+      /Circular dependency/,
+    );
+  });
+
+  it("blocks starting a tack whose cross-route dependency is unmet", () => {
+    route.init("xr-block-lib");
+    route.init("xr-block-app");
+    route.addTack("xr-block-lib", "Not done yet");
+    route.addTack("xr-block-app", "Waiting");
+    route.addDependency("xr-block-app", "t1", "xr-block-lib/t1");
+
+    assert.throws(() => route.startTack("xr-block-app", "t1"), /unmet dependencies/);
+
+    route.markDone("xr-block-lib", "t1");
+    assert.equal(route.startTack("xr-block-app", "t1").status, "in_progress");
+  });
+
+  it("rewrites inbound references when the depended-on route is renamed", () => {
+    route.init("xr-old");
+    route.init("xr-dependent");
+    route.addTack("xr-old", "Foundation");
+    route.addTack("xr-dependent", "On top");
+    route.addDependency("xr-dependent", "t1", "xr-old/t1");
+
+    route.rename("xr-old", "xr-new");
+
+    assert.deepEqual(
+      route.load("xr-dependent").tacks[0].depends_on,
+      ["xr-new/t1"],
+    );
+  });
+
+  it("refuses to remove a tack another route depends on, and strips it with force", () => {
+    route.init("xr-rm-lib");
+    route.init("xr-rm-app");
+    route.addTack("xr-rm-lib", "Depended upon");
+    route.addTack("xr-rm-app", "Dependent");
+    route.addDependency("xr-rm-app", "t1", "xr-rm-lib/t1");
+
+    assert.throws(
+      () => route.removeTack("xr-rm-lib", "t1"),
+      /depended on by xr-rm-app\/t1/,
+    );
+
+    route.removeTack("xr-rm-lib", "t1", { force: true });
+    assert.equal(route.load("xr-rm-app").tacks[0].depends_on, undefined);
+  });
+
+  it("refuses to delete a route another route depends on, and strips it with force", () => {
+    route.init("xr-del-lib");
+    route.init("xr-del-app");
+    route.addTack("xr-del-lib", "Depended upon");
+    route.addTack("xr-del-app", "Dependent");
+    route.addDependency("xr-del-app", "t1", "xr-del-lib/t1");
+
+    assert.throws(() => route.remove("xr-del-lib"), /depended on by/);
+
+    route.remove("xr-del-lib", { force: true });
+    assert.equal(route.load("xr-del-app").tacks[0].depends_on, undefined);
+  });
+
+  it("reports a dangling reference without refusing to load the route", () => {
+    route.init("xr-dangle");
+    route.addTack("xr-dangle", "Points nowhere");
+    // Written directly: the CLI would reject this, but a hand edit or a
+    // deleted route file can leave one behind.
+    const r = route.load("xr-dangle");
+    r.tacks[0].depends_on = ["ghost-route/t1"];
+    route.writeRoute(r);
+
+    const report = route.doctor();
+    assert.equal(report.invalid.length, 0);
+    assert.equal(report.dangling.length, 1);
+    assert.equal(report.dangling[0].reason, "no such route");
+    assert.equal(report.dangling[0].dependsOn, "ghost-route/t1");
+  });
+
+  it("collapses to a local edge when both routes are merged together", () => {
+    route.init("xr-m-a");
+    route.init("xr-m-b");
+    route.addTack("xr-m-a", "First", { done: true, doneAt: "2026-01-01" });
+    route.addTack("xr-m-b", "Second", { done: true, doneAt: "2026-01-02" });
+    route.addDependency("xr-m-b", "t1", "xr-m-a/t1");
+
+    route.mergeRoutes("xr-m-all", ["xr-m-a", "xr-m-b"]);
+
+    const merged = route.load("xr-m-all");
+    assert.deepEqual(merged.tacks[1].depends_on, ["t1"]);
+  });
+});
+
 describe("moveTack", () => {
   it("moves a tack and preserves all metadata", () => {
     route.init("move-src");
@@ -1343,59 +1487,50 @@ describe("moveTack", () => {
     assert.equal(dst.tacks[1].summary, "Incoming task");
   });
 
-  it("refuses when src tack has an outgoing depends_on edge", () => {
+  it("rewrites an outgoing edge into a cross-route reference", () => {
     route.init("move-out-src");
     route.init("move-out-dst");
     route.addTack("move-out-src", "First");
     route.addTack("move-out-src", "Second", { dependsOn: ["t1"] });
 
-    assert.throws(
-      () => route.moveTack("move-out-src", "t2", "move-out-dst"),
-      (err: Error) => {
-        assert.match(err.message, /depends_on edges cross the route boundary/);
-        assert.doesNotMatch(err.message, /--include-dependents/);
-        return true;
-      },
-    );
+    const result = route.moveTack("move-out-src", "t2", "move-out-dst");
 
-    assert.equal(route.load("move-out-src").tacks.length, 2);
-    assert.equal(route.load("move-out-dst").tacks.length, 0);
+    assert.equal(result.moved[0].dstId, "t1");
+    // What it depended on stayed behind, so the edge now names that route.
+    assert.deepEqual(
+      route.load("move-out-dst").tacks[0].depends_on,
+      ["move-out-src/t1"],
+    );
+    assert.equal(route.load("move-out-src").tacks.length, 1);
   });
 
-  it("refuses when src tack has an incoming depends_on edge and hints --include-dependents", () => {
+  it("rewrites an incoming edge so it follows the moved tack", () => {
     route.init("move-in-src");
     route.init("move-in-dst");
     route.addTack("move-in-src", "Foundation");
     route.addTack("move-in-src", "Depends on foundation", { dependsOn: ["t1"] });
 
-    assert.throws(
-      () => route.moveTack("move-in-src", "t1", "move-in-dst"),
-      (err: Error) => {
-        assert.match(err.message, /depends_on edges cross the route boundary/);
-        assert.match(err.message, /--include-dependents/);
-        return true;
-      },
-    );
+    route.moveTack("move-in-src", "t1", "move-in-dst");
 
-    assert.equal(route.load("move-in-src").tacks.length, 2);
-    assert.equal(route.load("move-in-dst").tacks.length, 0);
+    const src = route.load("move-in-src");
+    assert.equal(src.tacks.length, 1);
+    assert.deepEqual(src.tacks[0].depends_on, ["move-in-dst/t1"]);
   });
 
-  it("does not hint --include-dependents when both outgoing and incoming edges exist", () => {
+  it("rewrites both directions when a middle tack moves", () => {
     route.init("move-middle-src");
     route.init("move-middle-dst");
     route.addTack("move-middle-src", "Root");
     route.addTack("move-middle-src", "Middle", { dependsOn: ["t1"] });
     route.addTack("move-middle-src", "Leaf", { dependsOn: ["t2"] });
 
-    assert.throws(
-      () => route.moveTack("move-middle-src", "t2", "move-middle-dst"),
-      (err: Error) => {
-        assert.match(err.message, /depends_on edges cross the route boundary/);
-        assert.doesNotMatch(err.message, /--include-dependents/);
-        return true;
-      },
-    );
+    route.moveTack("move-middle-src", "t2", "move-middle-dst");
+
+    const dst = route.load("move-middle-dst");
+    const src = route.load("move-middle-src");
+    assert.deepEqual(dst.tacks[0].depends_on, ["move-middle-src/t1"]);
+    const leaf = src.tacks.find((t) => t.summary === "Leaf")!;
+    assert.deepEqual(leaf.depends_on, ["move-middle-dst/t1"]);
   });
 
   it("--include-dependents moves the dependent chain and remaps ids", () => {
@@ -1423,19 +1558,26 @@ describe("moveTack", () => {
     assert.deepEqual(leaf.depends_on, [middle.id]);
   });
 
-  it("--include-dependents still refuses if a staying tack depends on a moving tack", () => {
+  it("--include-dependents leaves a staying sibling pointing across the boundary", () => {
     route.init("move-partial-src");
     route.init("move-partial-dst");
     route.addTack("move-partial-src", "Root");
     route.addTack("move-partial-src", "Middle", { dependsOn: ["t1"] });
     route.addTack("move-partial-src", "Sibling", { dependsOn: ["t1"] });
 
-    assert.throws(
-      () => route.moveTack("move-partial-src", "t2", "move-partial-dst", {
-        includeDependents: true,
-      }),
-      /depends_on edges cross the route boundary/,
+    route.moveTack("move-partial-src", "t2", "move-partial-dst", {
+      includeDependents: true,
+    });
+
+    // Root stayed, so Middle reaches back for it and Sibling is untouched.
+    assert.deepEqual(
+      route.load("move-partial-dst").tacks[0].depends_on,
+      ["move-partial-src/t1"],
     );
+    const sibling = route
+      .load("move-partial-src")
+      .tacks.find((t) => t.summary === "Sibling")!;
+    assert.deepEqual(sibling.depends_on, ["t1"]);
   });
 
   it("refuses when src and dst are the same route", () => {

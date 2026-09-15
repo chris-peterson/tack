@@ -90,9 +90,9 @@
           "type": "array",
           "items": {
             "type": "string",
-            "pattern": "^t[0-9]+$"
+            "pattern": "^(?:[a-z0-9][a-z0-9-]*[a-z0-9]/)?t[0-9]+$"
           },
-          "description": "IDs of tacks in this route that must complete first"
+          "description": "Tacks that must complete first. A bare t<N> names a tack in this route; <slug>/t<N> names one in another route."
         },
         "deliverable": {
           "$ref": "#/definitions/deliverable"

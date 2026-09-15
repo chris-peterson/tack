@@ -375,35 +375,125 @@ function findTack(route: Route, tackId: string): Tack {
   return tack;
 }
 
+/**
+ * A `depends_on` entry addresses a tack either in the route carrying it (bare
+ * `t<N>`) or in another route (`<slug>/t<N>`) [DEPENDS-02]. Resolving one always
+ * needs the carrying route's slug — that is what makes the bare form concrete.
+ */
+export interface DepRef {
+  slug: string;
+  tackId: string;
+}
+
+export function parseDepRef(entry: string, localSlug: string): DepRef {
+  const slash = entry.indexOf("/");
+  if (slash < 0) return { slug: localSlug, tackId: normalizeTackId(entry) };
+  return {
+    slug: entry.slice(0, slash),
+    tackId: normalizeTackId(entry.slice(slash + 1)),
+  };
+}
+
+// A route's own edges are stored bare, so renaming a route never has to rewrite
+// its references to itself [DEPENDS-02].
+export function formatDepRef(ref: DepRef, localSlug: string): string {
+  return ref.slug === localSlug ? ref.tackId : `${ref.slug}/${ref.tackId}`;
+}
+
+// Cross-route resolution reads other route files, so a walk (cycle detection, an
+// unmet-dependency scan) caches them and stays at one read per route. A route
+// that will not load resolves to null rather than throwing — the caller decides
+// whether a missing route is an error here or a dangling edge to report.
+function routeResolver(seed?: Route): (slug: string) => Route | null {
+  const cache = new Map<string, Route | null>();
+  if (seed) cache.set(seed.slug, seed);
+  return (slug: string) => {
+    if (!cache.has(slug)) {
+      let loaded: Route | null = null;
+      try {
+        loaded = load(slug);
+      } catch {
+        loaded = null;
+      }
+      cache.set(slug, loaded);
+    }
+    return cache.get(slug)!;
+  };
+}
+
 function checkDependencies(route: Route, dependsOn: string[]): void {
-  for (const depId of dependsOn) {
-    const dep = route.tacks.find((t) => t.id === depId);
-    if (!dep) {
-      throw new Error(`Dependency not found: ${depId}`);
+  const resolve = routeResolver(route);
+  for (const entry of dependsOn) {
+    const ref = parseDepRef(entry, route.slug);
+    const target = resolve(ref.slug);
+    if (!target) {
+      throw new Error(`Dependency not found: ${entry} (no route ${ref.slug})`);
+    }
+    if (!target.tacks.some((t) => t.id === ref.tackId)) {
+      throw new Error(`Dependency not found: ${entry}`);
     }
   }
 }
 
 function detectCycle(route: Route, tackId: string, dependsOn: string[]): void {
+  const resolve = routeResolver(route);
+  const origin = `${route.slug}/${normalizeTackId(tackId)}`;
   const visited = new Set<string>();
 
-  function walk(id: string): void {
-    if (id === tackId) {
-      throw new Error(`Circular dependency detected involving ${tackId}`);
+  // Follows edges across route boundaries [DEPENDS-04], so a cycle spanning two
+  // routes fails the same way a within-route one does.
+  function walk(ref: DepRef): void {
+    const key = `${ref.slug}/${ref.tackId}`;
+    if (key === origin) {
+      throw new Error(`Circular dependency detected involving ${origin}`);
     }
-    if (visited.has(id)) return;
-    visited.add(id);
-    const tack = route.tacks.find((t) => t.id === id);
-    if (tack?.depends_on) {
-      for (const depId of tack.depends_on) {
-        walk(depId);
+    if (visited.has(key)) return;
+    visited.add(key);
+    const tack = resolve(ref.slug)?.tacks.find((t) => t.id === ref.tackId);
+    for (const entry of tack?.depends_on ?? []) {
+      walk(parseDepRef(entry, ref.slug));
+    }
+  }
+
+  for (const entry of dependsOn) walk(parseDepRef(entry, route.slug));
+}
+
+/**
+ * Every `<slug>/t<N>` reference to `targetSlug` held by any other route, so a
+ * rename can rewrite them [DEPENDS-05] and a delete can refuse over them
+ * [DEPENDS-06].
+ */
+export interface InboundRef {
+  /** Route holding the dependent tack. */
+  slug: string;
+  /** The dependent tack's id within that route. */
+  from: string;
+  /** The tack being depended on, in `targetSlug`. */
+  target: string;
+  /** The `depends_on` entry verbatim, for an exact-match rewrite or strip. */
+  dependsOn: string;
+}
+
+export function inboundRefs(targetSlug: string, tackId?: string): InboundRef[] {
+  const wanted = tackId ? normalizeTackId(tackId) : undefined;
+  const found: InboundRef[] = [];
+  for (const other of loadAll()) {
+    if (other.slug === targetSlug) continue;
+    for (const t of other.tacks) {
+      for (const entry of t.depends_on ?? []) {
+        const ref = parseDepRef(entry, other.slug);
+        if (ref.slug !== targetSlug) continue;
+        if (wanted && ref.tackId !== wanted) continue;
+        found.push({
+          slug: other.slug,
+          from: t.id,
+          target: ref.tackId,
+          dependsOn: entry,
+        });
       }
     }
   }
-
-  for (const depId of dependsOn) {
-    walk(depId);
-  }
+  return found;
 }
 
 export function addTack(
@@ -506,8 +596,10 @@ export function startTack(slug: string, tackId: string): Tack {
   const tack = findTack(route, tackId);
 
   if (tack.depends_on?.length) {
-    const unmet = tack.depends_on.filter((depId) => {
-      const dep = route.tacks.find((t) => t.id === depId);
+    const resolve = routeResolver(route);
+    const unmet = tack.depends_on.filter((entry) => {
+      const ref = parseDepRef(entry, route.slug);
+      const dep = resolve(ref.slug)?.tacks.find((t) => t.id === ref.tackId);
       return dep && dep.status !== "done";
     });
     if (unmet.length) {
@@ -547,19 +639,20 @@ export function addDependency(
 ): Tack {
   const route = load(slug);
   const tack = findTack(route, tackId);
-  depId = normalizeTackId(depId);
+  const ref = parseDepRef(depId, route.slug);
+  const entry = formatDepRef(ref, route.slug);
 
-  if (tack.id === depId) {
+  if (ref.slug === route.slug && tack.id === ref.tackId) {
     throw new Error(`Cannot depend on self: ${tack.id}`);
   }
-  findTack(route, depId);
+  checkDependencies(route, [entry]);
 
-  if (tack.depends_on?.includes(depId)) {
+  if (tack.depends_on?.includes(entry)) {
     return tack;
   }
 
-  const proposed = [...(tack.depends_on ?? []), depId];
-  detectCycle(route, tackId, proposed);
+  const proposed = [...(tack.depends_on ?? []), entry];
+  detectCycle(route, tack.id, proposed);
 
   tack.depends_on = proposed;
   save(route);
@@ -573,15 +666,15 @@ export function removeDependency(
 ): Tack {
   const route = load(slug);
   const tack = findTack(route, tackId);
-  depId = normalizeTackId(depId);
+  const entry = formatDepRef(parseDepRef(depId, route.slug), route.slug);
 
-  if (!tack.depends_on?.includes(depId)) {
+  if (!tack.depends_on?.includes(entry)) {
     throw new Error(
-      `${tack.id} does not depend on ${depId} in route ${slug}`,
+      `${tack.id} does not depend on ${entry} in route ${slug}`,
     );
   }
 
-  tack.depends_on = tack.depends_on.filter((id) => id !== depId);
+  tack.depends_on = tack.depends_on.filter((id) => id !== entry);
   if (tack.depends_on.length === 0) delete tack.depends_on;
 
   save(route);
@@ -613,8 +706,37 @@ export function rename(oldSlug: string, newSlug: string): Route {
     throw new Error(`Route validation failed:\n${result.errors.join("\n")}`);
   }
 
+  // Inbound cross-route edges name this route by slug, so they are rewritten in
+  // the same operation [DEPENDS-05]. Every dependent is validated before
+  // anything is written, so a rename that cannot complete leaves nothing half
+  // done — the route file itself moves last.
+  const dependents = new Map<string, Route>();
+  for (const { slug } of inboundRefs(oldSlug)) {
+    if (!dependents.has(slug)) dependents.set(slug, load(slug));
+  }
+  for (const dep of dependents.values()) {
+    for (const t of dep.tacks) {
+      if (!t.depends_on) continue;
+      t.depends_on = t.depends_on.map((entry) => {
+        const ref = parseDepRef(entry, dep.slug);
+        return ref.slug === oldSlug
+          ? formatDepRef({ slug: newSlug, tackId: ref.tackId }, dep.slug)
+          : entry;
+      });
+    }
+    dep.updated_at = now();
+    const depResult = validate(dep);
+    if (!depResult.valid) {
+      throw new Error(
+        `Cannot rename ${oldSlug}: dependent route ${dep.slug} would not validate:\n` +
+          depResult.errors.join("\n"),
+      );
+    }
+  }
+
   writeFileSync(oldPath, stringify(route), "utf-8");
   renameSync(oldPath, newPath);
+  for (const dep of dependents.values()) writeRoute(dep);
   return route;
 }
 
@@ -1001,9 +1123,42 @@ export function rebuildRepos(): repos.RebuildResult {
   return repos.rebuildFrom({ urls });
 }
 
+export interface DanglingRef {
+  slug: string;
+  tackId: string;
+  dependsOn: string;
+  reason: "no such route" | "no such tack";
+}
+
 export interface DoctorReport {
   files: number;
   invalid: InvalidRoute[];
+  dangling: DanglingRef[];
+}
+
+/**
+ * `depends_on` entries pointing at a route or tack that isn't there [DEPENDS-07].
+ * A dangling edge is valid against the schema — it is a well-formed reference to
+ * something absent — so it can only be found by resolving, not by loading.
+ */
+export function danglingRefs(routes?: Route[]): DanglingRef[] {
+  const all = routes ?? loadAll();
+  const byslug = new Map(all.map((r) => [r.slug, r]));
+  const out: DanglingRef[] = [];
+  for (const r of all) {
+    for (const t of r.tacks) {
+      for (const entry of t.depends_on ?? []) {
+        const ref = parseDepRef(entry, r.slug);
+        const target = byslug.get(ref.slug);
+        if (!target) {
+          out.push({ slug: r.slug, tackId: t.id, dependsOn: entry, reason: "no such route" });
+        } else if (!target.tacks.some((x) => x.id === ref.tackId)) {
+          out.push({ slug: r.slug, tackId: t.id, dependsOn: entry, reason: "no such tack" });
+        }
+      }
+    }
+  }
+  return out;
 }
 
 // CLI-57: read every route file and report what will not load, changing
@@ -1011,18 +1166,36 @@ export interface DoctorReport {
 // the rule it breaks — otherwise finding that out means reading the schema.
 export function doctor(): DoctorReport {
   clearInvalidRoutes();
-  const readable = scanAll().length;
+  const routes = scanAll();
   const invalid = invalidRoutes();
   clearInvalidRoutes();
-  return { files: readable + invalid.length, invalid };
+  return {
+    files: routes.length + invalid.length,
+    invalid,
+    dangling: danglingRefs(routes),
+  };
 }
 
-export function remove(slug: string): void {
+export function remove(slug: string, opts: { force?: boolean } = {}): void {
   const path = routePath(slug);
   if (!existsSync(path)) {
     throw new Error(`Route not found: ${slug}`);
   }
+
+  // Deleting a route takes every tack another route may depend on with it
+  // [DEPENDS-06]. The CLI already gates `tack rm` behind --force, so this
+  // reports what would break rather than gating a second time.
+  const foreign = inboundRefs(slug);
+  if (foreign.length > 0 && !opts.force) {
+    const who = foreign.map((r) => `${r.slug}/${r.from} → ${r.dependsOn}`);
+    throw new Error(
+      `Cannot delete ${slug}: depended on by ${who.join(", ")}. ` +
+        `Pass --force to strip those references.`,
+    );
+  }
+
   unlinkSync(path);
+  for (const other of stripInbound(foreign)) writeRoute(other);
 }
 
 export interface MoveResult {
@@ -1063,62 +1236,66 @@ export function moveTack(
   const moving = srcRoute.tacks.filter((t) => movingIds.has(t.id));
   const staying = srcRoute.tacks.filter((t) => !movingIds.has(t.id));
 
-  const outgoing: { from: string; to: string }[] = [];
-  for (const t of moving) {
-    for (const dep of t.depends_on ?? []) {
-      if (!movingIds.has(dep)) outgoing.push({ from: t.id, to: dep });
-    }
-  }
-  const incoming: { from: string; to: string }[] = [];
-  for (const t of staying) {
-    for (const dep of t.depends_on ?? []) {
-      if (movingIds.has(dep)) incoming.push({ from: t.id, to: dep });
-    }
-  }
-
-  if (outgoing.length > 0 || incoming.length > 0) {
-    const lines: string[] = [];
-    if (outgoing.length > 0) {
-      lines.push("  outgoing (moving → staying):");
-      for (const e of outgoing) lines.push(`    ${e.from} → ${e.to}`);
-    }
-    if (incoming.length > 0) {
-      lines.push("  incoming (staying → moving):");
-      for (const e of incoming) lines.push(`    ${e.from} → ${e.to}`);
-    }
-    const includeHint =
-      !opts.includeDependents && incoming.length > 0 && outgoing.length === 0
-        ? `  - tack move ${srcSlug}/${srcTackId} ${dstSlug} --include-dependents   move the dependent chain together\n`
-        : "";
-    throw new Error(
-      `Cannot move ${srcSlug}/${srcTackId} to ${dstSlug}: depends_on edges cross the route boundary. ` +
-        `Tack IDs are route-local; cross-route references are not supported.\n` +
-        lines.join("\n") +
-        `\nResolve by:\n` +
-        includeHint +
-        `  - tack depends rm <slug> <tack-id> <dep-id>                       break each edge\n`,
-    );
-  }
-
   let nextN = nextTackNumber(dstRoute);
   const idMap = new Map<string, string>();
   for (const t of moving) idMap.set(t.id, `t${nextN++}`);
 
+  // An edge that used to be route-local becomes a cross-route one rather than
+  // blocking the move: a moving tack keeps pointing at what stayed behind, and a
+  // staying tack follows what left.
   const movedReport: { srcId: string; dstId: string; summary: string }[] = [];
   for (const src of moving) {
     const dst: Tack = { ...structuredClone(src), id: idMap.get(src.id)! };
     if (src.depends_on?.length) {
-      dst.depends_on = src.depends_on.map((dep) => idMap.get(dep)!);
+      dst.depends_on = src.depends_on.map((entry) => {
+        const ref = parseDepRef(entry, srcSlug);
+        if (ref.slug !== srcSlug) return entry;
+        const moved = idMap.get(ref.tackId);
+        return moved
+          ? formatDepRef({ slug: dstSlug, tackId: moved }, dstSlug)
+          : formatDepRef(ref, dstSlug);
+      });
     }
 
     dstRoute.tacks.push(dst);
     movedReport.push({ srcId: src.id, dstId: dst.id, summary: src.summary });
   }
 
+  for (const t of staying) {
+    if (!t.depends_on?.length) continue;
+    t.depends_on = t.depends_on.map((entry) => {
+      const ref = parseDepRef(entry, srcSlug);
+      if (ref.slug !== srcSlug) return entry;
+      const moved = idMap.get(ref.tackId);
+      return moved
+        ? formatDepRef({ slug: dstSlug, tackId: moved }, srcSlug)
+        : entry;
+    });
+  }
+
   srcRoute.tacks = staying;
+
+  // A third route pointing at a tack that just moved follows it to its new
+  // route and id, so the edge survives the move the same way the local ones do.
+  const followers = new Map<string, Route>();
+  for (const ref of inboundRefs(srcSlug)) {
+    const moved = idMap.get(ref.target);
+    if (!moved || ref.slug === dstSlug) continue;
+    if (!followers.has(ref.slug)) followers.set(ref.slug, load(ref.slug));
+    const other = followers.get(ref.slug)!;
+    const t = other.tacks.find((x) => x.id === ref.from);
+    if (!t?.depends_on) continue;
+    t.depends_on = t.depends_on.map((entry) =>
+      entry === ref.dependsOn
+        ? formatDepRef({ slug: dstSlug, tackId: moved }, other.slug)
+        : entry,
+    );
+    other.updated_at = now();
+  }
 
   save(dstRoute);
   save(srcRoute);
+  for (const other of followers.values()) writeRoute(other);
 
   return { srcRoute, dstRoute, moved: movedReport };
 }
@@ -1176,8 +1353,9 @@ export function mergeRoutes(
     return numId(a.tack.id) - numId(b.tack.id);
   });
 
-  // depends_on is route-local, so map old→new per source. Build the full map
-  // before remapping, since a dep can point at a tack anywhere in its route.
+  // Build every source's old→new id map before remapping, since a dep can point
+  // at a tack anywhere in its own route — or, now, in another source being
+  // folded in by the same merge, which collapses that edge to a local one.
   const idMapBySrc = new Map<string, Map<string, string>>(srcSlugs.map((s) => [s, new Map()]));
   entries.forEach((e, i) => idMapBySrc.get(e.src.slug)!.set(e.tack.id, `t${i + 1}`));
 
@@ -1185,14 +1363,16 @@ export function mergeRoutes(
     const map = idMapBySrc.get(e.src.slug)!;
     const clone: Tack = { ...structuredClone(e.tack), id: map.get(e.tack.id)! };
     if (e.tack.depends_on?.length) {
-      clone.depends_on = e.tack.depends_on.map((dep) => {
-        const mapped = map.get(dep);
-        if (!mapped) {
-          throw new Error(
-            `Source route ${e.src.slug} tack ${e.tack.id} depends on ${dep}, which is not in the route`,
-          );
-        }
-        return mapped;
+      clone.depends_on = e.tack.depends_on.map((entry) => {
+        const ref = parseDepRef(entry, e.src.slug);
+        const inMerge = idMapBySrc.get(ref.slug)?.get(ref.tackId);
+        // A dep on another source becomes local; one on a route outside the
+        // merge keeps pointing where it did.
+        if (inMerge) return inMerge;
+        if (!srcSet.has(ref.slug)) return formatDepRef(ref, newSlug);
+        throw new Error(
+          `Source route ${e.src.slug} tack ${e.tack.id} depends on ${entry}, which is not in the route`,
+        );
       });
     }
     return clone;
@@ -1252,9 +1432,33 @@ export function mergeRoutes(
   const descriptions = sources.map((s) => s.description).filter((d): d is string => Boolean(d));
   if (descriptions.length) merged.description = descriptions.join("\n\n---\n\n");
   if (sessions.length) merged.sessions = sessions;
-  save(merged);
 
-  for (const s of srcSlugs) remove(s);
+  // A route outside the merge that depended on a source follows it into the
+  // merged route, at the id that source's tack now carries. Collected before
+  // the sources are deleted, and written after the merged route exists.
+  const followers = new Map<string, Route>();
+  for (const src of srcSlugs) {
+    for (const ref of inboundRefs(src)) {
+      if (srcSet.has(ref.slug)) continue;
+      const moved = idMapBySrc.get(src)!.get(ref.target);
+      if (!moved) continue;
+      if (!followers.has(ref.slug)) followers.set(ref.slug, load(ref.slug));
+      const other = followers.get(ref.slug)!;
+      const t = other.tacks.find((x) => x.id === ref.from);
+      if (!t?.depends_on) continue;
+      t.depends_on = t.depends_on.map((entry) =>
+        entry === ref.dependsOn
+          ? formatDepRef({ slug: newSlug, tackId: moved }, other.slug)
+          : entry,
+      );
+      other.updated_at = now();
+    }
+  }
+
+  save(merged);
+  for (const other of followers.values()) writeRoute(other);
+
+  for (const s of srcSlugs) remove(s, { force: true });
 
   const report = sources.map((src) => ({
     slug: src.slug,
@@ -1276,23 +1480,45 @@ export function removeTack(
   const route = load(slug);
   findTack(route, tackId);
 
+  const id = normalizeTackId(tackId);
   const dependents = route.tacks.filter((t) =>
-    t.id !== tackId && t.depends_on?.includes(tackId),
+    t.id !== id && t.depends_on?.includes(id),
   );
+  // Other routes reach this tack by its qualified form [DEPENDS-06].
+  const foreign = inboundRefs(slug, id);
 
-  if (dependents.length > 0 && !opts.force) {
-    const depIds = dependents.map((t) => t.id).join(", ");
+  if ((dependents.length > 0 || foreign.length > 0) && !opts.force) {
+    const local = dependents.map((t) => t.id);
+    const remote = foreign.map((r) => `${r.slug}/${r.from}`);
     throw new Error(
-      `Cannot remove ${tackId}: depended on by ${depIds}. Pass --force to strip references.`,
+      `Cannot remove ${id}: depended on by ${[...local, ...remote].join(", ")}. ` +
+        `Pass --force to strip references.`,
     );
   }
 
   for (const dep of dependents) {
-    dep.depends_on = dep.depends_on!.filter((id) => id !== tackId);
+    dep.depends_on = dep.depends_on!.filter((entry) => entry !== id);
     if (dep.depends_on.length === 0) delete dep.depends_on;
   }
 
-  route.tacks = route.tacks.filter((t) => t.id !== tackId);
+  route.tacks = route.tacks.filter((t) => t.id !== id);
   save(route);
+  for (const other of stripInbound(foreign)) writeRoute(other);
   return route;
+}
+
+// Drop the named inbound edges from the routes that carry them, returning those
+// routes for the caller to write once its own change has landed.
+function stripInbound(refs: InboundRef[]): Route[] {
+  const touched = new Map<string, Route>();
+  for (const ref of refs) {
+    if (!touched.has(ref.slug)) touched.set(ref.slug, load(ref.slug));
+    const other = touched.get(ref.slug)!;
+    const t = other.tacks.find((x) => x.id === ref.from);
+    if (!t?.depends_on) continue;
+    t.depends_on = t.depends_on.filter((entry) => entry !== ref.dependsOn);
+    if (t.depends_on.length === 0) delete t.depends_on;
+    other.updated_at = now();
+  }
+  return [...touched.values()];
 }

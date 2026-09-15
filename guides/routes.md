@@ -170,14 +170,12 @@ themed umbrella, or extracting a feature into its own route), use `tack move
 preserves all metadata (`status`, `done_at`, `deliverable`, `links`, `before`,
 `after`); a remove+add round-trip silently drops it.
 
-`depends_on` references are route-local. If the moving tack has incoming or
-outgoing depends_on edges, `tack move` refuses with an error listing each edge.
-Resolve by either:
-
-- `tack move <src>/<id> <dst> --include-dependents` to move the whole dependent
-  chain together (use this when the closure of dependents belongs in the new
-  route too)
-- `tack depends rm <slug> <tack-id> <dep-id>` to break the edge first
+A `depends_on` edge that ends up crossing the boundary is rewritten rather than
+broken: a moved tack that depended on one left behind now reads
+`<src-slug>/t<N>`, and a tack left behind follows the one that moved. Pass
+`--include-dependents` when the whole dependent chain belongs in the new route
+too — that keeps those edges local instead of turning them into cross-route
+ones.
 
 ## Browsing with `tack tree`
 

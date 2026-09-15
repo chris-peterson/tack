@@ -197,8 +197,8 @@ change when the route is updated.
   (`YYYY-MM-DDTHH:MM:SSZ`) when the tack was completed. The CLI writes the
   full date-time on new completions; bare dates are accepted on read for
   backward compatibility with routes created before v0.11.0.
-- `depends_on` (array of strings) — IDs of tacks within the same route that
-  must complete first
+- `depends_on` (array of strings) — tacks that must complete first, each either
+  a bare `t<N>` (this route) or `<slug>/t<N>` (another route)
 - `deliverable` (object) — the change request this tack produces
 - `links` (array) — external references
 
@@ -211,8 +211,9 @@ work.
 added, its ID shall be `t<N>` where N is one greater than the highest existing
 tack number.
 
-**[TACK-06]** When a tack's `depends_on` references a tack ID that does not
-exist in the route, the operation shall fail with an error.
+**[TACK-06]** When a tack's `depends_on` references a tack that does not exist —
+a bare `t<N>` absent from this route, or a `<slug>/t<N>` whose route or tack is
+absent — the operation shall fail with an error.
 
 **[TACK-07]** When a tack's `depends_on` references would create a circular
 dependency, the operation shall fail with an error.
@@ -239,13 +240,32 @@ represents the change request (PR/MR) that the tack produces.
 
 ### DEPENDS — Dependencies
 
-**[DEPENDS-02]** Tack-level `depends_on` shall be an array of tack IDs within the
-same route.
+**[DEPENDS-02]** Tack-level `depends_on` shall be an array of references, each
+either a bare `t<N>` naming a tack in the same route, or `<slug>/t<N>` naming a
+tack in another route. A reference to a tack in the route being written shall be
+stored in its bare form, so a route's internal edges never carry its own slug.
 
 **[DEPENDS-03]** When a tack has `depends_on` entries and any referenced tack has a
 status other than `done`, the dependent tack's status shall not be set to
 `in_progress` — the operation shall fail with an error indicating which
 dependencies are unmet.
+
+**[DEPENDS-04]** Cycle detection shall follow `depends_on` across route
+boundaries, so a cycle spanning two or more routes fails the same way a
+within-route cycle does per [TACK-07].
+
+**[DEPENDS-05]** Renaming a route shall rewrite every `<old-slug>/t<N>`
+reference in every other route to `<new-slug>/t<N>`. A rename that cannot
+rewrite them all shall leave the rename unperformed.
+
+**[DEPENDS-06]** Removing a tack or a route that something else depends on shall
+fail with an error naming the dependents, in the same way [CLI-38] governs
+within-route dependents, unless `--force` is passed — in which case the inbound
+references shall be stripped from the routes that carry them.
+
+**[DEPENDS-07]** `tack doctor` shall report dangling `depends_on` references —
+those naming a route or tack that does not exist — without refusing to load the
+route that carries them.
 
 ---
 
@@ -631,19 +651,18 @@ is reusable if it was the highest-numbered). All tack metadata — `summary`,
 `status`, `done_at`, `deliverable`, `links`, `before`, `after` — shall be
 preserved verbatim.
 
-**[CLI-36b]** Because tack IDs are route-local per [TACK-05], `depends_on`
-references cannot cross route boundaries. The CLI shall refuse the move if the
-tack being moved has any incoming or outgoing `depends_on` edge that would
-cross the boundary (a moving tack depending on a staying tack, or a staying
-tack depending on a moving tack), and shall display each offending edge in the
-error so the user can resolve it with [CLI-33] (`tack depends rm`) or by
-including the dependent chain.
+**[CLI-36b]** A `depends_on` edge that would cross the route boundary shall be
+rewritten into its cross-route form per [DEPENDS-02] rather than refused: a
+moving tack that depends on a staying tack shall reference `<src-slug>/t<N>`,
+and a staying tack that depends on a moving tack shall reference
+`<dst-slug>/t<N>` at the ID assigned in the destination. A third route that
+depends on a moving tack shall be rewritten the same way.
 
 **[CLI-36c]** When `--include-dependents` is passed, the move set is expanded to
 the transitive closure of tacks that depend on the source tack within the
 source route. Their `depends_on` arrays are rewritten to reference the new IDs
-assigned in the destination. The cross-boundary refusal of [CLI-36b] still
-applies — if any staying tack depends on a moving tack, the move shall fail.
+assigned in the destination; edges leaving the move set are rewritten per
+[CLI-36b].
 
 **[CLI-36d]** The CLI shall fail if `<src-slug>` and `<dst-slug>` are the same
 route, if either route does not exist, or if `<tack-id>` does not exist in the
@@ -777,7 +796,10 @@ each tack's `done_at`, falling back to its source route's `created_at` for tacks
 without one, then the source route's `created_at` and original numeric ID as
 tiebreakers — following [TACK-05] sequencing over the combined set. All tack
 metadata — `summary`, `status`, `done_at`, `deliverable`, `links` — and
-route-local `depends_on` (remapped to the new IDs) shall be preserved.
+`depends_on` shall be preserved: an edge onto another source collapses to a
+local reference at its new ID, and one onto a route outside the merge is kept
+as-is. A route outside the merge that depended on a source shall be rewritten to
+reference the merged route at the new ID.
 
 **[CLI-52b]** Session records ([ROUTE-09]) from every source shall carry over to
 the new route with their tack references remapped to the new IDs; a session

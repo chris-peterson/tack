@@ -42,7 +42,7 @@ Usage:
   tack remove <slug> <tack-id> [--force]
   tack deliverable <slug> <tack-id> <url> [--label <text>] [--force]   (label auto-derived from url by default)
   tack deliverable rm <slug> <tack-id> [--to-link]   (clear the deliverable, or --to-link to demote it into links)
-  tack depends add <slug> <tack-id> <dep-id>
+  tack depends add <slug> <tack-id> <dep-id>   (dep-id: t<N>, or <slug>/t<N> for another route)
   tack depends rm <slug> <tack-id> <dep-id>
   tack link add <slug> <tack-id> <label> <url>
   tack link rm <slug> <tack-id> <url>
@@ -899,15 +899,23 @@ function run() {
             if (!rest[0])
                 usage();
             const force = rest.includes("--force");
+            const inbound = route.routeExists(rest[0]) ? route.inboundRefs(rest[0]) : [];
             if (!force) {
                 // The refusal is not route data, so it goes to stderr with the other
                 // group-scoped errors ([CLI-41]) — a caller redirecting stdout gets no
                 // output at all, which is accurate: nothing was deleted.
-                console.error(`Delete route ${rest[0]}? Pass --force to confirm.`);
+                const depended = inbound.length
+                    ? ` It is depended on by ${inbound.map((r) => `${r.slug}/${r.from}`).join(", ")},` +
+                        ` and those references will be stripped.`
+                    : "";
+                console.error(`Delete route ${rest[0]}?${depended} Pass --force to confirm.`);
                 process.exit(1);
             }
-            route.remove(rest[0]);
+            route.remove(rest[0], { force: true });
             console.log(`Deleted: ${rest[0]}`);
+            for (const r of inbound) {
+                console.log(`  stripped ${r.dependsOn} from ${r.slug}/${r.from}`);
+            }
             break;
         }
         case "remove": {
@@ -1015,6 +1023,17 @@ function run() {
                         console.log("");
                     }
                     console.log("Repair each file listed above by hand, then re-run `tack doctor`.");
+                }
+                // A dangling edge loads fine, so it is reported alongside rather than
+                // among the unreadable files [DEPENDS-07].
+                if (report.dangling.length > 0) {
+                    const n = report.dangling.length;
+                    console.log(`\n${n} dangling depends_on reference${n === 1 ? "" : "s"}\n`);
+                    for (const d of report.dangling) {
+                        console.log(`${d.slug}/${d.tackId} → ${d.dependsOn} (${d.reason})`);
+                    }
+                    console.log("\nDrop each with `tack depends rm <slug> <tack-id> <dep-id>`, " +
+                        "or restore what it points at.");
                 }
             }
             if (report.invalid.length > 0)

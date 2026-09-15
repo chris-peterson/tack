@@ -4,12 +4,14 @@
 // thousand-column diff nobody can read.
 export const ZSH_COMPLETION: string = `#compdef tack
 
+# Any arguments are passed through to compadd, so a caller can attach a suffix
+# (\`-S /\` when a route slug is the first half of a <slug>/<tack-id> argument).
 _tack_routes() {
   local tack_dir="\${TACK_HOME:-$HOME/.tack}/routes"
   [[ -d "$tack_dir" ]] || return
   local -a routes
   routes=( "$tack_dir"/*.yaml(N:t:r) )
-  (( \${#routes} )) && compadd -a routes
+  (( \${#routes} )) && compadd "$@" -a routes
 }
 
 _tack_repo_names() {
@@ -382,11 +384,22 @@ _tack() {
       ;;
     depends)
       # tack depends {add|rm} <slug> <tack-id> <dep-id>
+      # <dep-id> takes a bare t<N> in this route, or <slug>/t<N> in another —
+      # once a slug and slash are typed, complete tack ids from that route.
       case "$CURRENT" in
         3) local -a subcmds; subcmds=('add:Add a dependency' 'rm:Remove a dependency'); _describe 'subcommand' subcmds ;;
         4) _tack_routes ;;
         5) _tack_tack_ids "\${words[4]}" ;;
-        6) _tack_tack_ids "\${words[4]}" ;;
+        6)
+          if [[ "$PREFIX" == */* ]]; then
+            local dep_route="\${PREFIX%%/*}"
+            compset -P '*/'
+            _tack_tack_ids "$dep_route"
+          else
+            _tack_tack_ids "\${words[4]}"
+            _tack_routes -S /
+          fi
+          ;;
       esac
       ;;
     rename)

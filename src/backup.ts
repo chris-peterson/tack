@@ -4,9 +4,22 @@ import * as repos from "./repos.js";
 import type { Route, Tack } from "./types.js";
 
 // Bump when the archive shape changes in a way an older tack can't read. Import
-// refuses an archive whose schemaVersion exceeds this, so a future v2 can ship a
+// refuses an archive whose schemaVersion exceeds this, so a future v3 can ship a
 // migration rather than silently mishandling unknown fields.
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
+
+// The version an archive is stamped with depends on what it actually holds, not
+// on which tack wrote it: v2 exists only because a cross-route `depends_on`
+// entry fails an older tack's `^t[0-9]+$` pattern. Stamping every export v2
+// would lock older tack out of archives it could read perfectly well.
+export const BASE_SCHEMA_VERSION = 1;
+
+function archiveVersion(routes: Route[]): number {
+  const crossRoute = routes.some((r) =>
+    r.tacks.some((t) => t.depends_on?.some((d) => d.includes("/"))),
+  );
+  return crossRoute ? SCHEMA_VERSION : BASE_SCHEMA_VERSION;
+}
 
 export interface Archive {
   schemaVersion: number;
@@ -27,7 +40,7 @@ export function buildArchive(generator: string): ExportResult {
   const routes = route.loadAll();
   const repoDb = repos.loadRepos();
   const archive: Archive = {
-    schemaVersion: SCHEMA_VERSION,
+    schemaVersion: archiveVersion(routes),
     exportedAt: new Date().toISOString(),
     generator,
     routes,
@@ -177,8 +190,10 @@ export function applyImport(
     }
     for (const nt of newTacks) {
       if (nt.depends_on) {
+        // A cross-route entry names its target by slug, so it survives the
+        // merge untouched; only this route's own ids are being reassigned.
         const remapped = nt.depends_on
-          .map((d) => idMap.get(d))
+          .map((d) => (d.includes("/") ? d : idMap.get(d)))
           .filter((x): x is string => Boolean(x));
         if (remapped.length) nt.depends_on = remapped;
         else delete nt.depends_on;

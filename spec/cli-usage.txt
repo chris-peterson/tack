@@ -28,7 +28,7 @@ Usage:
   tack remove <slug> <tack-id> [--force]
   tack deliverable <slug> <tack-id> <url> [--label <text>] [--force]   (label auto-derived from url by default)
   tack deliverable rm <slug> <tack-id> [--to-link]   (clear the deliverable, or --to-link to demote it into links)
-  tack depends add <slug> <tack-id> <dep-id>
+  tack depends add <slug> <tack-id> <dep-id>   (dep-id: t<N>, or <slug>/t<N> for another route)
   tack depends rm <slug> <tack-id> <dep-id>
   tack link add <slug> <tack-id> <label> <url>
   tack link rm <slug> <tack-id> <url>

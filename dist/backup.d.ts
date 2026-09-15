@@ -1,6 +1,7 @@
 import * as repos from "./repos.js";
 import type { Route } from "./types.js";
-export declare const SCHEMA_VERSION = 1;
+export declare const SCHEMA_VERSION = 2;
+export declare const BASE_SCHEMA_VERSION = 1;
 export interface Archive {
     schemaVersion: number;
     exportedAt: string;

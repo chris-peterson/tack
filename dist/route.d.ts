@@ -29,6 +29,33 @@ export declare function list(): {
     state: "active" | "done";
 }[];
 export declare function normalizeTackId(id: string): string;
+/**
+ * A `depends_on` entry addresses a tack either in the route carrying it (bare
+ * `t<N>`) or in another route (`<slug>/t<N>`) [DEPENDS-02]. Resolving one always
+ * needs the carrying route's slug — that is what makes the bare form concrete.
+ */
+export interface DepRef {
+    slug: string;
+    tackId: string;
+}
+export declare function parseDepRef(entry: string, localSlug: string): DepRef;
+export declare function formatDepRef(ref: DepRef, localSlug: string): string;
+/**
+ * Every `<slug>/t<N>` reference to `targetSlug` held by any other route, so a
+ * rename can rewrite them [DEPENDS-05] and a delete can refuse over them
+ * [DEPENDS-06].
+ */
+export interface InboundRef {
+    /** Route holding the dependent tack. */
+    slug: string;
+    /** The dependent tack's id within that route. */
+    from: string;
+    /** The tack being depended on, in `targetSlug`. */
+    target: string;
+    /** The `depends_on` entry verbatim, for an exact-match rewrite or strip. */
+    dependsOn: string;
+}
+export declare function inboundRefs(targetSlug: string, tackId?: string): InboundRef[];
 export declare function addTack(slug: string, summary: string, opts?: {
     dependsOn?: string[];
     done?: boolean;
@@ -106,12 +133,27 @@ export declare function findCollisions(url: string, exclude: {
     tackId: string;
 }): FindMatch[];
 export declare function rebuildRepos(): repos.RebuildResult;
+export interface DanglingRef {
+    slug: string;
+    tackId: string;
+    dependsOn: string;
+    reason: "no such route" | "no such tack";
+}
 export interface DoctorReport {
     files: number;
     invalid: InvalidRoute[];
+    dangling: DanglingRef[];
 }
+/**
+ * `depends_on` entries pointing at a route or tack that isn't there [DEPENDS-07].
+ * A dangling edge is valid against the schema — it is a well-formed reference to
+ * something absent — so it can only be found by resolving, not by loading.
+ */
+export declare function danglingRefs(routes?: Route[]): DanglingRef[];
 export declare function doctor(): DoctorReport;
-export declare function remove(slug: string): void;
+export declare function remove(slug: string, opts?: {
+    force?: boolean;
+}): void;
 export interface MoveResult {
     srcRoute: Route;
     dstRoute: Route;
