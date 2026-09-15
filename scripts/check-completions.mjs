@@ -30,7 +30,14 @@ const complCommands = new Set(
   [...complSrc.matchAll(/^\s*'([a-z][a-z-]*):/gm)].map((m) => m[1]),
 );
 
-const missing = [...cliCommands].filter((c) => !complCommands.has(c)).sort();
+// Commands deliberately absent from tab-completion: internal hook entry points
+// a user never types by hand. Keeping the set here rather than loosening the
+// regex means a new *user-facing* command still fails this check.
+const UNCOMPLETED = new Set(["freshness"]);
+
+const missing = [...cliCommands]
+  .filter((c) => !complCommands.has(c) && !UNCOMPLETED.has(c))
+  .sort();
 
 if (missing.length > 0) {
   console.error(

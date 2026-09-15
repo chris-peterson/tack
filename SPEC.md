@@ -614,6 +614,13 @@ highest-numbered.
 the `version` field of `.claude-plugin/plugin.json` (resolved from the
 plugin root) and exit zero.
 
+**[CLI-29a]** A working copy shall be runnable as the installed `tack` for the
+length of a trial, so a change is dogfooded before it ships. Running
+`install-cli` from a working copy's own build points the wrapper there —
+`resolveSource` prefers the plugin shim only when `CLAUDE_PLUGIN_ROOT` names
+one — so a trial uses the same install path a release does rather than a
+parallel one. Pointing the wrapper back at the plugin ends the trial.
+
 **[CLI-32]** `tack depends add <slug> <tack-id> <dep-id>` — When invoked, the
 CLI shall append `<dep-id>` to the specified tack's `depends_on` array. If
 the dependency already exists, the operation shall be a no-op (idempotent).
@@ -870,6 +877,11 @@ route file and report the ones that will not load, naming for each the file's
 path and every rule it breaks ([STORE-05], [STORE-07]). It shall exit non-zero
 when any file fails and zero when none does, and shall change nothing on disk.
 
+**[CLI-57a]** `tack doctor` shall also report the entry-point state [HOOK-01]
+resolves, naming each pinned path and what it reaches. The session banner has
+room to say that a path is pinned wrong, not which one; this is where a reader
+lands who wants to know which.
+
 Repair is a hand edit: the CLI refuses to write a file it could not read, and
 the alternatives — truncating an over-length note, dropping a field it does not
 recognize — discard text somebody wrote. So the report exists to make the edit
@@ -988,12 +1000,27 @@ anything does it by running the CLI, and only for the writes [HOOK-05]
 enumerates as determined. Every write needing judgment the hook cannot exercise
 is the agent's, per [AGENT-05] and [AGENT-06].
 
-**[HOOK-01]** A `SessionStart` hook shall compare the installed CLI wrapper's
-version to the plugin's `version` per [CLI-29]. When they differ, the hook
-shall emit a one-line note suggesting the plugin's install command
-(`/tack:install-tack`), which runs `tack install-cli` from the newly installed
-plugin root. The hook shall silently no-op when `tack` is not on `PATH` and
-shall never block session start.
+**[HOOK-01]** A `SessionStart` hook shall report entry points that no longer
+reach the loaded install, by running `tack freshness` from `CLAUDE_PLUGIN_ROOT`
+— the one copy guaranteed to be the version now loaded. The check shall compare
+the **path** each installed wrapper execs against this install's entry points,
+not the version it reports: `--version` resolves its manifest from
+`CLAUDE_PLUGIN_ROOT`, so a stale wrapper echoes the very version it is being
+compared against and the comparison is equal at every amount of drift. The hook
+shall never block session start, and shall print nothing when every surface
+reaches this install.
+
+**[HOOK-01a]** A wrapper whose target is missing shall be reported whatever
+installed it — a dangling entry point is broken however it got that way, and is
+where the CLI is most broken. A wrapper aimed at a target that exists outside
+the plugin cache is a trial ([CLI-29a]) and shall stay silent; one aimed at
+another version inside the cache is drift and shall be reported.
+
+**[HOOK-01b]** The finding shall be emitted on both hook channels: a one-line
+`systemMessage` naming the drift and the command that repairs it, and an
+`additionalContext` carrying the per-surface breakdown. `additionalContext`
+reaches only the model, which is free to answer the prompt in front of it and
+never relay what it read, so it shall not be the only channel.
 
 **[HOOK-02]** A `PostToolUse` hook scoped to the `Bash` tool shall scan tool
 output for PR/MR and issue URLs (the recognized forges are defined in

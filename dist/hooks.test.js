@@ -412,3 +412,83 @@ describe("record-landed", () => {
         assert.equal(run("all tests passed").out, "");
     });
 });
+// ── freshness ──────────────────────────────────────────────────
+// Where a wrapper *points* is the signal [HOOK-01]; its reported version is
+// not, because a stale wrapper reads the manifest from the inherited
+// CLAUDE_PLUGIN_ROOT and echoes the very version it is compared against.
+describe("freshness", () => {
+    // Builds a store with a plugin root and a wrapper aimed wherever the case
+    // wants, then runs the real subcommand the hook execs.
+    function runFreshness(opts) {
+        const dir = mkdtempSync(join(tmpdir(), "tack-freshness-"));
+        const pluginRoot = join(dir, "plugin");
+        mkdirSync(join(pluginRoot, "dist"), { recursive: true });
+        mkdirSync(join(pluginRoot, ".claude-plugin"), { recursive: true });
+        writeFileSync(join(pluginRoot, ".claude-plugin", "plugin.json"), JSON.stringify({ name: "tack", version: "9.9.9" }));
+        writeFileSync(join(pluginRoot, "dist", "cli.js"), "// current entry point\n");
+        const target = opts.target.replace("<root>", pluginRoot).replace("<dir>", dir);
+        if (opts.targetExists !== false) {
+            mkdirSync(dirname(target), { recursive: true });
+            if (!existsSync(target))
+                writeFileSync(target, "// some build\n");
+        }
+        const binDir = join(dir, "bin");
+        mkdirSync(binDir, { recursive: true });
+        writeFileSync(join(binDir, "tack"), `#!/usr/bin/env bash\nexec node "${target}" "$@"\n`, { mode: 0o755 });
+        // PATH is only the stub dir, so wrapper discovery sees this case's wrapper
+        // and nothing else — hence process.execPath rather than a bare "node".
+        return execFileSync(process.execPath, [join(repoRoot, "dist", "cli.js"), "freshness"], {
+            encoding: "utf-8",
+            env: { ...process.env, PATH: binDir, CLAUDE_PLUGIN_ROOT: pluginRoot, HOME: dir },
+        });
+    }
+    it("says nothing when the wrapper reaches this install", () => {
+        assert.equal(runFreshness({ target: "<root>/dist/cli.js" }).trim(), "");
+    });
+    it("reports a wrapper still aimed at an older plugin version", () => {
+        const out = runFreshness({
+            target: "<dir>/.claude/plugins/cache/chris-peterson/tack/1.6.0/dist/cli.js",
+        });
+        const payload = JSON.parse(out);
+        assert.match(payload.systemMessage, /older install/);
+        assert.match(payload.systemMessage, /install-tack/);
+        assert.match(payload.hookSpecificOutput.additionalContext, /1\.6\.0/);
+    });
+    it("puts the finding on systemMessage, not context alone", () => {
+        const out = runFreshness({
+            target: "<dir>/.claude/plugins/cache/chris-peterson/tack/1.6.0/dist/cli.js",
+        });
+        const payload = JSON.parse(out);
+        // additionalContext reaches only the model, which is free never to mention
+        // it; the banner is what actually delivers the finding.
+        assert.ok(payload.systemMessage);
+        assert.doesNotMatch(payload.hookSpecificOutput.additionalContext, /PLEASE TELL THE USER/);
+    });
+    it("stays silent for a trial pointing at a working copy that exists", () => {
+        assert.equal(runFreshness({ target: "<dir>/src/tack/dist/cli.js" }).trim(), "");
+    });
+    it("ignores a self-locating shim that execs a variable", () => {
+        // The plugin's own bin/tack computes its root from its own location and
+        // execs "$DIST". Reading that as a literal path reported a shell variable
+        // as a missing file.
+        const dir = mkdtempSync(join(tmpdir(), "tack-freshness-"));
+        const pluginRoot = join(dir, "plugin");
+        mkdirSync(join(pluginRoot, "dist"), { recursive: true });
+        writeFileSync(join(pluginRoot, "dist", "cli.js"), "// current\n");
+        const binDir = join(dir, "bin");
+        mkdirSync(binDir, { recursive: true });
+        writeFileSync(join(binDir, "tack"), '#!/usr/bin/env bash\nDIST="$(dirname "$0")/../dist/cli.js"\nexec node "$DIST" "$@"\n', { mode: 0o755 });
+        const out = execFileSync(process.execPath, [join(repoRoot, "dist", "cli.js"), "freshness"], {
+            encoding: "utf-8",
+            env: { ...process.env, PATH: binDir, CLAUDE_PLUGIN_ROOT: pluginRoot, HOME: dir },
+        });
+        assert.equal(out.trim(), "");
+    });
+    it("reports a trial whose working copy is gone", () => {
+        // Gone is gone whoever installed it: a dangling pointer is broken however
+        // it got that way, and that is where the CLI is most broken.
+        const out = runFreshness({ target: "<dir>/src/tack/dist/cli.js", targetExists: false });
+        const payload = JSON.parse(out);
+        assert.match(payload.systemMessage, /no longer exists/);
+    });
+});

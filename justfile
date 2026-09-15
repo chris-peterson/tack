@@ -33,9 +33,9 @@ check: build
     {{shipyard}} generate
     git --no-pager diff --stat
 
-# lint the shell half of the plugin (hooks, the URL library)
+# lint the shell half of the plugin (hooks, the URL library, the trial helper)
 lint-shell:
-    shellcheck hooks/*.sh scripts/lib-url.sh
+    shellcheck hooks/*.sh scripts/lib-url.sh scripts/trial-off.sh
 
 # Re-record the CLI grammar snapshot after an intended usage change
 usage-snapshot: build
@@ -57,3 +57,14 @@ try:
 
 install:
     claude plugin install tack
+
+# Point the `tack` on your PATH at this working copy, until `just trial-off`
+trial-on: build
+    @node dist/cli.js install-cli
+    @echo
+    @echo "Trialling $(node dist/cli.js --version) from $(pwd)."
+    @echo "Rebuild with \`just build\` to pick up edits; \`just trial-off\` to revert."
+
+# Put the published plugin build back on your PATH
+trial-off:
+    @bash scripts/trial-off.sh

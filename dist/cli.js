@@ -9,6 +9,7 @@ import * as backup from "./backup.js";
 import * as reconcile from "./reconcile.js";
 import * as serve from "./serve.js";
 import * as service from "./service.js";
+import * as freshness from "./freshness.js";
 import { TACK_STATUSES } from "./types.js";
 import { announce, announceOnce } from "./announce.js";
 import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind, formatRepos, treeData } from "./display.js";
@@ -1024,6 +1025,21 @@ function run() {
                     }
                     console.log("Repair each file listed above by hand, then re-run `tack doctor`.");
                 }
+                // The banner is seen once per session and says only that a path is
+                // pinned wrong; this is where someone lands who wants to know which.
+                const d = freshness.drift();
+                const bad = [...d.gone, ...d.stale];
+                if (bad.length === 0) {
+                    console.log("entry points: all reach this install");
+                }
+                else {
+                    console.log(`\nentry points: ${bad.length} left behind\n`);
+                    for (const s of d.gone)
+                        console.log(`${s.path} → ${s.target} (gone)`);
+                    for (const s of d.stale)
+                        console.log(`${s.path} → ${s.target} (older install)`);
+                    console.log("\nRepair with `/tack:install-tack`.");
+                }
                 // A dangling edge loads fine, so it is reported alongside rather than
                 // among the unreadable files [DEPENDS-07].
                 if (report.dangling.length > 0) {
@@ -1038,6 +1054,15 @@ function run() {
             }
             if (report.invalid.length > 0)
                 process.exitCode = 1;
+            break;
+        }
+        case "freshness": {
+            // Internal: the SessionStart hook's entry point. Silent when every
+            // surface reaches this install, and never non-zero — a hook must not
+            // disturb the session.
+            const payload = freshness.sessionStartPayload();
+            if (payload)
+                console.log(payload);
             break;
         }
         case "install-cli": {
