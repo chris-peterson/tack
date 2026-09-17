@@ -17,5 +17,5 @@ is the new one — and it runs before `tack` is on PATH at all. -->
 ```
 
 Every step is idempotent, so re-running it is the normal way to recover from
-drift — the SessionStart freshness hook nudges you here when `tack --version`
-falls behind the plugin.
+drift — the SessionStart freshness hook nudges you here when the wrapper's
+pinned path no longer reaches the current plugin root.
