@@ -89,6 +89,18 @@ what picks the level:
 git log $(git describe --tags --abbrev=0)..main --no-merges
 ```
 
+## Running your changes
+
+`just trial-on` points the `tack` on your PATH at this working copy, and
+`just trial-off` puts the installed plugin back. Both go through the CLI's own
+`install-cli`, so a trial exercises the shipped install path rather than a
+parallel one ([CLI-29a]) and ending one lands exactly what a user has.
+
+`tack --version` tells you which you are on: a trial answers
+`<version>-dev.g<sha>`, an installed copy answers the bare version
+([CLI-29b]). Rebuild with `just build` to pick up edits mid-trial — the wrapper
+execs `dist/`, so a build is all a running trial needs.
+
 ## Naming Conventions
 
 The word "tack" is used at two levels:

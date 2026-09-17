@@ -15,6 +15,7 @@ import { TACK_STATUSES, type TackStatus, type Route } from "./types.js";
 import { announce, announceOnce } from "./announce.js";
 import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind, formatRepos, treeData } from "./display.js";
 import { ZSH_COMPLETION } from "./completions.js";
+import { describeVersion } from "./build-info.js";
 
 function usage(exitCode = 1): never {
   const print = exitCode === 0 ? console.log : console.error;
@@ -241,6 +242,13 @@ function readVersion(): string {
   }
 }
 
+// The version every surface reports, marked where this copy is a working tree
+// ([CLI-29b]). Routed through one function so `--version` and the archive
+// generator cannot disagree about which copy produced the answer.
+function versionString(): string {
+  return describeVersion(readVersion());
+}
+
 
 // Everything the CLI throws is an ordinary caller condition — an unknown flag,
 // a slug that doesn't exist, a schema rule the write would break — so the
@@ -262,7 +270,7 @@ function run(): void {
   const args = process.argv.slice(2);
 
   if (args[0] === "--version" || args[0] === "-v") {
-    console.log(`tack ${readVersion()}`);
+    console.log(`tack ${versionString()}`);
     return;
   }
 
@@ -954,7 +962,7 @@ function run(): void {
         },
         allowPositionals: false,
       });
-      const { json, counts } = backup.buildArchive(`tack ${readVersion()}`);
+      const { json, counts } = backup.buildArchive(`tack ${versionString()}`);
       const compress = Boolean(values.compress);
       const payload = compress ? backup.compress(json) : json;
       const outFile = values["out-file"];

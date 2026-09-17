@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`tack --version` says when you are on a trial.** A working copy carries a `.git` at its package root where a marketplace install does not, so a trial now reports `1.6.0-dev.g<sha>`, with `.dirty` where the tree has moved past that commit. Both copies used to answer with the same manifest version, which left reading the wrapper on your PATH as the only way to tell them apart. The marker is derived from the module's own location rather than `CLAUDE_PLUGIN_ROOT`, so a wrapper pointed at a checkout reports the checkout.
+
 ## 1.6.0
 
 ### Removed
