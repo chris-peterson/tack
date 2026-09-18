@@ -99,6 +99,13 @@ function warnUrlCollision(url: string, slug: string, tackId: string): void {
   if (collisions.length === 0) return;
   const locations = collisions.map((m) => `${m.slug}/${m.tackId} (${m.match})`).join(", ");
   console.error(`warning: url already on ${locations}: ${url}`);
+  // A url names one piece of work, so a second tack claiming it is usually a
+  // relationship rather than a second claim. Name the edge that says so. The
+  // attach still completes: refusing input an earlier 1.x accepted would be a
+  // breaking change ([COMPAT-03]).
+  const first = collisions[0];
+  const ref = first.slug === slug ? first.tackId : `${first.slug}/${first.tackId}`;
+  console.error(`  a url belongs to one tack; to relate them instead: tack depends add ${slug} ${tackId} ${ref}`);
 }
 
 // Attribute the current Claude session to a route it just touched, so fleet

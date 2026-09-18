@@ -642,6 +642,9 @@ describe("duplicate-url warning (issue #10)", () => {
     assert.equal(r.status, 0);
     assert.match(r.stderr, /warning: url already on dup-a\/t1 \(deliverable\)/);
     assert.match(r.stderr, new RegExp(url.replace(/[/.]/g, "\\$&")));
+    // The invariant is one url, one tack, so the second claim is pointed at the
+    // edge that states the relationship instead.
+    assert.match(r.stderr, /tack depends add dup-b t1 dup-a\/t1/);
   });
 
   it("warns when a link url is already on another tack", () => {
