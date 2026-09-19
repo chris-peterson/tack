@@ -1,6 +1,6 @@
 import { describe, it, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -18,8 +18,11 @@ after(() => {
 });
 
 beforeEach(() => {
-  const routesDir = join(tmp, "routes");
-  rmSync(routesDir, { recursive: true, force: true });
+  for (const d of readdirSync(tmp, { withFileTypes: true })) {
+    if (d.isDirectory() && /^\d{4}$/.test(d.name)) {
+      rmSync(join(tmp, d.name), { recursive: true, force: true });
+    }
+  }
 });
 
 describe("init", () => {
@@ -1118,7 +1121,7 @@ describe("mergeRoutes", () => {
   async function backdate(slug: string, createdAt: string): Promise<void> {
     const { writeFileSync, readFileSync } = await import("node:fs");
     const yaml = await import("yaml");
-    const path = join(tmp, "routes", `${slug}.yaml`);
+    const path = join(tmp, String(new Date().getFullYear()), "routes", `${slug}.yaml`);
     const data = yaml.parse(readFileSync(path, "utf-8")) as any;
     data.created_at = createdAt;
     writeFileSync(path, yaml.stringify(data), "utf-8");
@@ -1682,7 +1685,7 @@ describe("slug validation at the command boundary", () => {
 describe("filename and internal slug must agree", () => {
   it("load refuses a route file whose slug disagrees with its filename", () => {
     route.init("real-slug");
-    const routes = join(tmp, "routes");
+    const routes = join(tmp, String(new Date().getFullYear()), "routes");
     renameSync(join(routes, "real-slug.yaml"), join(routes, "other-name.yaml"));
 
     assert.throws(
@@ -1693,7 +1696,7 @@ describe("filename and internal slug must agree", () => {
 
   it("the mismatch would otherwise rewrite the route under the other name", () => {
     route.init("real-slug");
-    const routes = join(tmp, "routes");
+    const routes = join(tmp, String(new Date().getFullYear()), "routes");
     renameSync(join(routes, "real-slug.yaml"), join(routes, "other-name.yaml"));
 
     // Without the check, load("other-name") + any mutation would save() to
@@ -1873,7 +1876,7 @@ describe("scanning a store that holds an unreadable file (issue #49)", () => {
   function writeBadRoute(slug: string): void {
     route.init(slug);
     route.addTack(slug, "a tack");
-    const path = join(tmp, "routes", `${slug}.yaml`);
+    const path = join(tmp, String(new Date().getFullYear()), "routes", `${slug}.yaml`);
     writeFileSync(
       path,
       readFileSync(path, "utf-8").replace("summary: a tack", `summary: ${"x".repeat(600)}`),

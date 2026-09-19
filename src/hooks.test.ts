@@ -73,9 +73,9 @@ describe("session-nudge route resolution", () => {
 
   function makeRoutes(...slugs: string[]): string {
     const home = mkdtempSync(join(tmpdir(), "tack-hook-home-"));
-    mkdirSync(join(home, "routes"));
+    mkdirSync(join(home, String(new Date().getFullYear()), "routes"), { recursive: true });
     for (const slug of slugs) {
-      writeFileSync(join(home, "routes", `${slug}.yaml`), `slug: ${slug}\ntacks: []\n`);
+      writeFileSync(join(home, String(new Date().getFullYear()), "routes", `${slug}.yaml`), `slug: ${slug}\ntacks: []\n`);
     }
     return home;
   }

@@ -11,7 +11,6 @@ import * as reconcile from "./reconcile.js";
 import * as serve from "./serve.js";
 import * as service from "./service.js";
 import * as freshness from "./freshness.js";
-import * as projection from "./project.js";
 import { TACK_STATUSES, type TackStatus, type Route } from "./types.js";
 import { announce, announceOnce } from "./announce.js";
 import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind, formatRepos, treeData } from "./display.js";
@@ -977,33 +976,6 @@ function run(): void {
         process.stdout.write(payload);
         if (!compress) process.stdout.write("\n");
       }
-      break;
-    }
-
-    // Internal, and transitional. It fills the user-local store under ~/.tack
-    // from the git-backed one, which is the legacy direction: the git-backed
-    // store is becoming the storage rather than a copy of it, so this retires
-    // once tack reads that directly. Out of the published grammar for the same
-    // reason -- nothing here is frozen for 1.x.
-    case "rebuild-local": {
-      const { values } = parseArgs({
-        args: rest,
-        options: { store: { type: "string" }, "dry-run": { type: "boolean" } },
-        allowPositionals: false,
-      });
-      const dryRun = Boolean(values["dry-run"]);
-      // Let the top-level handler report this, so TACK_DEBUG can still reach
-      // the stack of a store this command could not make sense of.
-      const r = projection.project({ store: values.store, dryRun });
-      const tag = dryRun ? "[dry-run] " : "";
-      console.log(
-        `${tag}${r.routes} routes, ${r.tacks} tacks: ` +
-        `${r.created.length} created, ${r.updated.length} updated, ${r.unchanged} unchanged`,
-      );
-      // Completion is observed on a forge, so a fresh store projects as pending
-      // until `tack reconcile` runs. Say how much was already known.
-      console.log(`${tag}${r.carried} tacks carried a status forward`);
-      for (const slug of [...r.created, ...r.updated].sort()) console.log(`  ${slug}`);
       break;
     }
 

@@ -43,10 +43,19 @@ nudged_file="${state_dir}/${session_id}.nudged"
 
 if [ ! -f "$bound_file" ] && command -v tack >/dev/null 2>&1; then
   resolved_slug=""
-  tack_dir="${TACK_HOME:-$HOME/.tack}/routes"
+  tack_home="${TACK_HOME:-$HOME/.tack}"
 
   # Resolution reads route filenames directly rather than shelling out to tack
   # per prompt: both steps are a filename test, and this runs on every prompt.
+
+  # A route is filed under the year it was opened in, so a slug is looked for
+  # across every year rather than in one directory.
+  route_exists() {
+    for dir in "$tack_home"/[0-9][0-9][0-9][0-9]/routes; do
+      [ -f "$dir/$1.yaml" ] && return 0
+    done
+    return 1
+  }
   toplevel=""
   if [ -n "$cwd" ]; then
     toplevel=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || true)
@@ -56,7 +65,7 @@ if [ ! -f "$bound_file" ] && command -v tack >/dev/null 2>&1; then
   # sets up, and it stays the most specific signal — one branch, one route.
   if [ -n "$toplevel" ]; then
     branch=$(git -C "$toplevel" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
-    if [ -n "$branch" ] && [ -f "$tack_dir/$branch.yaml" ]; then
+    if [ -n "$branch" ] && route_exists "$branch"; then
       resolved_slug="$branch"
     fi
   fi
@@ -66,7 +75,7 @@ if [ ! -f "$bound_file" ] && command -v tack >/dev/null 2>&1; then
   # where step 1 has nothing to match — still lands on it.
   if [ -z "$resolved_slug" ] && [ -n "$toplevel" ]; then
     project=$(basename "$toplevel")
-    if [ -f "$tack_dir/$project.yaml" ]; then
+    if route_exists "$project"; then
       resolved_slug="$project"
     fi
   fi

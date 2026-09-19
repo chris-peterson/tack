@@ -30,11 +30,10 @@ const complCommands = new Set(
   [...complSrc.matchAll(/^\s*'([a-z][a-z-]*):/gm)].map((m) => m[1]),
 );
 
-// Commands deliberately absent from tab-completion: internal entry points that
-// are not part of the published grammar — a hook's, or a transitional one whose
-// name is still free to change. Keeping the set here rather than loosening the
+// Commands deliberately absent from tab-completion: internal hook entry points
+// a user never types by hand. Keeping the set here rather than loosening the
 // regex means a new *user-facing* command still fails this check.
-const UNCOMPLETED = new Set(["freshness", "rebuild-local"]);
+const UNCOMPLETED = new Set(["freshness"]);
 
 const missing = [...cliCommands]
   .filter((c) => !complCommands.has(c) && !UNCOMPLETED.has(c))

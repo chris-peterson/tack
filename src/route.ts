@@ -8,7 +8,22 @@ import * as repos from "./repos.js";
 import type { Link, Route, Session, Tack, TackStatus } from "./types.js";
 
 const TACK_HOME = process.env.TACK_HOME ?? join(homedir(), ".tack");
-const TACK_DIR = join(TACK_HOME, "routes");
+const YEAR_DIR = /^\d{4}$/;
+
+// A route file lives under the year it was opened in. Lookups scan every year,
+// so one that outlives its year stays in the file it started in rather than
+// being split or moved.
+function years(): string[] {
+  if (!existsSync(TACK_HOME)) return [];
+  return readdirSync(TACK_HOME, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && YEAR_DIR.test(e.name))
+    .map((e) => e.name)
+    .sort();
+}
+
+function yearDir(year: string): string {
+  return join(TACK_HOME, year, "routes");
+}
 
 export function isOpen(t: Tack): boolean {
   return t.status !== "done" && t.status !== "dropped";
@@ -109,10 +124,13 @@ export function sanitizeRoute(route: Route): Route {
 }
 
 function routeSlugs(): string[] {
-  ensureDir();
-  return readdirSync(TACK_DIR)
-    .filter((f: string) => f.endsWith(".yaml"))
-    .map((f: string) => f.replace(/\.yaml$/, ""));
+  const slugs: string[] = [];
+  for (const year of years()) {
+    for (const f of readdirSync(yearDir(year))) {
+      if (f.endsWith(".yaml")) slugs.push(f.replace(/\.yaml$/, ""));
+    }
+  }
+  return slugs;
 }
 
 export interface InvalidRoute {
@@ -165,14 +183,22 @@ export function loadAll(): Route[] {
   return routeSlugs().map((slug) => load(slug));
 }
 
-function ensureDir(): void {
-  if (!existsSync(TACK_DIR)) {
-    mkdirSync(TACK_DIR, { recursive: true });
-  }
+function ensureDir(year: string): void {
+  const dir = yearDir(year);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 }
 
-function routePath(slug: string): string {
-  return join(TACK_DIR, `${slug}.yaml`);
+// The year a route already sits under, else the one its timestamp puts it in.
+// Passing the route's own `created_at` is what lands a new file in the right
+// place; a lookup by slug alone falls back to the current year, which is where
+// a route that does not exist yet would be created.
+function routePath(slug: string, createdAt?: string): string {
+  for (const year of years()) {
+    const candidate = join(yearDir(year), `${slug}.yaml`);
+    if (existsSync(candidate)) return candidate;
+  }
+  const year = String(createdAt ?? new Date().toISOString()).slice(0, 4);
+  return join(yearDir(year), `${slug}.yaml`);
 }
 
 function now(): string {
@@ -277,7 +303,7 @@ function floorCreatedAt(route: Route): void {
 }
 
 function save(route: Route): void {
-  ensureDir();
+  ensureDir(String(route.created_at).slice(0, 4));
   route.updated_at = now();
   floorCreatedAt(route);
   // Every mutation lands here, which is where the text a command just supplied
@@ -289,13 +315,13 @@ function save(route: Route): void {
     throw new Error(`Route validation failed:\n${result.errors.join("\n")}`);
   }
 
-  writeFileSync(routePath(route.slug), stringify(route), "utf-8");
+  writeFileSync(routePath(route.slug, route.created_at), stringify(route), "utf-8");
 }
 
 // Import/restore: write a route object verbatim (validated) without bumping
 // updated_at, so a full restore preserves timestamps and a merge sets its own.
 export function writeRoute(route: Route): void {
-  ensureDir();
+  ensureDir(String(route.created_at).slice(0, 4));
   // An imported archive is as untrusted as a forge issue body — it arrives from
   // another machine — and this path bypasses load(), so it cleans its own input.
   sanitizeRoute(route);
@@ -303,7 +329,7 @@ export function writeRoute(route: Route): void {
   if (!result.valid) {
     throw new Error(`Route validation failed:\n${result.errors.join("\n")}`);
   }
-  writeFileSync(routePath(route.slug), stringify(route), "utf-8");
+  writeFileSync(routePath(route.slug, route.created_at), stringify(route), "utf-8");
 }
 
 export function routeExists(slug: string): boolean {
@@ -313,7 +339,6 @@ export function routeExists(slug: string): boolean {
 export function init(slug: string, opts: { group?: string } = {}): Route {
   assertValidSlug(slug);
   if (opts.group) assertValidSlug(opts.group, "group");
-  ensureDir();
   const path = routePath(slug);
   if (existsSync(path)) {
     throw new Error(`Route already exists: ${slug}`);
