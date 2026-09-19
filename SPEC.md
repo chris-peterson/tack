@@ -19,7 +19,7 @@ path.
 flowchart LR
     subgraph deterministic ["Deterministic"]
         cli["tack CLI"]
-        schema["~/.tack/routes/*.yaml"]
+        schema["<root>/<year>/routes/*.yaml"]
         cli --> schema
     end
 
@@ -94,7 +94,7 @@ Repo database (1 YAML file, ~/.tack/repos.yaml)
 **[ROUTE-01]** The route schema shall use YAML as the on-disk format.
 
 **[ROUTE-02]** Each route shall be stored as a single file at
-`~/.tack/routes/<slug>.yaml`.
+`<root>/<year>/routes/<slug>.yaml`.
 
 **[ROUTE-03]** Each route shall contain the following required fields:
 - `id` (string) — a v4 UUID, generated once at creation time
@@ -150,7 +150,7 @@ that touch no tack date at all — a rename, a regroup, a link added — which a
 maximum over child dates cannot observe.
 
 **[ROUTE-05]** The `slug` field shall be unique across all route files in
-`~/.tack/routes/`. When a slug matches an existing filename, the operation
+the store. When a slug matches an existing filename, the operation
 shall fail with an error.
 
 **[ROUTE-06]** The `updated_at` field shall be set to the current time whenever
@@ -279,13 +279,26 @@ route that carries them.
 
 ### STORE — Storage
 
-**[STORE-01]** Route files shall be stored in `~/.tack/routes/`. tack shall
-never write state into the working directory itself — a state file in the
-project tree is one `git add .` away from being committed to a repo where it
-has no business. All tack state lives under `~/.tack/`.
+**[STORE-01]** Route files shall be stored under a store root, at
+`<root>/<year>/routes/<slug>.yaml`, where `<year>` is the year the route was
+created in. The root shall be the `TACK_HOME` environment variable where set,
+and `~/.tack` otherwise. tack shall never write state into the working
+directory itself — a state file in the project tree is one `git add .` away
+from being committed to a repo where it has no business.
 
-**[STORE-02]** The storage directory shall be created automatically on first use
-if it does not exist.
+**[STORE-01a]** A store root may be a git checkout, which is what makes the
+record durable and auditable: a home directory says nothing about when a route
+appeared or what changed, and a lost machine takes it with it. Nothing in the
+CLI performs a git operation, so cloning, committing and pushing a store are
+the user's, exactly as they are for any other repository.
+
+**[STORE-01b]** A lookup shall read every year present under the root, so a
+route outliving the year it was opened in stays in the file it started in
+rather than being split or moved. A write shall place a new file by the route's
+own `created_at`.
+
+**[STORE-02]** The storage directory for a year shall be created automatically
+on first use if it does not exist.
 
 **[STORE-03]** Route filenames shall match the pattern `<slug>.yaml`.
 
@@ -370,7 +383,7 @@ never reaches.
 **[CLI-01]** The CLI shall be invoked as `tack <command> [options]`.
 
 **[CLI-02]** `tack init <slug> [--group <slug>]` — When invoked, the CLI shall
-create a new route file at `~/.tack/routes/<slug>.yaml` with a generated v4
+create a new route file at `<root>/<year>/routes/<slug>.yaml` with a generated v4
 UUID as `id`, an empty `tacks` array, and `created_at`/`updated_at` set to
 the current time. When `--group` is passed, the route's `group` shall be set
 to the given slug. When the `CLAUDE_CODE_SESSION_ID` environment variable is
@@ -471,14 +484,14 @@ setting a deliverable is the separate, explicit operation of
 the `deliverable` URL or in `links`), the CLI shall not add a duplicate.
 
 **[CLI-14]** `tack list` — When invoked, the CLI shall list all route files in
-`~/.tack/routes/` with their slug, number of tacks, and number of open tacks.
+the store with their slug, number of tacks, and number of open tacks.
 Each entry shall also carry the route's `title` ([ROUTE-04]) when one is set, so
 the listing names the route as well as addressing it. The `--json` form
 ([CLI-18]) serializes the full route, so it carries `title` alongside every
 other field.
 
 **[CLI-15]** `tack rm <slug> [--force]` — When invoked, the CLI shall delete
-the route file at `~/.tack/routes/<slug>.yaml`. The CLI shall require
+the route file at `<root>/<year>/routes/<slug>.yaml`. The CLI shall require
 `--force` to confirm deletion; without it, the CLI shall write the confirmation
 message to **stderr** (consistent with [CLI-41]) and exit **non-zero** without
 deleting. Nothing is written to stdout, so a caller redirecting it receives no
@@ -1345,7 +1358,7 @@ unambiguous. Anchoring in place would emit one id several times and send every
 link to whichever route rendered first.
 
 **[SERVE-03]** The server shall hold no state of its own: every request re-reads
-`~/.tack/routes/` ([STORE-01]) so a document and the CLI cannot disagree. An
+the store ([STORE-01]) so a document and the CLI cannot disagree. An
 edit to a route file shall be visible on the next request without a restart.
 
 **[SERVE-04]** A request for a slug or group that does not exist shall return
@@ -1514,8 +1527,8 @@ change additively ([COMPAT-02]), or by retirement ([COMPAT-07]):
 - the route schema — the field names, types, and value formats given by ROUTE,
   TACK, DEL, DEP, and LINK, as enforced by `schema/route.schema.json`
   ([STORE-04]);
-- where those files live — `~/.tack/routes/<slug>.yaml` ([STORE-01],
-  [STORE-03]);
+- where those files live — `<root>/<year>/routes/<slug>.yaml` ([STORE-01],
+  [STORE-03]), and the root's default of `~/.tack` ([STORE-01]);
 - the CLI grammar — command and subcommand names, flag names, and positional
   argument order, as recorded in `spec/cli-usage.txt` ([COMPAT-05]);
 - exit codes — zero on success and non-zero on failure, plus any specific code

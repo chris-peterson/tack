@@ -85,7 +85,35 @@ Route (1 YAML file per route)
         └── label, url
 ```
 
-Routes are stored as YAML files in `~/.tack/routes/`.
+## Where routes are stored
+
+Routes are YAML files under a store root, filed by the year each route was
+opened in:
+
+```
+<root>/2026/routes/<slug>.yaml
+```
+
+The root is `~/.tack` unless `TACK_HOME` names another directory. Lookups read
+every year present, so a route that runs past New Year stays in the one file it
+started in.
+
+### Keeping the store in git
+
+Point `TACK_HOME` at a checkout and the record becomes durable and auditable —
+who changed what, and when — instead of living only on one machine:
+
+```bash
+export TACK_HOME="$HOME/src/<you>/tack.db"   # in ~/.zshenv, so hooks see it too
+```
+
+Create the repo, then work as usual; `tack init` makes the year directory on
+first use. The CLI performs no git operations, so committing and pushing the
+store is yours to do, on whatever rhythm suits you.
+
+Moving an existing `~/.tack` into a store is a file move: place each
+`routes/<slug>.yaml` under the year in its `created_at`.
+
 
 ## CLI Reference
 
@@ -125,7 +153,7 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 
 ## Compatibility
 
-Anything that reads `~/.tack/routes/*.yaml` or shells out to `tack` is a first-class consumer, so `1.x` freezes what those consumers stand on:
+Anything that reads the route files or shells out to `tack` is a first-class consumer, so `1.x` freezes what those consumers stand on:
 
 | Frozen for `1.x` | Free to change |
 |---|---|
