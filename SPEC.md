@@ -632,7 +632,21 @@ length of a trial, so a change is dogfooded before it ships. Running
 `install-cli` from a working copy's own build points the wrapper there —
 `resolveSource` prefers the plugin shim only when `CLAUDE_PLUGIN_ROOT` names
 one — so a trial uses the same install path a release does rather than a
-parallel one. Pointing the wrapper back at the plugin ends the trial.
+parallel one. `just trial-off` ends the trial by running the highest installed
+version's own `install-cli`, so it lands exactly what a user has rather than a
+wrapper the script hand-wrote.
+
+**[CLI-29b]** The CLI shall treat itself as a dev build when a `.git` entry
+exists at its own package root, and `--version` ([CLI-29]) shall then report
+the manifest version followed by `-dev.g<short-sha>`, appending `.dirty` where
+the tree differs from that commit. Both copies otherwise report the same
+manifest version, so nothing distinguishes a trial ([CLI-29a]) from the
+release it shadows — which is the question `--version` is asked to settle. The
+marker shall be derived from the module's own location rather than
+`CLAUDE_PLUGIN_ROOT`: the env var names the plugin Claude Code loaded, not the
+copy executing, and reading it here reproduces the blindness [HOOK-01] avoids
+by comparing paths instead of versions. Where no commit can be read the suffix
+shall remain `-dev` — the marker is the answer, the ref is the detail.
 
 **[CLI-32]** `tack depends add <slug> <tack-id> <dep-id>` — When invoked, the
 CLI shall append `<dep-id>` to the specified tack's `depends_on` array. If
