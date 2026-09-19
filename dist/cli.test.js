@@ -389,7 +389,7 @@ describe("tack start auto-binds the current Claude session (beacon fleet join)",
         execFileSync("node", [cli, "init", "bindroute"], { env: e });
         execFileSync("node", [cli, "add", "bindroute", "Wire it"], { env: e });
         execFileSync("node", [cli, "start", "bindroute", "t1"], { env: e });
-        const yaml = readFileSync(join(home, "routes", "bindroute.yaml"), "utf-8");
+        const yaml = readFileSync(join(home, String(new Date().getFullYear()), "routes", "bindroute.yaml"), "utf-8");
         assert.match(yaml, /sessions:/);
         assert.match(yaml, /- id: sess-abc-123/);
         assert.match(yaml, /tacks:\s*\n\s*- t1/);
@@ -401,7 +401,7 @@ describe("tack start auto-binds the current Claude session (beacon fleet join)",
         execFileSync("node", [cli, "init", "nobind"], { env: e });
         execFileSync("node", [cli, "add", "nobind", "Wire it"], { env: e });
         execFileSync("node", [cli, "start", "nobind", "t1"], { env: e });
-        const yaml = readFileSync(join(home, "routes", "nobind.yaml"), "utf-8");
+        const yaml = readFileSync(join(home, String(new Date().getFullYear()), "routes", "nobind.yaml"), "utf-8");
         assert.doesNotMatch(yaml, /sessions:/);
     });
 });
@@ -492,9 +492,9 @@ describe("the session lifecycle tack publishes", () => {
         run(e, "init", "pub");
         run(e, "add", "pub", "Work");
         run(e, "session", "pub", "sess-1", "--tack", "t1");
-        const before = readFileSync(join(home, "routes", "pub.yaml"), "utf-8");
+        const before = readFileSync(join(home, String(new Date().getFullYear()), "routes", "pub.yaml"), "utf-8");
         run(e, "session", "end", "pub", "sess-1");
-        assert.equal(readFileSync(join(home, "routes", "pub.yaml"), "utf-8"), before);
+        assert.equal(readFileSync(join(home, String(new Date().getFullYear()), "routes", "pub.yaml"), "utf-8"), before);
     });
     it("renders the route it announced, as the bare form does", () => {
         const { e } = store();
@@ -525,7 +525,7 @@ describe("route/tack creation records the current Claude session", () => {
         const home = mkdtempSync(join(tmpdir(), "tack-init-sess-"));
         const e = { ...process.env, TACK_HOME: home, CLAUDE_CODE_SESSION_ID: "sess-init-1" };
         execFileSync("node", [cli, "init", "initroute"], { env: e });
-        const yaml = readFileSync(join(home, "routes", "initroute.yaml"), "utf-8");
+        const yaml = readFileSync(join(home, String(new Date().getFullYear()), "routes", "initroute.yaml"), "utf-8");
         assert.match(yaml, /- id: sess-init-1/);
         assert.doesNotMatch(yaml, /tacks:\s*\n\s*- t1/); // no tack bound by init alone
     });
@@ -534,7 +534,7 @@ describe("route/tack creation records the current Claude session", () => {
         const e = { ...process.env, TACK_HOME: home, CLAUDE_CODE_SESSION_ID: "sess-add-1" };
         execFileSync("node", [cli, "init", "addroute"], { env: e });
         execFileSync("node", [cli, "add", "addroute", "Do the thing"], { env: e });
-        const yaml = readFileSync(join(home, "routes", "addroute.yaml"), "utf-8");
+        const yaml = readFileSync(join(home, String(new Date().getFullYear()), "routes", "addroute.yaml"), "utf-8");
         // Same session id across init + add dedups to a single sessions[] entry.
         assert.equal((yaml.match(/- id: sess-add-1/g) ?? []).length, 1);
     });
@@ -544,7 +544,7 @@ describe("route/tack creation records the current Claude session", () => {
         delete e.CLAUDE_CODE_SESSION_ID;
         execFileSync("node", [cli, "init", "noroute"], { env: e });
         execFileSync("node", [cli, "add", "noroute", "Work"], { env: e });
-        const yaml = readFileSync(join(home, "routes", "noroute.yaml"), "utf-8");
+        const yaml = readFileSync(join(home, String(new Date().getFullYear()), "routes", "noroute.yaml"), "utf-8");
         assert.doesNotMatch(yaml, /sessions:/);
     });
 });
@@ -924,7 +924,7 @@ describe("an unreadable route file does not take the listing down with it", () =
         execFileSync("node", [cli, "init", "good-one"], { env: e });
         execFileSync("node", [cli, "init", "bad-one"], { env: e });
         execFileSync("node", [cli, "add", "bad-one", "a tack"], { env: e });
-        const path = join(home, "routes", "bad-one.yaml");
+        const path = join(home, String(new Date().getFullYear()), "routes", "bad-one.yaml");
         writeFileSync(path, readFileSync(path, "utf-8").replace("summary: a tack", `summary: ${"x".repeat(600)}`));
         return e;
     }
@@ -969,7 +969,7 @@ describe("tack doctor", () => {
         delete e.CLAUDE_CODE_SESSION_ID;
         execFileSync("node", [cli, "init", "healthy"], { env: e });
         for (const [name, body] of Object.entries(files)) {
-            writeFileSync(join(home, "routes", name), body);
+            writeFileSync(join(home, String(new Date().getFullYear()), "routes", name), body);
         }
         return e;
     }

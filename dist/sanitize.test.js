@@ -1,6 +1,6 @@
 import { describe, it, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 // A description or summary can arrive from a forge issue body (`tack describe
@@ -21,7 +21,11 @@ after(() => {
     rmSync(tmp, { recursive: true, force: true });
 });
 beforeEach(() => {
-    rmSync(join(tmp, "routes"), { recursive: true, force: true });
+    for (const d of readdirSync(tmp, { withFileTypes: true })) {
+        if (d.isDirectory() && /^\d{4}$/.test(d.name)) {
+            rmSync(join(tmp, d.name), { recursive: true, force: true });
+        }
+    }
 });
 describe("free-text sanitizing", () => {
     it("strips ANSI escapes from a description but keeps its line breaks and tabs", () => {

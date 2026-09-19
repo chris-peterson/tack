@@ -1,6 +1,6 @@
 import { describe, it, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 let route;
@@ -21,7 +21,11 @@ after(() => {
     rmSync(tmp, { recursive: true, force: true });
 });
 beforeEach(() => {
-    rmSync(join(tmp, "routes"), { recursive: true, force: true });
+    for (const d of readdirSync(tmp, { withFileTypes: true })) {
+        if (d.isDirectory() && /^\d{4}$/.test(d.name)) {
+            rmSync(join(tmp, d.name), { recursive: true, force: true });
+        }
+    }
 });
 describe("reconcile", () => {
     it("closes an open tack whose deliverable merged, stamping the merge time", () => {

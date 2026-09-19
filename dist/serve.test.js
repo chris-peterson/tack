@@ -1,6 +1,6 @@
 import { describe, it, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { request } from "node:http";
@@ -16,7 +16,11 @@ after(() => {
     rmSync(tmp, { recursive: true, force: true });
 });
 beforeEach(() => {
-    rmSync(join(tmp, "routes"), { recursive: true, force: true });
+    for (const d of readdirSync(tmp, { withFileTypes: true })) {
+        if (d.isDirectory() && /^\d{4}$/.test(d.name)) {
+            rmSync(join(tmp, d.name), { recursive: true, force: true });
+        }
+    }
 });
 // Port 0 lets the OS pick, so a developer already running `tack serve` doesn't
 // collide with the suite.
@@ -405,7 +409,7 @@ describe("a route file that will not load", () => {
     function writeBadRoute(slug) {
         route.init(slug);
         route.addTack(slug, "a tack");
-        const path = join(tmp, "routes", `${slug}.yaml`);
+        const path = join(tmp, String(new Date().getFullYear()), "routes", `${slug}.yaml`);
         writeFileSync(path, readFileSync(path, "utf-8").replace("summary: a tack", `summary: ${"x".repeat(600)}`));
     }
     it("leaves the index serving the routes it could read", async () => {
