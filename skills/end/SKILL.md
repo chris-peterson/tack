@@ -171,9 +171,11 @@ finished rather than inferring it:
 tack session end {slug} $CLAUDE_CODE_SESSION_ID
 ```
 
-It writes nothing — the announcement carries the tacks this session drove and
-their deliverables, read off the route step 3 just wrote, which is why it runs
-after that step rather than before. Skip it on a session with no route.
+It stamps the session's own record `ended_at`, which is how a fleet view tells a
+session that finished from one that went quiet. The announcement carries the
+tacks this session drove and their deliverables, read off the route step 3 just
+wrote, which is why it runs after that step rather than before. Skip it on a
+session with no route.
 
 ## 5. Report unfinished tasks
 

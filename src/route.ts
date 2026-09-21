@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { parse, stringify } from "yaml";
 import { maxLength, validate } from "./schema.js";
 import * as repos from "./repos.js";
+import * as sessions from "./sessions.js";
 import type { Link, Route, Session, Tack, TackStatus } from "./types.js";
 
 const TACK_HOME = process.env.TACK_HOME ?? join(homedir(), ".tack");
@@ -23,6 +24,14 @@ function years(): string[] {
 
 function yearDir(year: string): string {
   return join(TACK_HOME, year, "routes");
+}
+
+// The store this process reads, for a surface that has to tell the reader where
+// what they are looking at came from. Abbreviated against `$HOME`, since that
+// is how the path is written down everywhere else.
+export function storeRoot(): string {
+  const home = homedir();
+  return TACK_HOME.startsWith(`${home}/`) ? `~${TACK_HOME.slice(home.length)}` : TACK_HOME;
 }
 
 export function isOpen(t: Tack): boolean {
@@ -762,6 +771,18 @@ export function rename(oldSlug: string, newSlug: string): Route {
   writeFileSync(oldPath, stringify(route), "utf-8");
   renameSync(oldPath, newPath);
   for (const dep of dependents.values()) writeRoute(dep);
+
+  // Session refs name this route by slug too, for the reason the inbound edges
+  // do — both the tacks they drove and the touch list they sit in.
+  sessions.remapRefs(
+    new Map(
+      route.tacks.map((t) => [
+        sessions.tackRef(oldSlug, t.id),
+        sessions.tackRef(newSlug, t.id),
+      ]),
+    ),
+    new Map([[oldSlug, newSlug]]),
+  );
   return route;
 }
 
@@ -996,6 +1017,11 @@ export function mergeTacks(slug: string, sourceId: string, targetId: string): Ta
   route.tacks = route.tacks.filter((t) => t.id !== source.id);
 
   save(route);
+  // The source tack is gone but the work it held is the target's now, so a
+  // session driving it is driving the target.
+  sessions.remapRefs(
+    new Map([[sessions.tackRef(slug, source.id), sessions.tackRef(slug, target.id)]]),
+  );
   return target;
 }
 
@@ -1010,34 +1036,42 @@ export function sessionWork(
   sessionId: string,
 ): { route: Route; tacks: string[]; deliverables: string[] } {
   const route = load(slug);
-  const ids = route.sessions?.find((s) => s.id === sessionId)?.tacks ?? [];
+  const ids = sessions.tacksOn(sessionId, slug);
   const deliverables = ids
     .map((id) => route.tacks.find((t) => t.id === id)?.deliverable?.url)
     .filter((url): url is string => Boolean(url));
-  return { route, tacks: [...ids], deliverables };
+  return { route, tacks: ids, deliverables };
 }
 
+// Record that a session touched this route, and what it is driving. The route
+// file is not written at all — everything about a session lives in the session
+// store, so this reads the route only to validate the tack.
 export function recordSession(slug: string, sessionId: string, tackId?: string): Route {
+  sessions.assertValidId(sessionId);
   const route = load(slug);
-  if (!route.sessions) route.sessions = [];
-  let session = route.sessions.find((s) => s.id === sessionId);
-  if (!session) {
-    session = { id: sessionId, started_at: now() };
-    route.sessions.push(session);
-  }
-  if (tackId !== undefined) {
-    // findTack validates existence and normalizes a bare `<N>` to `t<N>`.
-    const id = findTack(route, tackId).id;
-    if (!session.tacks) session.tacks = [];
-    // Re-binding an already-listed tack moves it to the end: the last entry
-    // is the session's current focus, so a pivot back to an earlier tack
-    // makes it current again rather than leaving a stale tail.
-    const idx = session.tacks.indexOf(id);
-    if (idx !== -1) session.tacks.splice(idx, 1);
-    session.tacks.push(id);
-  }
-  save(route);
+  // findTack validates existence and normalizes a bare `<N>` to `t<N>`.
+  const id = tackId === undefined ? undefined : findTack(route, tackId).id;
+
+  sessions.record(sessionId, slug, id);
   return route;
+}
+
+// The sessions that touched a route, for a caller rendering it. The answer is
+// a scan of the session store, so it is made where the caller asks for it
+// rather than on every render ([SESS-09]).
+export function sessionsOn(slug: string): Session[] {
+  return sessions.onRoute(slug);
+}
+
+// Stamp the session finished and report what it drove on this route. The stamp
+// is the session's own, so it covers every route the session touched; the
+// payload stays route-scoped, which is what a subscriber asked about.
+export function endSession(
+  slug: string,
+  sessionId: string,
+): { route: Route; tacks: string[]; deliverables: string[] } {
+  sessions.end(sessionId);
+  return sessionWork(slug, sessionId);
 }
 
 export function recent(opts: { count?: number; since?: string } = {}): { slug: string; group?: string; updated_at: string; total: number; open: number }[] {
@@ -1318,6 +1352,18 @@ export function moveTack(
     other.updated_at = now();
   }
 
+  // A session that drove a moved tack follows it: the ref is rewritten, and
+  // the destination joins its touch list. The source stays on that list — the
+  // session did work there, and the move doesn't unmake it.
+  sessions.remapRefs(
+    new Map(
+      [...idMap].map(([oldId, newId]) => [
+        sessions.tackRef(srcSlug, oldId),
+        sessions.tackRef(dstSlug, newId),
+      ]),
+    ),
+  );
+
   save(dstRoute);
   save(srcRoute);
   for (const other of followers.values()) writeRoute(other);
@@ -1403,38 +1449,17 @@ export function mergeRoutes(
     return clone;
   });
 
-  // Carry sessions from every source, remapping their route-local tack refs to
-  // the new IDs. A session that spanned several sources is unified: earliest
-  // started_at wins and its tack refs concatenate in source order (last =
-  // current focus, per recordSession). `tack remove` doesn't prune session tack
-  // refs, so a ref with no mapping points at an already-removed tack — drop it
-  // rather than fail the merge.
-  const sessionsById = new Map<string, Session>();
+  // `<srcSlug>/<oldId>` → `<newSlug>/<newId>` for every tack the merge moved,
+  // and every source slug → the merged one: the sources are deleted, so a
+  // touch list still naming them would point at nothing.
+  const refMap = new Map<string, string | null>();
+  const slugMap = new Map<string, string | null>();
   for (const src of sources) {
-    const map = idMapBySrc.get(src.slug)!;
-    for (const s of src.sessions ?? []) {
-      const remapped = (s.tacks ?? [])
-        .map((id) => map.get(id))
-        .filter((id): id is string => id !== undefined);
-      const existing = sessionsById.get(s.id);
-      if (!existing) {
-        const session: Session = { id: s.id, started_at: s.started_at };
-        if (remapped.length) session.tacks = remapped;
-        sessionsById.set(s.id, session);
-        continue;
-      }
-      if (s.started_at < existing.started_at) existing.started_at = s.started_at;
-      for (const id of remapped) {
-        if (!existing.tacks) existing.tacks = [];
-        const idx = existing.tacks.indexOf(id);
-        if (idx !== -1) existing.tacks.splice(idx, 1);
-        existing.tacks.push(id);
-      }
+    slugMap.set(src.slug, newSlug);
+    for (const [oldId, newId] of idMapBySrc.get(src.slug)!) {
+      refMap.set(sessions.tackRef(src.slug, oldId), sessions.tackRef(newSlug, newId));
     }
   }
-  const sessions = [...sessionsById.values()].sort((a, b) =>
-    a.started_at < b.started_at ? -1 : a.started_at > b.started_at ? 1 : 0,
-  );
 
   const createdAt = opts.createdAt
     ? new Date(normalizeTimestamp(opts.createdAt)).toISOString()
@@ -1456,7 +1481,6 @@ export function mergeRoutes(
   // the merged route is the only place left to rewrite them from.
   const descriptions = sources.map((s) => s.description).filter((d): d is string => Boolean(d));
   if (descriptions.length) merged.description = descriptions.join("\n\n---\n\n");
-  if (sessions.length) merged.sessions = sessions;
 
   // A route outside the merge that depended on a source follows it into the
   // merged route, at the id that source's tack now carries. Collected before
@@ -1482,6 +1506,7 @@ export function mergeRoutes(
 
   save(merged);
   for (const other of followers.values()) writeRoute(other);
+  sessions.remapRefs(refMap, slugMap);
 
   for (const s of srcSlugs) remove(s, { force: true });
 

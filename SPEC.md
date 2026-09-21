@@ -45,8 +45,6 @@ Route (1 YAML file per route)
 ├── id (UUID), slug, created_at, updated_at
 ├── title (optional display name), description (optional markdown)
 ├── group (optional grouping slug)
-├── sessions[]
-│   └── id, started_at, tacks[] — route-scoped tack IDs the session is driving
 └── tacks[]
     ├── id (t1, t2, ...), summary, status
     ├── done_at
@@ -56,6 +54,21 @@ Route (1 YAML file per route)
     └── links[] — references (docs, issues, threads, etc.)
         └── label, url
 ```
+
+```text
+Session (1 YAML file per session)
+├── id — the Claude Code session identifier, and the filename
+├── started_at, ended_at
+├── routes[] — the routes it touched
+└── tacks[] — the tacks it drives, as <slug>/t<N>, across routes
+```
+
+A session and a route are separate documents because there is no direct
+relationship between them. A session produces zero or more tacks, and those
+tacks sit on however many routes they belong to; the only edge between a session
+and a route runs through the tacks. Held inside the route files, a session's own
+facts were copied once per route its tacks happened to land on, and the copies
+could disagree.
 
 ```text
 Repo database (1 YAML file, ~/.tack/repos.yaml)
@@ -69,6 +82,7 @@ Repo database (1 YAML file, ~/.tack/repos.yaml)
 | Category | Description |
 |---|---|
 | ROUTE | Route schema structure and constraints |
+| SESS | Session document: its schema, its file, and what maintains it |
 | TACK | Tack fields, statuses, and ID sequencing |
 | DELIVER | Deliverable (single change request per tack) |
 | DEPENDS | Dependency tracking and enforcement |
@@ -162,24 +176,98 @@ restores a route verbatim, which preserves the archived timestamp.
 **[ROUTE-08]** The `id` field shall be immutable after creation. It shall not
 change when the route is updated.
 
-**[ROUTE-09]** Each route shall contain the following optional field:
-- `sessions` (array) — Claude Code session references that touched this route
+**[ROUTE-09]** A route shall carry no record of the sessions that touched it.
+Everything about a session is its own document ([SESS-01]), including the routes
+it touched, so the session store is the only writer of that fact and no second
+copy exists to disagree. Recording a session shall therefore not write the route
+file at all: the prompt hook binds on every prompt, and a write there would make
+`updated_at` ([ROUTE-06]) the time of the last prompt rather than of the last
+change to the route.
 
-**[ROUTE-10]** Each session entry shall contain the following required fields:
-- `id` (string) — the Claude Code session identifier
+---
+
+### SESS — Session Document
+
+**[SESS-01]** Each session shall be stored as a single file at
+`<root>/<year>/sessions/<id>.yaml`, under the year it started in, as a route is
+filed under the year it was opened in ([ROUTE-02], [STORE-03]).
+
+**[SESS-01a]** A session shall be written only once it drives a tack. Recording
+a route against a session with no file shall write nothing; recording one
+against a session that has a file shall add it to `routes` ([SESS-04]).
+
+Most sessions produce no tack — a conversation that opens a route, reads around
+and exits is the ordinary case, and the prompt hook records a route on every one
+of them. A file per session would therefore be, in the main, a store of records
+saying nothing happened. Where a session's work *is* on record, where else it
+went is worth keeping, which is why a later touch is recorded and the first is
+not. A live session's route, before it has produced anything, is carried by the
+`session.started` announcement ([EVENTS-02]) rather than by the store.
+
+**[SESS-02]** The session schema shall be published as
+`schema/session.schema.json` and every write shall be validated against it, as
+[STORE-04] requires of a route. A session is read by tools that are not in this
+repo — a fleet view showing which work is live is the case the document exists
+for — which is what distinguishes it from the repo database ([REPO-05]).
+
+**[SESS-03]** Each session shall contain the following required fields:
+- `id` (string) — the Claude Code session identifier, which is also the
+  filename stem, so it is constrained to letters, digits, dot, underscore, and
+  hyphen, and checked at the command boundary as a slug is ([STORE-11])
 - `started_at` (string) — ISO 8601 timestamp when the session first touched
-  this route
+  tack
 
-**[ROUTE-11]** Each session entry shall contain the following optional field:
-- `tacks` (array of strings) — IDs of tacks *within this route* that the
-  session is driving, in touch order. The last entry is the session's current
-  focus. Because the array lives inside the route file, the IDs are bare
-  route-scoped `t<N>` values; a cross-route consumer (e.g. a fleet view that
-  reads every route) addresses them as `<slug>/<tack-id>` per [CLI-21a]. This
-  is the session→tack link: `sessions[]` already records session→route per
-  [ROUTE-09], and this field narrows it to the specific tack(s) a session is
-  working, so a reader keyed on the Claude session id can resolve which tack a
-  live session is driving — not just which route.
+**[SESS-04]** Each session shall contain the following optional fields:
+- `ended_at` (string) — ISO 8601 timestamp when the session declared its work
+  finished ([CLI-58]). Absent while the session is live.
+- `routes` (array of strings) — the slugs of the routes the session touched, in
+  first-touch order, without duplicates.
+- `tacks` (array of strings) — the tacks the session is driving, as
+  `<slug>/t<N>` ([CLI-21a]), in touch order. The last entry is the session's
+  current focus. Re-binding a listed tack shall move it to the end, so a pivot
+  back to an earlier tack makes it current again rather than leaving a stale
+  tail.
+
+Both are cross-route because a session is: it opens on one route, hits something
+unrelated, and drives a tack on another.
+
+`routes` shall be a superset of the slugs in `tacks`, and it is not derivable
+from them: a session whose work is on one route can visit another and produce
+nothing there, which the first records and the second cannot.
+
+**[SESS-05]** A session that touches tack again shall have its `ended_at`
+cleared. The stamp therefore reads "finished as of now", which is what a reader
+ageing out work-in-progress needs — a session that declared itself finished is
+distinguishable from one that stopped without saying so, and only the second
+needs a staleness threshold invented for it. The stamp records a declaration,
+not a measurement, so it carries no guarantee of matching when the conversation
+itself ended.
+
+**[SESS-06]** A command that moves work rather than ending it — `tack rename`
+([CLI-35]), `tack move` ([CLI-36]), `tack merge` ([CLI-28]), and `tack
+merge-routes` ([CLI-52]) — shall rewrite the session refs that name it, for the
+reason those commands rewrite inbound dependency edges ([DEPENDS-05]). A tack
+that moves carries its new route into the driving session's touch list, keeping
+the superset [SESS-04] states; the route it left stays there, since the session
+did work on it and the move does not unmake that. A rename rewrites both forms,
+and `merge-routes` maps every source slug to the merged one, since the sources
+are deleted.
+
+**[SESS-07]** A ref naming a tack that no longer exists shall be tolerated on
+read and resolve to nothing. `tack remove` ([CLI-25]) does not prune session
+refs, so a session that drove deleted work keeps a ref to it.
+
+**[SESS-08]** A session file whose `id` disagrees with its filename shall be
+refused, naming both, as [STORE-07] refuses that disagreement for a route's
+slug: the filename is what the session is addressed by, and a write goes back to
+the name `id` gives. A listing shall name such a file and continue rather than
+fail, per [STORE-09].
+
+**[SESS-09]** The sessions that touched a route shall be answered by a scan of
+the session store, which is the cost of keeping one writer. Because that cost
+grows with the store, the scan shall be made where a command asks about a route
+— `tack status <slug>` ([CLI-16]) — and not on the renders that follow a
+mutation, one of which the prompt hook runs every prompt.
 
 ---
 
@@ -388,8 +476,9 @@ UUID as `id`, an empty `tacks` array, and `created_at`/`updated_at` set to
 the current time. When `--group` is passed, the route's `group` shall be set
 to the given slug. When the `CLAUDE_CODE_SESSION_ID` environment variable is
 set (the CLI is running inside a Claude Code session), the CLI shall also
-record that session on the route per [ROUTE-09] — route-level, without binding a
-tack ([ROUTE-11] binding is reserved for [CLI-07] / [CLI-17], which know the tack).
+record the route on that session per [SESS-04] — the touch, without binding a
+tack (binding is reserved for [CLI-07] / [CLI-17], which know the tack), so a
+session with no file yet is unaffected ([SESS-01a]).
 Creating a route in a session is a declaration that the session is working it,
 so a fleet reader keyed on the session id attributes the session to the route
 with no separate `tack session` call. Outside a Claude session this is a no-op.
@@ -420,8 +509,8 @@ deduplicated on creation against the deliverable and one another, consistent
 with [CLI-13]. The CLI shall
 reject unknown flags with a usage error rather than silently ignoring them.
 When the `CLAUDE_CODE_SESSION_ID` environment variable is set, the CLI shall
-also record that session on the route per [ROUTE-09], route-level (as [CLI-02]
-does for `tack init`).
+also record the route on that session per [SESS-04], the touch alone (as
+[CLI-02] does for `tack init`).
 
 **[CLI-05]** `tack done <slug> <tack-id> [--date <ts>]` — When invoked, the CLI
 shall set the specified tack's status to `done`. `done_at` shall be set to the
@@ -448,7 +537,7 @@ error message shall guide the user to either drop the edge with
 to bypass the guard with [CLI-34] (`tack status set`) when the inconsistent
 state is intentional. When the `CLAUDE_CODE_SESSION_ID` environment variable
 is set (the CLI is running inside a Claude Code session), the CLI shall also
-bind that session to the started tack per [ROUTE-11] / [CLI-17] — starting a tack
+bind that session to the started tack per [SESS-04] / [CLI-17] — starting a tack
 in a session is the declaration that the session is driving it, so a fleet
 reader keyed on the Claude session id (e.g. beacon) can attribute the session
 to the tack with no separate `tack session --tack` call. Outside a Claude
@@ -501,17 +590,16 @@ output — which matches the outcome, since no route was deleted.
 state of the affected tack or route.
 
 **[CLI-17]** `tack session <slug> <session-id> [--tack <tack-id>]` — When
-invoked, the CLI shall record the session ID in the route's `sessions` array
-per [ROUTE-09]. If the session ID already exists, it shall not duplicate. When
-`--tack <tack-id>` is passed, the CLI shall bind the session to that tack per
-[ROUTE-11]: the tack ID is appended to the session entry's `tacks` array (bare
-`<N>` is normalized to `t<N>` per [TACK-08]). A tack already present in the
-array is moved to the end rather than duplicated, so the last entry is always
-the session's current focus and a pivot back to an earlier tack makes it
-current again. The CLI shall fail if `<tack-id>` does not exist in the route.
-`tack session` carries a subcommand ([CLI-58]), so a missing argument on either
-of its forms shall report group-scoped per [CLI-41] rather than dumping the
-global usage text.
+`--tack <tack-id>` is passed, the CLI shall write the session's own document per
+[SESS-01], creating it if it does not exist, appending `<slug>/<tack-id>` to its
+`tacks` and `<slug>` to its `routes` ([SESS-04]; bare `<N>` is normalized to
+`t<N>` per [TACK-08]). Without `--tack` it shall record the route on a session
+that already has a document and write nothing for one that does not
+([SESS-01a]). The route file shall not be written in either case ([ROUTE-09]).
+The CLI shall fail if `<tack-id>` does not exist in the route, and shall refuse
+a session id that [SESS-03] does not allow. `tack session` carries a subcommand ([CLI-58]), so a missing argument on
+either of its forms shall report group-scoped per [CLI-41] rather than dumping
+the global usage text.
 
 **[CLI-18]** `tack list [--json]` and `tack status [slug] [--json]` — When
 `--json` is passed, the CLI shall output the result as JSON instead of the
@@ -835,12 +923,9 @@ local reference at its new ID, and one onto a route outside the merge is kept
 as-is. A route outside the merge that depended on a source shall be rewritten to
 reference the merged route at the new ID.
 
-**[CLI-52b]** Session records ([ROUTE-09]) from every source shall carry over to
-the new route with their tack references remapped to the new IDs; a session
-recorded on more than one source shall be unified into a single entry taking the
-earliest `started_at`. A session tack reference with no surviving tack (which
-`tack remove` ([CLI-25]) can leave behind, since it does not prune session refs)
-shall be dropped rather than fail the merge.
+**[CLI-52b]** Every source slug shall be remapped to the new route in the touch
+lists and tack refs of the session documents that name it, per [SESS-06]. The
+sources are deleted, so a session still naming one would point at nothing.
 
 **[CLI-52c]** The new route's `created_at` shall default to the earliest source
 route's `created_at`, or the `--created-at <date>` value when given. The new
@@ -917,13 +1002,22 @@ path within it, and the rule that path breaks. It is also what [STORE-09] points
 a reader at once a listing tells them something was left out.
 
 **[CLI-58]** `tack session end <slug> <session-id>` — When invoked, the CLI
-shall announce the session's work closing out per [EVENTS-05] and shall write
-nothing to the route. A session's end is not state a route carries: the payload
-is read off the route as it already stands, which is why the close calls this
-after recording the deliverable rather than before. It shall then display that
-route per [CLI-16], as the binding form does, so the two forms of `tack session`
-differ only in the write. The CLI shall fail with a group-scoped error per
-[CLI-41] when either argument is absent.
+shall stamp that session's `ended_at` per [SESS-04] and announce its work
+closing out per [EVENTS-05]. The stamp is the session's own, so it covers every
+route the session touched; the announced payload stays route-scoped, which is
+what a subscriber asked about, and is read off the route as it already stands —
+which is why the close calls this after recording the deliverable rather than
+before. A session id the store does not carry shall write nothing and still
+announce, since a store that never saw the session has no record to close. It
+shall then display that route per [CLI-16], as the binding form does. The CLI
+shall fail with a group-scoped error per [CLI-41] when either argument is
+absent.
+
+**[CLI-59]** `tack sessions [--json]` — When invoked, the CLI shall list every
+session in the store, newest first by `started_at`, each with whether it is live
+or ended and the tacks it drove. This is the read a fleet view or dashboard
+makes: `tack status` answers about one route, and a session's tacks are not
+confined to one.
 
 ---
 
@@ -986,11 +1080,11 @@ about the same work item in the same session.
 pending `after` todo items per [TACK-04] before moving on.
 
 **[AGENT-09]** When the agent begins operating on a route, it shall record the
-current Claude Code session ID in the route's `sessions` array per [ROUTE-09].
-If the session ID already exists, it shall not duplicate. When the agent has
-resolved which tack the session is working — a tack matched per [AGENT-11], the
-single open tack, or one the agent created for this session — it shall pass
-`--tack <tack-id>` to bind the session to that tack per [ROUTE-11], and re-bind
+route on the current session per [SESS-04], which `tack session` does. When the
+agent has resolved which tack the session is working — a tack matched per
+[AGENT-11], the single open tack, or one the agent created for this session — it
+shall pass
+`--tack <tack-id>` to bind the session to that tack per [SESS-04], and re-bind
 when the session's focus shifts to a different tack.
 
 **[AGENT-11]** The agent shall establish the session→tack link as early as it
@@ -1075,7 +1169,7 @@ through a Bash tool call.
 current cwd by running [AGENT-03] steps 1 and 2 (branch slug, then project
 name) — existence-only, without verifying the route's open-tack state and
 without prompting the user. When a route resolves, the hook shall
-record the current session on it per [ROUTE-09] (route-level, no tack binding),
+record the route on the current session per [SESS-04] (the touch, no tack),
 so session→route attribution does not depend on the agent remembering to run
 `tack session`.
 
@@ -1474,6 +1568,18 @@ listening. A liveness probe would cost a round trip on every `tack status` to
 pre-answer a question the browser answers when the link is followed; a link to
 a server that is down fails at click time, which is the cheaper failure.
 
+**[SERVE-15]** `tack serve install` ([SERVE-06]) shall record the store root it
+was run against in the unit's environment, where `TACK_HOME` ([STORE-01]) names
+one. A supervisor starts the server without a login shell, so a variable set in
+a shell profile never reaches it, and the default root is a directory that on
+such a machine holds nothing — which serves an empty index rather than failing,
+the one outcome a reader cannot tell from an empty store.
+
+**[SERVE-16]** Every document shall name the store it was rendered from
+([STORE-01], [STORE-03]), rather than a fixed path. It is the only place the
+page says where its content came from, and it is what a reader looking at an
+empty index has to reason from.
+
 ---
 
 ### EVENTS — What tack Announces
@@ -1541,8 +1647,11 @@ change additively ([COMPAT-02]), or by retirement ([COMPAT-07]):
 - the route schema — the field names, types, and value formats given by ROUTE,
   TACK, DEL, DEP, and LINK, as enforced by `schema/route.schema.json`
   ([STORE-04]);
+- the session schema — the fields given by SESS, as enforced by
+  `schema/session.schema.json` ([SESS-02]);
 - where those files live — `<root>/<year>/routes/<slug>.yaml` ([STORE-01],
-  [STORE-03]), and the root's default of `~/.tack` ([STORE-01]);
+  [STORE-03]), `<root>/<year>/sessions/<id>.yaml` ([SESS-01]), and the root's
+  default of `~/.tack` ([STORE-01]);
 - the CLI grammar — command and subcommand names, flag names, and positional
   argument order, as recorded in `spec/cli-usage.txt` ([COMPAT-05]);
 - exit codes — zero on success and non-zero on failure, plus any specific code
@@ -1585,7 +1694,9 @@ making an optional field required; changing what an exit code means; renaming a
 refused for a value a caller would still write. Each leaves a caller writing
 what it always wrote and getting something else back.
 
-Removing a surface outright is [COMPAT-07] instead.
+Removing a surface outright is [COMPAT-07] instead, and a stored shape may
+change under the conversion rule in [COMPAT-06a] rather than waiting for a
+major.
 
 **[COMPAT-05]** `spec/cli-usage.txt` shall hold the grammar frozen by
 [COMPAT-01] as `tack --help` emits it ([CLI-38]), and the test suite shall fail
@@ -1596,7 +1707,19 @@ act of declaring a grammar change intended, and the change's kind under
 **[COMPAT-06]** A `1.x` release shall read any route file ([COMPAT-01]) and
 import any export archive ([CLI-49]) written by an earlier `1.x` release,
 without a migration step — except for a field retired under [COMPAT-07], whose
-migration is the retirement's own precondition.
+migration is the retirement's own precondition, and for a **conversion** under
+[COMPAT-06a].
+
+**[COMPAT-06a]** Where a change to the stored shape is worth more than the
+promise [COMPAT-06] makes, it may ship as a **conversion**: the store is
+rewritten in place, and a file that predates the rewrite is refused with a
+message saying what changed rather than the schema's own report of an unknown
+property. The converting script is a one-shot, not a surface — it is written for
+the stores that exist when the change lands, and git history is where it stays
+afterwards.
+
+Moving the session records out of the route files ([SESS-01]) is one: a route
+still carrying `sessions` is refused with a message naming where they live now.
 
 **[COMPAT-07]** A surface with no live use may be **retired** in a minor
 release: removed from the schema, the CLI, and this document in one change.

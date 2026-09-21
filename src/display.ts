@@ -1,4 +1,4 @@
-import type { Route, Tack } from "./types.js";
+import type { Route, Session, Tack } from "./types.js";
 import { isOpen, routeState, type FindMatch } from "./route.js";
 import type { RepoMatch } from "./repos.js";
 
@@ -30,7 +30,10 @@ function osc8(label: string, url: string): string {
   return `]8;;${url}\\${label}]8;;\\`;
 }
 
-export function formatRoute(route: Route, opts: { linkBase?: string | null } = {}): string {
+export function formatRoute(
+  route: Route,
+  opts: { linkBase?: string | null; sessions?: Session[] } = {},
+): string {
   const lines: string[] = [];
   const routeUrl = opts.linkBase ? `${opts.linkBase}/route/${route.slug}` : null;
   lines.push(`# ${routeUrl ? osc8(route.slug, routeUrl) : route.slug}`);
@@ -41,17 +44,29 @@ export function formatRoute(route: Route, opts: { linkBase?: string | null } = {
   lines.push(`  created: ${route.created_at}`);
   lines.push(`  updated: ${route.updated_at}`);
 
-  if (route.sessions?.length) {
-    lines.push(`  sessions: ${route.sessions.length}`);
-    for (const s of route.sessions) {
-      if (s.tacks?.length) {
+  // A route file says nothing about sessions, so this block renders only what
+  // the caller looked up ([SESS-09]). Refs to other routes are dropped: this is
+  // the view of one route.
+  if (opts.sessions?.length) {
+    lines.push(`  sessions: ${opts.sessions.length}`);
+    const prefix = `${route.slug}/`;
+    for (const s of opts.sessions) {
+      const here = (s.tacks ?? [])
+        .filter((ref) => ref.startsWith(prefix))
+        .map((ref) => ref.slice(prefix.length));
+      const parts: string[] = [];
+      if (here.length) {
         // The last entry is the session's current focus; earlier entries are
         // tacks it also touched.
-        const current = s.tacks[s.tacks.length - 1];
-        const also = s.tacks.slice(0, -1);
-        const trail = also.length ? ` (also ${also.join(", ")})` : "";
-        lines.push(`    ${s.id.slice(0, 8)} → ${current}${trail}`);
+        const also = here.slice(0, -1);
+        parts.push(`→ ${here[here.length - 1]}${also.length ? ` (also ${also.join(", ")})` : ""}`);
+      } else {
+        // On the route, and holding no tack of its own — the shape a session
+        // has before it produces anything.
+        parts.push("→ no tack here");
       }
+      if (s.ended_at) parts.push(`[ended ${s.ended_at}]`);
+      lines.push(`    ${s.id.slice(0, 8)} ${parts.join(" ")}`);
     }
   }
 
@@ -420,6 +435,32 @@ export function formatList(routes: { slug: string; title?: string; group?: strin
     // arithmetic against `total` — an empty route reads `0 open` too.
     const done = r.state === "done" ? "  [done]" : "";
     lines.push(`${r.slug}  (${r.open} open / ${r.total} total)${done}${title}`);
+  }
+  return lines.join("\n");
+}
+
+// The session store, newest first. `live` vs `ended` is the column a reader
+// ageing out work-in-progress came for, so it leads; the tacks follow, with the
+// last one — the session's current focus — first. A session that touched routes
+// without producing a tack shows them instead, which is the whole of what it
+// did.
+export function formatSessions(sessions: Session[]): string {
+  if (sessions.length === 0) {
+    return "No sessions.";
+  }
+
+  const lines: string[] = [];
+  for (const s of sessions) {
+    const state = s.ended_at ? `ended ${s.ended_at}` : `live, since ${s.started_at}`;
+    lines.push(`${s.id}  (${state})`);
+    const refs = s.tacks ?? [];
+    if (refs.length) {
+      const current = refs[refs.length - 1];
+      const also = refs.slice(0, -1);
+      lines.push(`  → ${current}${also.length ? ` (also ${also.join(", ")})` : ""}`);
+    } else if (s.routes?.length) {
+      lines.push(`  no tack — on ${s.routes.join(", ")}`);
+    }
   }
   return lines.join("\n");
 }

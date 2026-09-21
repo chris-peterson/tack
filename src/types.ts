@@ -28,9 +28,13 @@ export interface Tack {
   links?: Link[];
 }
 
+// A session document, stored in its own file (SESS). `tacks` holds cross-route
+// `<slug>/t<N>` refs, since one session drives work on several routes.
 export interface Session {
   id: string;
   started_at: string;
+  ended_at?: string;
+  routes?: string[];
   tacks?: string[];
 }
 
@@ -42,6 +46,5 @@ export interface Route {
   created_at: string;
   updated_at: string;
   group?: string;
-  sessions?: Session[];
   tacks: Tack[];
 }

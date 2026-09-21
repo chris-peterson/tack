@@ -195,7 +195,8 @@ cli:
     - name: Links
       commands: [link]
     - name: Sessions
-      commands: [session]
+      about: Which conversation drove which work, across the routes it touched.
+      commands: [session, sessions]
     - name: Documents
       about: Serving route documents over HTTP, optionally supervised.
       commands: [serve]

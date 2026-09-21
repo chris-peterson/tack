@@ -1,0 +1,12 @@
+# A session that pivoted: it opened on the auth rewrite, hit a CI flake, and
+# spent the rest of itself there. One session, two routes — which is why a
+# session is its own document rather than a record inside a route.
+id: "89764019-75f4-4beb-bfd1-ecb33bef3917"
+started_at: "2026-03-20T16:30:00Z"
+ended_at: "2026-03-20T21:05:00Z"
+routes:
+  - "q2-auth-rewrite"
+  - "tangent-ci-flake"
+tacks:
+  - "q2-auth-rewrite/t3"
+  - "tangent-ci-flake/t1"

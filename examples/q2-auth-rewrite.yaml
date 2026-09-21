@@ -3,13 +3,6 @@ slug: "q2-auth-rewrite"
 created_at: "2026-03-15T10:00:00Z"
 updated_at: "2026-04-01T09:30:00Z"
 group: "q2"
-sessions:
-  - id: "sess-a1b2c3"
-    started_at: "2026-03-15T10:00:00Z"
-  - id: "sess-d4e5f6"
-    started_at: "2026-03-22T14:00:00Z"
-  - id: "sess-g7h8i9"
-    started_at: "2026-04-01T09:00:00Z"
 
 tacks:
   - id: "t1"

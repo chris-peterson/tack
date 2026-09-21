@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { gzipSync, gunzipSync } from "node:zlib";
 
@@ -156,19 +156,33 @@ describe("tack accepts bare tack ids (issue #11)", () => {
 });
 
 describe("tack session --tack binds the session to a tack", () => {
-  it("records the binding and surfaces it in the route output", () => {
+  // The binding shows up in `tack status`, not in what `tack session` prints:
+  // rendering the sessions block costs a scan of the store, and the prompt hook
+  // runs `tack session` on every prompt.
+  it("records the binding, which tack status then shows", () => {
     runFail(["init", "sess-cli"]);
     runFail(["add", "sess-cli", "Work"]);
     const r = runFail(["session", "sess-cli", "claude-abcdef12", "--tack", "t1"]);
     assert.equal(r.status, 0);
-    assert.match(r.stdout, /claude-a → t1/);
+    assert.match(runFail(["status", "sess-cli"]).stdout, /claude-a → t1/);
   });
 
-  it("records the session with no binding when --tack is omitted", () => {
+  // A session earns a record by producing a tack; a bare touch by one that has
+  // none is the "look around and exit" case, which leaves nothing behind.
+  it("records nothing for a session with no tack to its name", () => {
     runFail(["init", "sess-cli-plain"]);
     const r = runFail(["session", "sess-cli-plain", "claude-xyz"]);
     assert.equal(r.status, 0);
-    assert.match(r.stdout, /sessions: 1/);
+    assert.doesNotMatch(runFail(["status", "sess-cli-plain"]).stdout, /sessions:/);
+  });
+
+  it("records a later touch by a session that has one", () => {
+    runFail(["init", "sess-cli-a"]);
+    runFail(["add", "sess-cli-a", "Work"]);
+    runFail(["init", "sess-cli-b"]);
+    runFail(["session", "sess-cli-a", "claude-both", "--tack", "t1"]);
+    runFail(["session", "sess-cli-b", "claude-both"]);
+    assert.match(runFail(["status", "sess-cli-b"]).stdout, /claude-b → no tack here/);
   });
 
   it("fails when --tack names a tack that does not exist", () => {
@@ -437,16 +451,21 @@ describe("--help after a subcommand shows usage", () => {
 });
 
 describe("tack start auto-binds the current Claude session (beacon fleet join)", () => {
-  it("records the session with the started tack under sessions[]", () => {
+  it("records the started tack on the session", () => {
     const home = mkdtempSync(join(tmpdir(), "tack-start-bind-"));
     const e = { ...process.env, TACK_HOME: home, CLAUDE_CODE_SESSION_ID: "sess-abc-123" };
     execFileSync("node", [cli, "init", "bindroute"], { env: e });
     execFileSync("node", [cli, "add", "bindroute", "Wire it"], { env: e });
     execFileSync("node", [cli, "start", "bindroute", "t1"], { env: e });
-    const yaml = readFileSync(join(home, String(new Date().getFullYear()), "routes", "bindroute.yaml"), "utf-8");
-    assert.match(yaml, /sessions:/);
-    assert.match(yaml, /- id: sess-abc-123/);
-    assert.match(yaml, /tacks:\s*\n\s*- t1/);
+    const year = String(new Date().getFullYear());
+    const session = readFileSync(join(home, year, "sessions", "sess-abc-123.yaml"), "utf-8");
+    assert.match(session, /routes:\s*\n\s*- bindroute/);
+    assert.match(session, /tacks:\s*\n\s*- bindroute\/t1/);
+    // The route file says nothing about sessions.
+    assert.doesNotMatch(
+      readFileSync(join(home, year, "routes", "bindroute.yaml"), "utf-8"),
+      /sessions|sess-abc-123/,
+    );
   });
 
   it("is a no-op outside a Claude session (env var unset)", () => {
@@ -456,8 +475,7 @@ describe("tack start auto-binds the current Claude session (beacon fleet join)",
     execFileSync("node", [cli, "init", "nobind"], { env: e });
     execFileSync("node", [cli, "add", "nobind", "Wire it"], { env: e });
     execFileSync("node", [cli, "start", "nobind", "t1"], { env: e });
-    const yaml = readFileSync(join(home, String(new Date().getFullYear()), "routes", "nobind.yaml"), "utf-8");
-    assert.doesNotMatch(yaml, /sessions:/);
+    assert.ok(!existsSync(join(home, String(new Date().getFullYear()), "sessions")));
   });
 });
 
@@ -580,6 +598,39 @@ describe("the session lifecycle tack publishes", () => {
     assert.match(out, /t1: Work/);
   });
 
+  it("lists the store with each session's state and the tacks it drove", () => {
+    const { e } = store();
+    run(e, "init", "pub");
+    run(e, "add", "pub", "Work");
+    run(e, "init", "other");
+    run(e, "add", "other", "Tangent");
+    run(e, "session", "pub", "sess-1", "--tack", "t1");
+    run(e, "session", "other", "sess-1", "--tack", "t1");
+    run(e, "session", "pub", "sess-2", "--tack", "t1");
+    run(e, "session", "end", "pub", "sess-1");
+
+    const out = run(e, "sessions");
+    assert.match(out, /sess-1 {2}\(ended \d{4}-/);
+    assert.match(out, /→ other\/t1 \(also pub\/t1\)/);
+    assert.match(out, /sess-2 {2}\(live, since \d{4}-/);
+
+    const json = JSON.parse(run(e, "sessions", "--json")) as {
+      id: string;
+      ended_at?: string;
+      tacks?: string[];
+    }[];
+    const ended = json.find((s) => s.id === "sess-1")!;
+    assert.ok(ended.ended_at);
+    assert.deepEqual(ended.tacks, ["pub/t1", "other/t1"]);
+    assert.equal(json.find((s) => s.id === "sess-2")!.ended_at, undefined);
+  });
+
+  it("says so when the store holds no sessions", () => {
+    const { e } = store();
+    run(e, "init", "pub");
+    assert.match(run(e, "sessions"), /No sessions\./);
+  });
+
   it("refuses either form group-scoped rather than dumping the global usage", () => {
     // `session` carries a subcommand now, so [CLI-41] covers both of its forms;
     // one falling back to the global usage text was the asymmetry.
@@ -598,23 +649,28 @@ describe("the session lifecycle tack publishes", () => {
 });
 
 describe("route/tack creation records the current Claude session", () => {
-  it("tack init records the session on the new route (route-level, no tack)", () => {
+  // `init` and `add` record the route, not a tack, so on their own they leave
+  // no session file — the session has produced nothing yet.
+  it("tack init and tack add alone write no session record", () => {
     const home = mkdtempSync(join(tmpdir(), "tack-init-sess-"));
     const e = { ...process.env, TACK_HOME: home, CLAUDE_CODE_SESSION_ID: "sess-init-1" };
     execFileSync("node", [cli, "init", "initroute"], { env: e });
-    const yaml = readFileSync(join(home, String(new Date().getFullYear()), "routes", "initroute.yaml"), "utf-8");
-    assert.match(yaml, /- id: sess-init-1/);
-    assert.doesNotMatch(yaml, /tacks:\s*\n\s*- t1/); // no tack bound by init alone
+    execFileSync("node", [cli, "add", "initroute", "Do the thing"], { env: e });
+    assert.ok(!existsSync(join(home, String(new Date().getFullYear()), "sessions")));
   });
 
-  it("tack add records the session on the route", () => {
+  it("tack start records the route once the session drives a tack", () => {
     const home = mkdtempSync(join(tmpdir(), "tack-add-sess-"));
     const e = { ...process.env, TACK_HOME: home, CLAUDE_CODE_SESSION_ID: "sess-add-1" };
     execFileSync("node", [cli, "init", "addroute"], { env: e });
     execFileSync("node", [cli, "add", "addroute", "Do the thing"], { env: e });
-    const yaml = readFileSync(join(home, String(new Date().getFullYear()), "routes", "addroute.yaml"), "utf-8");
-    // Same session id across init + add dedups to a single sessions[] entry.
-    assert.equal((yaml.match(/- id: sess-add-1/g) ?? []).length, 1);
+    execFileSync("node", [cli, "start", "addroute", "t1"], { env: e });
+    const session = readFileSync(
+      join(home, String(new Date().getFullYear()), "sessions", "sess-add-1.yaml"),
+      "utf-8",
+    );
+    assert.equal((session.match(/- addroute$/gm) ?? []).length, 1);
+    assert.match(session, /- addroute\/t1/);
   });
 
   it("is a no-op outside a Claude session", () => {
@@ -623,8 +679,7 @@ describe("route/tack creation records the current Claude session", () => {
     delete e.CLAUDE_CODE_SESSION_ID;
     execFileSync("node", [cli, "init", "noroute"], { env: e });
     execFileSync("node", [cli, "add", "noroute", "Work"], { env: e });
-    const yaml = readFileSync(join(home, String(new Date().getFullYear()), "routes", "noroute.yaml"), "utf-8");
-    assert.doesNotMatch(yaml, /sessions:/);
+    assert.ok(!existsSync(join(home, String(new Date().getFullYear()), "sessions")));
   });
 });
 

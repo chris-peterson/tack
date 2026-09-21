@@ -250,15 +250,35 @@ And the reverse — one tack across many sessions — is the case the route file
 exists for. A tack that takes a week of interrupted work carries the same
 deliverable at the end of it; the sessions accumulate on the route.
 
+A route file says nothing about sessions. Each session is its own file, holding
+what it did:
+
 ```yaml
-sessions:
-  - id: 5b1f…
-    started_at: 2026-07-04T19:14:44.118Z
-    tacks: [t11, t12, t13]
+# 2026/sessions/5b1f8a2c-9d3e-4f71-b0c4-2e8a1d6f3b90.yaml
+id: 5b1f8a2c-9d3e-4f71-b0c4-2e8a1d6f3b90
+started_at: 2026-07-04T19:14:44.118Z
+ended_at: 2026-07-04T23:02:10.004Z
+routes: [q2-auth-rewrite, q2-dependency-cleanup, tangent-ci-flake]
+tacks: [q2-auth-rewrite/t11, q2-auth-rewrite/t12, tangent-ci-flake/t1]
 ```
 
-The `tacks` array is in touch order, and its last entry is what that session is
-currently driving.
+The `tacks` array is in touch order, and its last entry is what that session was
+driving last. The refs carry a slug because a session's tacks land wherever they
+belong: that one produced two on the auth rewrite and one on a tangent it opened
+along the way, so its record can't live inside either route.
+
+`routes` is the touch list, and it is a superset of the slugs in `tacks` — this
+session drove work on two routes and also looked in on a third.
+
+A session earns its file by driving a tack. The common conversation — open a
+route, read around, exit — leaves none, which is the honest record of it: the
+[table below](#sessions-and-tacks-are-independent) is the same point from the
+other side.
+
+`ended_at` appears when `/tack:end` closes the session. Until then the session
+reads as live — which is the distinction a dashboard needs, since a session
+that stopped talking and a session still working look identical from the
+outside.
 
 ### Sessions and tacks are independent
 

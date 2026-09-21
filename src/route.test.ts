@@ -5,12 +5,14 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 let route: typeof import("./route.js");
+let sessions: typeof import("./sessions.js");
 
 const tmp = mkdtempSync(join(tmpdir(), "tack-test-"));
 process.env.TACK_HOME = tmp;
 
 before(async () => {
   route = await import("./route.js");
+  sessions = await import("./sessions.js");
 });
 
 after(() => {
@@ -965,42 +967,62 @@ describe("markDone deliverable promotion", () => {
 });
 
 describe("recordSession", () => {
-  it("adds a session to a route", () => {
+  it("writes the record to the session store and nothing to the route", () => {
     route.init("session-test");
-    const r = route.recordSession("session-test", "session_abc123");
-    assert.equal(r.sessions!.length, 1);
-    assert.equal(r.sessions![0].id, "session_abc123");
-    assert.ok(r.sessions![0].started_at);
+    route.addTack("session-test", "Work");
+    const before = route.load("session-test");
+    route.recordSession("session-test", "session_abc123", "t1");
+    const s = sessions.load("session_abc123")!;
+    assert.equal(s.id, "session_abc123");
+    assert.deepEqual(s.routes, ["session-test"]);
+    // The prompt hook binds on every prompt, so a route write here would make
+    // `updated_at` the time of the last prompt rather than of the last change.
+    assert.deepEqual(route.load("session-test"), before);
   });
 
   it("does not duplicate an existing session and preserves original timestamp", () => {
     route.init("session-dedup");
-    const r1 = route.recordSession("session-dedup", "session_abc123");
-    const originalStartedAt = r1.sessions![0].started_at;
-    const r2 = route.recordSession("session-dedup", "session_abc123");
-    assert.equal(r2.sessions!.length, 1);
-    assert.equal(r2.sessions![0].started_at, originalStartedAt);
+    route.addTack("session-dedup", "Work");
+    route.recordSession("session-dedup", "session_abc123", "t1");
+    const originalStartedAt = sessions.load("session_abc123")!.started_at;
+    route.recordSession("session-dedup", "session_abc123");
+    assert.deepEqual(sessions.load("session_abc123")!.routes, ["session-dedup"]);
+    assert.equal(sessions.load("session_abc123")!.started_at, originalStartedAt);
   });
 
-  it("appends multiple distinct sessions", () => {
+  it("finds every session that touched a route", () => {
     route.init("session-multi");
-    route.recordSession("session-multi", "session_aaa");
-    const r = route.recordSession("session-multi", "session_bbb");
-    assert.equal(r.sessions!.length, 2);
+    route.addTack("session-multi", "Work");
+    route.recordSession("session-multi", "session_aaa", "t1");
+    route.recordSession("session-multi", "session_bbb", "t1");
+    assert.deepEqual(
+      route.sessionsOn("session-multi").map((s) => s.id).sort(),
+      ["session_aaa", "session_bbb"],
+    );
   });
 
-  it("binds a session to a tack with --tack", () => {
+  it("binds a session to a tack with --tack, as a cross-route ref", () => {
     route.init("session-bind");
     route.addTack("session-bind", "Work");
-    const r = route.recordSession("session-bind", "sess_x", "t1");
-    assert.deepEqual(r.sessions![0].tacks, ["t1"]);
+    route.recordSession("session-bind", "sess_x", "t1");
+    assert.deepEqual(sessions.load("sess_x")!.tacks, ["session-bind/t1"]);
   });
 
   it("accepts a bare tack number for the binding", () => {
     route.init("session-bare");
     route.addTack("session-bare", "Work");
-    const r = route.recordSession("session-bare", "sess_x", "1");
-    assert.deepEqual(r.sessions![0].tacks, ["t1"]);
+    route.recordSession("session-bare", "sess_x", "1");
+    assert.deepEqual(sessions.load("sess_x")!.tacks, ["session-bare/t1"]);
+  });
+
+  it("carries one session's tacks across routes", () => {
+    route.init("session-here");
+    route.init("session-there");
+    route.addTack("session-here", "First");
+    route.addTack("session-there", "Second");
+    route.recordSession("session-here", "sess_x", "t1");
+    route.recordSession("session-there", "sess_x", "t1");
+    assert.deepEqual(sessions.load("sess_x")!.tacks, ["session-here/t1", "session-there/t1"]);
   });
 
   it("appends additional tacks the session touches, preserving order", () => {
@@ -1008,8 +1030,8 @@ describe("recordSession", () => {
     route.addTack("session-touch", "First");
     route.addTack("session-touch", "Second");
     route.recordSession("session-touch", "sess_x", "t1");
-    const r = route.recordSession("session-touch", "sess_x", "t2");
-    assert.deepEqual(r.sessions![0].tacks, ["t1", "t2"]);
+    route.recordSession("session-touch", "sess_x", "t2");
+    assert.deepEqual(sessions.load("sess_x")!.tacks, ["session-touch/t1", "session-touch/t2"]);
   });
 
   it("moves a re-bound tack to the end so the last entry is current focus", () => {
@@ -1018,16 +1040,16 @@ describe("recordSession", () => {
     route.addTack("session-pivot", "Second");
     route.recordSession("session-pivot", "sess_x", "t1");
     route.recordSession("session-pivot", "sess_x", "t2");
-    const r = route.recordSession("session-pivot", "sess_x", "t1");
-    assert.deepEqual(r.sessions![0].tacks, ["t2", "t1"]);
+    route.recordSession("session-pivot", "sess_x", "t1");
+    assert.deepEqual(sessions.load("sess_x")!.tacks, ["session-pivot/t2", "session-pivot/t1"]);
   });
 
   it("does not duplicate a tack bound twice in a row", () => {
     route.init("session-nodupe");
     route.addTack("session-nodupe", "Work");
     route.recordSession("session-nodupe", "sess_x", "t1");
-    const r = route.recordSession("session-nodupe", "sess_x", "t1");
-    assert.deepEqual(r.sessions![0].tacks, ["t1"]);
+    route.recordSession("session-nodupe", "sess_x", "t1");
+    assert.deepEqual(sessions.load("sess_x")!.tacks, ["session-nodupe/t1"]);
   });
 
   it("throws when binding a session to a tack that does not exist", () => {
@@ -1038,11 +1060,62 @@ describe("recordSession", () => {
     );
   });
 
-  it("records the session without a binding when --tack is omitted", () => {
+  it("refuses a session id that would not be a filename", () => {
+    route.init("session-badid");
+    assert.throws(
+      () => route.recordSession("session-badid", "../escape"),
+      /Invalid session id/,
+    );
+  });
+
+  it("records nothing for a session that has produced no tack", () => {
     route.init("session-nobind");
     route.addTack("session-nobind", "Work");
-    const r = route.recordSession("session-nobind", "sess_x");
-    assert.equal(r.sessions![0].tacks, undefined);
+    route.recordSession("session-nobind", "sess_x");
+    assert.equal(sessions.load("sess_x"), null);
+  });
+});
+
+describe("endSession", () => {
+  it("stamps the session ended and reports what it drove on the route", () => {
+    route.init("end-one");
+    route.addTack("end-one", "Work");
+    route.recordSession("end-one", "sess_x", "t1");
+    route.setDeliverable("end-one", "t1", "PR #7", "https://github.com/o/r/pull/7");
+    const { tacks, deliverables } = route.endSession("end-one", "sess_x");
+    assert.ok(sessions.load("sess_x")!.ended_at);
+    assert.deepEqual(tacks, ["t1"]);
+    assert.deepEqual(deliverables, ["https://github.com/o/r/pull/7"]);
+  });
+
+  it("stamps once for a session that spanned routes, and reports per route", () => {
+    // The stamp is the session's own; the payload answers about one route.
+    route.init("end-a");
+    route.init("end-b");
+    route.addTack("end-a", "A work");
+    route.addTack("end-b", "B work");
+    route.recordSession("end-a", "sess_x", "t1");
+    route.recordSession("end-b", "sess_x", "t1");
+    assert.deepEqual(route.endSession("end-a", "sess_x").tacks, ["t1"]);
+    const s = sessions.load("sess_x")!;
+    assert.ok(s.ended_at);
+    assert.deepEqual(s.tacks, ["end-a/t1", "end-b/t1"]);
+  });
+
+  it("writes nothing for a session the store never saw", () => {
+    route.init("end-unknown");
+    const { tacks } = route.endSession("end-unknown", "sess_ghost");
+    assert.equal(sessions.load("sess_ghost"), null);
+    assert.deepEqual(tacks, []);
+  });
+
+  it("reopens a session that touches a route again", () => {
+    route.init("end-reopen");
+    route.addTack("end-reopen", "Work");
+    route.recordSession("end-reopen", "sess_x", "t1");
+    route.endSession("end-reopen", "sess_x");
+    route.recordSession("end-reopen", "sess_x");
+    assert.equal(sessions.load("sess_x")!.ended_at, undefined);
   });
 });
 
@@ -1279,12 +1352,17 @@ describe("mergeRoutes", () => {
     route.init("mr-sess-late");
     route.addTack("mr-sess-late", "Open work");
     route.recordSession("mr-sess-late", "sess-2", "t1");
-    const { route: merged } = route.mergeRoutes("mr-sess-dst", ["mr-sess-late", "mr-sess-early"]);
-    const s1 = merged.sessions!.find((s) => s.id === "sess-1")!;
-    const s2 = merged.sessions!.find((s) => s.id === "sess-2")!;
+    route.mergeRoutes("mr-sess-dst", ["mr-sess-late", "mr-sess-early"]);
     // "Done first" (2026-02-01) sorts to t1; "Open work" to t2.
-    assert.deepEqual(s1.tacks, ["t1"]);
-    assert.deepEqual(s2.tacks, ["t2"]);
+    assert.deepEqual(sessions.load("sess-1")!.tacks, ["mr-sess-dst/t1"]);
+    assert.deepEqual(sessions.load("sess-2")!.tacks, ["mr-sess-dst/t2"]);
+    // The sources are deleted, so a touch list still naming them would point
+    // at nothing.
+    assert.deepEqual(sessions.load("sess-1")!.routes, ["mr-sess-dst"]);
+    assert.deepEqual(
+      route.sessionsOn("mr-sess-dst").map((s) => s.id).sort(),
+      ["sess-1", "sess-2"],
+    );
   });
 
   it("unifies a session that spanned multiple sources", () => {
@@ -1294,11 +1372,11 @@ describe("mergeRoutes", () => {
     route.init("mr-shared-b");
     route.addTack("mr-shared-b", "B work", { done: true, doneAt: "2026-01-20" });
     route.recordSession("mr-shared-b", "shared", "t1");
-    const { route: merged } = route.mergeRoutes("mr-shared-dst", ["mr-shared-a", "mr-shared-b"]);
-    const shared = merged.sessions!.filter((s) => s.id === "shared");
-    assert.equal(shared.length, 1);
-    // A work → t1, B work → t2; both refs unified onto the one session entry.
-    assert.deepEqual(shared[0].tacks, ["t1", "t2"]);
+    route.mergeRoutes("mr-shared-dst", ["mr-shared-a", "mr-shared-b"]);
+    // A work → t1, B work → t2; the one session record holds both, and its two
+    // touched sources collapse to the one route that replaced them.
+    assert.deepEqual(sessions.load("shared")!.tacks, ["mr-shared-dst/t1", "mr-shared-dst/t2"]);
+    assert.deepEqual(sessions.load("shared")!.routes, ["mr-shared-dst"]);
   });
 
 });

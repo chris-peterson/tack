@@ -69,8 +69,6 @@ Route (1 YAML file per route)
 ├── title (optional display name), description (optional markdown)
 ├── group (optional grouping slug)
 ├── depends_on: [route slugs]
-├── sessions[]
-│   └── id, started_at, tacks[] — route-scoped tack IDs the session is driving
 └── tacks[]
     ├── id (t1, t2, ...), summary, status
     ├── project, done_at
@@ -85,18 +83,42 @@ Route (1 YAML file per route)
         └── label, url
 ```
 
+```
+Session (1 YAML file per session)
+├── id — the Claude Code session identifier, and the filename
+├── started_at, ended_at
+├── routes[] — the routes it touched
+└── tacks[] — the tacks it drove, as <slug>/t<N>
+```
+
 ## Where routes are stored
 
 Routes are YAML files under a store root, filed by the year each route was
-opened in:
+opened in. Sessions sit beside them, one file each, named by the session id:
 
 ```
 <root>/2026/routes/<slug>.yaml
+<root>/2026/sessions/<session-id>.yaml
 ```
 
 The root is `~/.tack` unless `TACK_HOME` names another directory. Lookups read
 every year present, so a route that runs past New Year stays in the one file it
 started in.
+
+A session is its own document because it has no direct relationship with a
+route. It produces however many tacks it produces — often none — and those
+tacks land wherever they belong, which may be one route or several. So the
+session file holds all of it: the routes it touched, the tacks it drove as
+`<slug>/t<N>`, when it started, and — once `/tack:end` closes it — when it
+declared itself finished. Nothing about a session is written to a route file,
+which is what keeps the two from disagreeing.
+
+A session earns its file by driving a tack. Opening a route and reading around
+leaves nothing behind, which is the right record of a session that produced
+nothing.
+
+`tack sessions` lists them newest first; `tack status <slug>` shows the ones
+that touched one route.
 
 ### Keeping the store in git
 

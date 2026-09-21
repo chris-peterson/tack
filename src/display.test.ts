@@ -62,6 +62,51 @@ describe("formatRoute", () => {
     assert.ok(out.includes("(no tacks)"));
   });
 
+  it("renders the sessions the caller looked up, scoped to this route", () => {
+    const route: Route = {
+      id: "uuid",
+      slug: "feat",
+      created_at: "2026-03-30T00:00:00Z",
+      updated_at: "2026-03-30T00:00:00Z",
+      tacks: [
+        { id: "t1", summary: "Build it", status: "in_progress" },
+        { id: "t2", summary: "Ship it", status: "pending" },
+      ],
+    };
+    const out = formatRoute(route, {
+      sessions: [
+        {
+          id: "sess-live",
+          started_at: "2026-03-30T00:00:00Z",
+          routes: ["feat", "other"],
+          // The tack on `other` is dropped: this is the view of one route.
+          tacks: ["feat/t1", "feat/t2", "other/t9"],
+        },
+        {
+          id: "sess-over",
+          started_at: "2026-03-29T00:00:00Z",
+          ended_at: "2026-03-29T18:00:00Z",
+          routes: ["feat"],
+        },
+      ],
+    });
+    assert.ok(out.includes("sessions: 2"));
+    assert.ok(out.includes("sess-liv → t2 (also t1)"));
+    assert.ok(out.includes("sess-ove → no tack here [ended 2026-03-29T18:00:00Z]"));
+    assert.ok(!out.includes("other/t9"));
+  });
+
+  it("omits the session block when the caller looked none up", () => {
+    const route: Route = {
+      id: "uuid",
+      slug: "feat",
+      created_at: "2026-03-30T00:00:00Z",
+      updated_at: "2026-03-30T00:00:00Z",
+      tacks: [],
+    };
+    assert.ok(!formatRoute(route).includes("sessions:"));
+  });
+
   it("formats a route with tacks", () => {
     const route: Route = {
       id: "uuid",

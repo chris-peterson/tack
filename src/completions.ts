@@ -194,6 +194,7 @@ _tack() {
     'depends:Add or remove a tack dependency'
     'link:Add a link to a tack'
     'session:Record a session'
+    'sessions:List sessions, live or ended'
     'find:Find the tack that owns a URL'
     'doctor:Report route files that will not load'
     'repo:Look up a repo remote by name'
@@ -441,7 +442,7 @@ _tack() {
     session)
       # tack session <slug> <session-id> [--tack <tack-id>] | end <slug> <session-id>
       case "$CURRENT" in
-        3) _alternative 'subcommands:subcommand:((end\:"announce the work closing out"))' 'routes:route:_tack_routes' ;;
+        3) _alternative 'subcommands:subcommand:((end\:"stamp the session finished"))' 'routes:route:_tack_routes' ;;
         4)
           if [[ "\${words[3]}" == "end" ]]; then
             _tack_routes

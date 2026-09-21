@@ -169,7 +169,7 @@ function page(title: string, body: string): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title><style>${STYLE}</style></head>
 <body><main>${body}</main>
-<footer>Rendered from <code>~/.tack/routes</code> on each request — <code>tack serve</code></footer>
+<footer>Rendered from <code>${esc(route.storeRoot())}/&lt;year&gt;/routes</code> on each request — <code>tack serve</code></footer>
 </body></html>`;
 }
 

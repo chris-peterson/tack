@@ -32,6 +32,39 @@ describe("published examples conform to the route schema", () => {
   }
 });
 
+const sessionsDir = join(examplesDir, "sessions");
+const sessionExamples = readdirSync(sessionsDir)
+  .filter((f) => f.endsWith(".yaml"))
+  .sort();
+
+describe("published examples conform to the session schema", () => {
+  it("finds session fixtures to check", () => {
+    assert.ok(sessionExamples.length > 0, "examples/sessions/ has no .yaml fixtures");
+  });
+
+  for (const file of sessionExamples) {
+    it(`${file} validates`, () => {
+      const data = parse(readFileSync(join(sessionsDir, file), "utf-8"));
+      const result = validate(data, "session");
+      assert.ok(result.valid, `${file}:\n${result.errors.join("\n")}`);
+    });
+
+    // The id is the filename stem, as a route's slug is.
+    it(`${file} filename matches its id`, () => {
+      const data = parse(readFileSync(join(sessionsDir, file), "utf-8")) as { id?: string };
+      assert.equal(`${data.id}.yaml`, file);
+    });
+  }
+
+  it("refuses a tack ref that names no route", () => {
+    const result = validate(
+      { id: "sess-x", started_at: "2026-04-01T09:00:00Z", tacks: ["t1"] },
+      "session",
+    );
+    assert.equal(result.valid, false);
+  });
+});
+
 // [STORE-10] restates the schema's length limits so someone reading the spec
 // learns them without opening the JSON. Two copies of a number drift the moment
 // either side moves; this is what stops it.
@@ -109,5 +142,17 @@ describe("a retired field is named, not reported as an unknown property", () => 
     const result = validate(route({ nonsense: 1 }));
     assert.equal(result.valid, false);
     assert.match(result.errors[0], /must NOT have additional properties/);
+  });
+
+  // A route predating the session store carries the records it now owns. The
+  // generic retirement message would say to remove the field, throwing them
+  // away.
+  it("names the session store when a route still carries session records", () => {
+    const result = validate(
+      route({ sessions: [{ id: "sess-1", started_at: "2026-03-15T10:00:00Z" }] }),
+    );
+    assert.equal(result.valid, false);
+    assert.match(result.errors[0], /sessions live in their own store now/);
+    assert.match(result.errors[0], /sessions\//);
   });
 });

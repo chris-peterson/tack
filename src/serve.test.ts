@@ -43,6 +43,16 @@ async function withServer(fn: (base: string) => Promise<void>): Promise<void> {
 }
 
 describe("serve documents", () => {
+  // The footer is the one place the page says where its content came from, so a
+  // reader looking at an empty index needs it to name the store actually read —
+  // not a default the process may not be using.
+  it("names the store it read in the footer", async () => {
+    await withServer(async (base) => {
+      const body = await (await fetch(`${base}/`)).text();
+      assert.ok(body.includes(`${route.storeRoot()}/&lt;year&gt;/routes`));
+    });
+  });
+
   it("serves an index of every route", async () => {
     route.init("alpha", { group: "ai" });
     route.addTack("alpha", "first");

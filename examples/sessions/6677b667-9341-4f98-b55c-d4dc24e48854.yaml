@@ -1,0 +1,11 @@
+# A session still running: no `ended_at`, so a fleet view reads it as live work
+# rather than applying a staleness threshold to it. It has opened a second route
+# without producing anything there yet — the case `routes` records and `tacks`
+# cannot.
+id: "6677b667-9341-4f98-b55c-d4dc24e48854"
+started_at: "2026-04-01T09:00:00Z"
+routes:
+  - "q2-auth-rewrite"
+  - "q2-dependency-cleanup"
+tacks:
+  - "q2-auth-rewrite/t4"
