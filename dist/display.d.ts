@@ -1,4 +1,4 @@
-import type { Route, Tack } from "./types.js";
+import type { Route, Session, Tack } from "./types.js";
 import { type FindMatch } from "./route.js";
 import type { RepoMatch } from "./repos.js";
 export declare function formatTack(tack: Tack, opts?: {
@@ -6,6 +6,7 @@ export declare function formatTack(tack: Tack, opts?: {
 }): string;
 export declare function formatRoute(route: Route, opts?: {
     linkBase?: string | null;
+    sessions?: Session[];
 }): string;
 /**
  * The structured data behind `formatTree`, for `tack tree --json`. The shape
@@ -31,4 +32,5 @@ export declare function formatList(routes: {
     open: number;
     state?: "active" | "done";
 }[]): string;
+export declare function formatSessions(sessions: Session[]): string;
 export declare function formatRepos(repos: RepoMatch[]): string;

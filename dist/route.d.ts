@@ -1,5 +1,6 @@
 import * as repos from "./repos.js";
-import type { Link, Route, Tack, TackStatus } from "./types.js";
+import type { Link, Route, Session, Tack, TackStatus } from "./types.js";
+export declare function storeRoot(): string;
 export declare function isOpen(t: Tack): boolean;
 export declare function routeState(route: Route): "active" | "done";
 export declare function assertValidSlug(slug: string, what?: string): void;
@@ -102,6 +103,12 @@ export declare function sessionWork(slug: string, sessionId: string): {
     deliverables: string[];
 };
 export declare function recordSession(slug: string, sessionId: string, tackId?: string): Route;
+export declare function sessionsOn(slug: string): Session[];
+export declare function endSession(slug: string, sessionId: string): {
+    route: Route;
+    tacks: string[];
+    deliverables: string[];
+};
 export declare function recent(opts?: {
     count?: number;
     since?: string;

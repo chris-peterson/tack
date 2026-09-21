@@ -637,12 +637,21 @@ tack link rm auth-rewrite t1 https://slack.com/archives/C123/p456
 
 ## Sessions
 
+Which conversation drove which work, across the routes it touched.
+
 ### `tack session`
 
 ```text
 tack session <slug> <session-id> [--tack <tack-id>]
 tack session end <slug> <session-id>
-    Announce the session's work closing out (writes nothing)
+    Stamp the session finished and announce its work closing out
+```
+
+### `tack sessions`
+
+```text
+tack sessions [--json]
+    List sessions, newest first, live or ended
 ```
 
 ## Documents

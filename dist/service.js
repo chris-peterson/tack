@@ -36,6 +36,13 @@ export function servicePath() {
     }
     return dirs.join(delimiter);
 }
+// The store the unit should read, captured at install time. A supervisor starts
+// the server without a login shell, so `TACK_HOME` set in a shell profile never
+// reaches it — and the fallback is `~/.tack`, which on a machine that keeps its
+// store elsewhere serves an empty index rather than failing ([SERVE-15]).
+export function serviceHome() {
+    return process.env.TACK_HOME || undefined;
+}
 function plistPath() {
     return join(homedir(), "Library", "LaunchAgents", `${SERVICE_LABEL}.plist`);
 }
@@ -78,10 +85,13 @@ function xml(s) {
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
 }
-export function renderPlist(wrapper, port, log, errLog, path) {
+export function renderPlist(wrapper, port, log, errLog, path, home) {
     const args = [wrapper, "serve", "--port", String(port)]
         .map((a) => `        <string>${xml(a)}</string>`)
         .join("\n");
+    const tackHome = home
+        ? `\n        <key>TACK_HOME</key>\n        <string>${xml(home)}</string>`
+        : "";
     return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -95,7 +105,7 @@ ${args}
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>${xml(path)}</string>
+        <string>${xml(path)}</string>${tackHome}
     </dict>
     <key>RunAtLoad</key>
     <true/>
@@ -109,16 +119,18 @@ ${args}
 </plist>
 `;
 }
-export function renderUnit(wrapper, port, path) {
+export function renderUnit(wrapper, port, path, home) {
     // systemd reads `%` as the start of a specifier, and splits an unquoted value
     // on whitespace.
-    const env = path.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/%/g, "%%");
+    const quote = (v) => v.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/%/g, "%%");
+    const env = quote(path);
+    const tackHome = home ? `\nEnvironment="TACK_HOME=${quote(home)}"` : "";
     return `[Unit]
 Description=tack route documents (serve)
 After=default.target
 
 [Service]
-Environment="PATH=${env}"
+Environment="PATH=${env}"${tackHome}
 ExecStart=${wrapper} serve --port ${port}
 Restart=always
 RestartSec=2
@@ -144,7 +156,7 @@ export function install(port) {
         const logDir = join(homedir(), ".tack");
         mkdirSync(logDir, { recursive: true });
         mkdirSync(join(homedir(), "Library", "LaunchAgents"), { recursive: true });
-        writeFileSync(plistPath(), renderPlist(wrapper, port, join(logDir, "serve.log"), join(logDir, "serve.err.log"), servicePath()));
+        writeFileSync(plistPath(), renderPlist(wrapper, port, join(logDir, "serve.log"), join(logDir, "serve.err.log"), servicePath(), serviceHome()));
         run("launchctl", ["unload", plistPath()]);
         const loaded = run("launchctl", ["load", plistPath()]);
         if (!loaded.ok)
@@ -153,7 +165,7 @@ export function install(port) {
         return;
     }
     mkdirSync(join(homedir(), ".config", "systemd", "user"), { recursive: true });
-    writeFileSync(unitPath(), renderUnit(wrapper, port, servicePath()));
+    writeFileSync(unitPath(), renderUnit(wrapper, port, servicePath(), serviceHome()));
     run("systemctl", ["--user", "daemon-reload"]);
     const enabled = run("systemctl", ["--user", "enable", "--now", "tack-serve.service"]);
     if (!enabled.ok)

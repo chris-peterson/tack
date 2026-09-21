@@ -26,6 +26,24 @@ describe("service units", () => {
         assert.match(renderPlist(wrapperPath(), 8788, "/tmp/o", "/tmp/e", PATH), /<key>PATH<\/key>\s*<string>\/opt\/homebrew\/bin:\/usr\/bin:\/bin<\/string>/);
         assert.match(renderUnit(wrapperPath(), 8788, PATH), /^Environment="PATH=\/opt\/homebrew/m);
     });
+    // A supervisor starts the server without a login shell, so a TACK_HOME set in
+    // a shell profile never reaches it — and the fallback is `~/.tack`, which on a
+    // machine whose store is elsewhere serves an empty index rather than failing.
+    it("carry the store the install was run against", () => {
+        const home = "/Users/x/src/tack.db";
+        assert.match(renderPlist(wrapperPath(), 8788, "/tmp/o", "/tmp/e", PATH, home), /<key>TACK_HOME<\/key>\s*<string>\/Users\/x\/src\/tack\.db<\/string>/);
+        assert.match(renderUnit(wrapperPath(), 8788, PATH, home), /^Environment="TACK_HOME=\/Users\/x\/src\/tack\.db"$/m);
+    });
+    // The default store needs no variable, and writing one would pin a unit to a
+    // path the user never chose.
+    it("leave TACK_HOME out when the store is the default", () => {
+        assert.doesNotMatch(renderPlist(wrapperPath(), 8788, "/tmp/o", "/tmp/e", PATH), /TACK_HOME/);
+        assert.doesNotMatch(renderUnit(wrapperPath(), 8788, PATH), /TACK_HOME/);
+    });
+    it("escape a store path the unit format would otherwise choke on", () => {
+        assert.match(renderPlist(wrapperPath(), 8788, "/tmp/o", "/tmp/e", PATH, "/a&b"), /<string>\/a&amp;b<\/string>/);
+        assert.match(renderUnit(wrapperPath(), 8788, PATH, "/100%/tack"), /TACK_HOME=\/100%%\/tack/);
+    });
     it("include the running node's own directory, so the lookup can't come up empty", () => {
         const dirs = servicePath().split(delimiter);
         assert.ok(dirs.includes(dirname(process.execPath)));

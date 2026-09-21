@@ -20,6 +20,8 @@ export interface Tack {
 export interface Session {
     id: string;
     started_at: string;
+    ended_at?: string;
+    routes?: string[];
     tacks?: string[];
 }
 export interface Route {
@@ -30,6 +32,5 @@ export interface Route {
     created_at: string;
     updated_at: string;
     group?: string;
-    sessions?: Session[];
     tacks: Tack[];
 }

@@ -1,0 +1,11 @@
+import type { Session } from "./types.js";
+export declare function assertValidId(id: string): void;
+export declare function load(id: string): Session | null;
+export declare function all(): Session[];
+export declare function tackRef(slug: string, tackId: string): string;
+export declare function record(id: string, slug: string, tackId?: string): Session | null;
+export declare function end(id: string): Session | null;
+export declare function remove(id: string): void;
+export declare function tacksOn(id: string, slug: string): string[];
+export declare function onRoute(slug: string): Session[];
+export declare function remapRefs(map: Map<string, string | null>, slugs?: Map<string, string | null>): string[];

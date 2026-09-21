@@ -254,10 +254,15 @@ commands:
   subcommands:
   - name: end
     usages:
-    - summary: Announce the session's work closing out (writes nothing)
+    - summary: Stamp the session finished and announce its work closing out
       args:
       - name: slug
       - name: session-id
+- name: sessions
+  usages:
+  - summary: List sessions, newest first, live or ended
+    flags:
+    - name: --json
 - name: find
   usages:
   - summary: Find tacks referencing a URL (in any deliverable or link)

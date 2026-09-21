@@ -4,21 +4,26 @@ import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const SCHEMA_PATH = resolve(__dirname, "..", "schema", "route.schema.json");
-let cachedValidator = null;
-let cachedSchema = null;
-function getSchema() {
-    if (!cachedSchema)
-        cachedSchema = JSON.parse(readFileSync(SCHEMA_PATH, "utf-8"));
-    return cachedSchema;
+const validators = new Map();
+const schemas = new Map();
+function getSchema(name = "route") {
+    let schema = schemas.get(name);
+    if (!schema) {
+        const path = resolve(__dirname, "..", "schema", `${name}.schema.json`);
+        schema = JSON.parse(readFileSync(path, "utf-8"));
+        schemas.set(name, schema);
+    }
+    return schema;
 }
-function getValidator() {
-    if (cachedValidator)
-        return cachedValidator;
+function getValidator(name) {
+    const cached = validators.get(name);
+    if (cached)
+        return cached;
     const ajv = new Ajv.default({ allErrors: true });
     addFormats(ajv);
-    cachedValidator = ajv.compile(getSchema());
-    return cachedValidator;
+    const validator = ajv.compile(getSchema(name));
+    validators.set(name, validator);
+    return validator;
 }
 // Every length limit the schema imposes, keyed `<owner>.<field>` — `route.title`,
 // `todoItem.text`. The schema is the canonical source ([STORE-04]), so the
@@ -72,8 +77,8 @@ const RETIRED_FIELDS = {
     after: "1.7",
     depends_on: "1.7",
 };
-export function validate(data) {
-    const validator = getValidator();
+export function validate(data, name = "route") {
+    const validator = getValidator(name);
     const valid = validator(data);
     if (valid)
         return { valid: true, errors: [] };
@@ -81,6 +86,13 @@ export function validate(data) {
         const path = e.instancePath || "/";
         if (e.keyword === "additionalProperties") {
             const field = e.params?.additionalProperty ?? "";
+            // A route written before the session store carries the records it now
+            // owns. The generic retirement message would say to remove the field,
+            // which would throw those records away — so this one says where they
+            // belong instead.
+            if (name === "route" && field === "sessions") {
+                return `${path}: sessions live in their own store now, under <root>/<year>/sessions/ — this file predates it`;
+            }
             const since = RETIRED_FIELDS[field];
             // Tack-level `depends_on` is live, so it is a known property there and
             // never reaches this branch; only the retired route-level one does.

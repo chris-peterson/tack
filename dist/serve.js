@@ -135,6 +135,15 @@ a.tid:hover { color: var(--accent); }
 .pill.done { color: var(--done); border-color: currentColor; }
 .meta { font-size: .85rem; color: var(--muted); margin-top: .4rem; }
 .meta ul { margin: .25rem 0 0; padding-left: 1.1rem; }
+/* A tack is one deliverable, so it is set apart from the references around it
+   rather than joined to them in a run — several change-request links read as
+   several deliverables when they share a line. */
+.landed { border-left: 2px solid var(--accent); padding: .1rem 0 .1rem .7rem;
+          margin: .5rem 0 0; font-size: .9rem; }
+.landed.done { border-color: var(--done); }
+.landed .what { color: var(--muted); font-size: .78rem; display: block; }
+.refs { font-size: .85rem; color: var(--muted); margin: .6rem 0 0; padding-left: 1.1rem; }
+.refs li { margin: .1rem 0; }
 .row { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
 .empty { color: var(--muted); font-style: italic; }
 footer { max-width: 52rem; margin: 3rem auto 0; color: var(--muted); font-size: .8rem;
@@ -163,7 +172,7 @@ function page(title, body) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title><style>${STYLE}</style></head>
 <body><main>${body}</main>
-<footer>Rendered from <code>~/.tack/routes</code> on each request — <code>tack serve</code></footer>
+<footer>Rendered from <code>${esc(route.storeRoot())}</code> on each request — <code>tack serve</code></footer>
 </body></html>`;
 }
 // In a route document a tack is an anchor you can link *to*; in a group
@@ -172,21 +181,35 @@ function page(title, body) {
 // route's own anchor gives each tack one canonical address either way.
 function tackCard(t, opts = {}) {
     const done = t.status === "done";
-    const meta = [];
-    if (t.deliverable)
-        meta.push(`deliverable: ${link(t.deliverable.label, t.deliverable.url)}`);
-    if (t.depends_on?.length)
-        meta.push(`depends on ${esc(t.depends_on.join(", "))}`);
-    for (const l of t.links ?? [])
-        meta.push(link(l.label, l.url));
     const id = opts.href
         ? `<a class="tid" href="${opts.href}">${esc(t.id)}</a>`
         : `<span class="tid">${esc(t.id)}</span>`;
-    return `<div class="card${done ? " done" : ""}"${opts.href ? "" : ` id="${esc(t.id)}"`}>
+    // The anchor stays alongside the link out: a route document is still one page
+    // you can point into, and the terminal's own links land on it.
+    return `<div class="card${done ? " done" : ""}"${opts.anchor === false ? "" : ` id="${esc(t.id)}"`}>
   <div class="row"><div>${id}${esc(t.summary)}</div>
   <span class="pill${done ? " done" : ""}">${esc(t.status)}</span></div>
-  ${meta.length ? `<div class="meta">${meta.join(" &middot; ")}</div>` : ""}
+  ${landed(t)}${refs(t)}
 </div>`;
+}
+// What the tack produced, set apart from what it merely points at.
+function landed(t) {
+    if (!t.deliverable)
+        return "";
+    return `<p class="landed${t.status === "done" ? " done" : ""}">
+    <span class="what">delivered</span>${link(t.deliverable.label, t.deliverable.url)}</p>`;
+}
+function refs(t, opts = {}) {
+    const items = [...(t.links ?? []).map((l) => link(l.label, l.url))];
+    if (t.depends_on?.length) {
+        const deps = opts.depends
+            ? t.depends_on.map(opts.depends).join(", ")
+            : esc(t.depends_on.join(", "));
+        items.unshift(`depends on ${deps}`);
+    }
+    if (!items.length)
+        return "";
+    return `<ul class="refs">${items.map((i) => `<li>${i}</li>`).join("")}</ul>`;
 }
 // A plain form, posting to the server, with no script behind it: the page has
 // to keep working when the CSP is strict and when JavaScript is off, and a
@@ -215,13 +238,40 @@ export function renderRoute(r, opts = {}) {
     <p class="sub">${esc(r.slug)} &middot; ${open} open / ${r.tacks.length} total${r.group ? ` &middot; <a href="/group/${esc(r.group)}">${esc(r.group)}</a>` : ""}</p>`;
     const tacks = r.tacks.length
         ? r.tacks
-            .map((t) => tackCard(t, opts.linkTacks ? { href: `/route/${esc(r.slug)}#${esc(t.id)}` } : {}))
+            .map((t) => tackCard(t, {
+            href: `/route/${esc(r.slug)}/${esc(t.id)}`,
+            // Several routes render into one group document and each numbers
+            // its tacks from t1, so anchoring there repeats the same id.
+            anchor: !opts.linkTacks,
+        }))
             .join("")
         : `<p class="empty">No tacks yet.</p>`;
     return `${opts.crumb === false ? "" : `<div class="crumb"><a href="/">all routes</a></div>`}
 ${head}${r.description ? `<div class="desc">${markdown(r.description)}</div>` : ""}
 ${opts.editable === false ? "" : editForm(r)}
 <h2>Tacks</h2>${tacks}`;
+}
+// One tack, addressable on its own — the unit a CLI line, a nudge, or a link in
+// a chat names. The deliverable leads because it is what the tack is for; when
+// there isn't one, the page says what would make one.
+export function renderTack(r, t) {
+    const done = t.status === "done";
+    const dep = (entry) => {
+        const ref = route.parseDepRef(entry, r.slug);
+        return `<a href="/route/${esc(ref.slug)}/${esc(ref.tackId)}">${esc(entry)}</a>`;
+    };
+    const deliverable = t.deliverable
+        ? landed(t)
+        : `<p class="empty">Nothing landed yet — <code>tack deliverable ${esc(r.slug)} ${esc(t.id)} &lt;url&gt;</code></p>`;
+    return `<div class="crumb"><a href="/">all routes</a> / <a href="/route/${esc(r.slug)}">${esc(r.title ?? r.slug)}</a></div>
+<div class="row"><h1>${esc(t.summary)}</h1>
+  <span class="pill${done ? " done" : ""}">${esc(t.status)}</span></div>
+<p class="sub">${esc(r.slug)}/${esc(t.id)}${
+    // A tack's date is stored as a date or a full timestamp; the time it landed
+    // to the millisecond is not what a reader of this page came for.
+    t.done_at ? ` &middot; done ${esc(String(t.done_at).slice(0, 10))}` : ""}</p>
+${deliverable}
+${refs(t, { depends: dep }) || `<p class="empty">No references.</p>`}`;
 }
 export function renderIndex(routes, invalid = []) {
     // A route file the scan could not read is missing from the cards below. The
@@ -390,6 +440,20 @@ export function handle(req, res) {
                 : fail(404, `No route ${routeMatch[1]}.`);
         }
         return json ? sendJson(res, 200, routeJson(r)) : send(res, 200, page(r.slug, renderRoute(r)));
+    }
+    // A tack's own document. The route stays the root it hangs off, so the
+    // address is the `<slug>/t<N>` a CLI line already prints.
+    const tackMatch = path.match(/^\/route\/([^/]+)\/(t[0-9]+)\/?$/);
+    if (tackMatch) {
+        const r = routes.find((x) => x.slug === tackMatch[1]);
+        if (!r)
+            return fail(404, `No route ${tackMatch[1]}.`);
+        const t = r.tacks.find((x) => x.id === tackMatch[2]);
+        if (!t)
+            return fail(404, `No tack ${tackMatch[2]} on ${r.slug}.`);
+        return json
+            ? sendJson(res, 200, t)
+            : send(res, 200, page(`${r.slug}/${t.id}`, renderTack(r, t)));
     }
     const groupMatch = path.match(/^\/group\/([^/]+)\/?$/);
     if (groupMatch) {

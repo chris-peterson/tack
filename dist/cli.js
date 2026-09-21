@@ -12,9 +12,18 @@ import * as service from "./service.js";
 import * as freshness from "./freshness.js";
 import { TACK_STATUSES } from "./types.js";
 import { announce, announceOnce } from "./announce.js";
-import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind, formatRepos, treeData } from "./display.js";
+import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind, formatRepos, formatSessions, treeData } from "./display.js";
 import { ZSH_COMPLETION } from "./completions.js";
 import { describeVersion } from "./build-info.js";
+import * as sessions from "./sessions.js";
+// A route file says nothing about sessions, so rendering one with its sessions
+// costs a scan of the session store. `tack status` is the command that asks
+// about a route and pays it; the renders that follow a mutation don't, and the
+// prompt hook binds on every prompt through one of those.
+function renderRoute(r, opts = {}) {
+    const { withSessions, ...rest } = opts;
+    return formatRoute(r, withSessions ? { ...rest, sessions: route.sessionsOn(r.slug) } : rest);
+}
 function usage(exitCode = 1) {
     const print = exitCode === 0 ? console.log : console.error;
     print(`tack — route tracker for AI-assisted development
@@ -49,7 +58,8 @@ Usage:
   tack link add <slug> <tack-id> <label> <url>
   tack link rm <slug> <tack-id> <url>
   tack session <slug> <session-id> [--tack <tack-id>]
-  tack session end <slug> <session-id>   Announce the session's work closing out (writes nothing)
+  tack session end <slug> <session-id>   Stamp the session finished and announce its work closing out
+  tack sessions [--json]             List sessions, newest first, live or ended
   tack find --url <url> [--json]     Find tacks referencing a URL (in any deliverable or link)
   tack find --path [<dir>] [--json]  Find routes covering a repo checkout (default cwd)
   tack repo [<partial>] [--json]     Look up repo remote(s) by name; no arg lists all
@@ -126,7 +136,7 @@ function bindSession(slug, sessionId, tackId) {
     announceOnce("session.started", sessionId, {
         session: sessionId,
         route: slug,
-        tack: r.sessions?.find((s) => s.id === sessionId)?.tacks?.at(-1),
+        tack: sessions.tacksOn(sessionId, slug).at(-1),
     });
     return r;
 }
@@ -294,7 +304,7 @@ function run() {
                 group: initValues.group,
             });
             recordSessionIfPresent(slug);
-            console.log(formatRoute(r));
+            console.log(renderRoute(r));
             break;
         }
         case "status": {
@@ -322,7 +332,10 @@ function run() {
                 // would fail validation.
                 console.log(jsonFlag
                     ? JSON.stringify({ ...displayRoute, state: route.routeState(r) }, null, 2)
-                    : formatRoute(displayRoute, { linkBase: serve.hyperlinkBase() }));
+                    : renderRoute(displayRoute, {
+                        linkBase: serve.hyperlinkBase(),
+                        withSessions: true,
+                    }));
             }
             else {
                 const routes = route.list();
@@ -595,7 +608,7 @@ function run() {
             console.log(`Moved ${result.moved.length} tack(s):`);
             console.log(lines.join("\n"));
             console.log("");
-            console.log(formatRoute(result.dstRoute));
+            console.log(renderRoute(result.dstRoute));
             break;
         }
         case "merge-routes": {
@@ -623,7 +636,7 @@ function run() {
                 }
             }
             console.log("");
-            console.log(formatRoute(result.route));
+            console.log(renderRoute(result.route));
             break;
         }
         case "link": {
@@ -672,7 +685,7 @@ function run() {
                 usage();
             const r = route.rename(rest[0], rest[1]);
             console.log(`Renamed: ${rest[0]} → ${rest[1]}`);
-            console.log(formatRoute(r));
+            console.log(renderRoute(r));
             break;
         }
         case "group": {
@@ -689,11 +702,11 @@ function run() {
             if (groupValues.clear) {
                 const r = route.clearGroup(groupSlug);
                 console.log(`Cleared group on ${groupSlug}`);
-                console.log(formatRoute(r));
+                console.log(renderRoute(r));
             }
             else if (groupPositionals[1]) {
                 const r = route.setGroup(groupSlug, groupPositionals[1]);
-                console.log(formatRoute(r));
+                console.log(renderRoute(r));
             }
             else {
                 // No group argument: report the current group.
@@ -722,11 +735,11 @@ function run() {
             if (titleValues.clear) {
                 const r = route.clearTitle(titleSlug);
                 console.log(`Cleared title on ${titleSlug}`);
-                console.log(formatRoute(r));
+                console.log(renderRoute(r));
             }
             else if (titlePositionals[1]) {
                 const r = route.setTitle(titleSlug, titlePositionals[1]);
-                console.log(formatRoute(r));
+                console.log(renderRoute(r));
             }
             else {
                 // No text argument: report the current title, mirroring `tack group`.
@@ -760,7 +773,7 @@ function run() {
             if (describeValues.clear) {
                 const r = route.clearDescription(describeSlug);
                 console.log(`Cleared description on ${describeSlug}`);
-                console.log(formatRoute(r));
+                console.log(renderRoute(r));
             }
             else if (describeFile !== undefined || describePositionals[1]) {
                 const body = describeFile !== undefined
@@ -773,7 +786,7 @@ function run() {
                     groupError("describe", `${describeFile === "-" ? "stdin" : describeFile} is empty; use --clear to remove the description.`);
                 }
                 const r = route.setDescription(describeSlug, body);
-                console.log(formatRoute(r));
+                console.log(renderRoute(r));
             }
             else {
                 const r = route.load(describeSlug);
@@ -794,9 +807,9 @@ function run() {
                 allowPositionals: true,
             });
             // Both forms have one shape: refuse group-scoped per [CLI-41], act on the
-            // session, announce the fact, then render the route. What differs is
-            // inherent — the bare form writes the binding, `end` writes nothing,
-            // since a session's end is not state a route carries.
+            // session, announce the fact, then render the route. What differs is the
+            // write — the bare form records the binding, `end` stamps the session
+            // finished.
             //
             // `end` reports the conversation's *work* finishing rather than the
             // conversation itself: Claude Code's own teardown fires too late for a
@@ -807,21 +820,30 @@ function run() {
                 if (!endSlug || !endSession) {
                     groupError("session end", "expected <slug> <session-id>");
                 }
-                const work = route.sessionWork(endSlug, endSession);
+                const work = route.endSession(endSlug, endSession);
                 announce("session.ended", {
                     session: endSession,
                     route: endSlug,
                     tacks: work.tacks,
                     deliverables: work.deliverables,
                 });
-                console.log(formatRoute(work.route));
+                console.log(renderRoute(work.route));
                 break;
             }
             if (!sessionPositionals[0] || !sessionPositionals[1]) {
                 groupError("session", "expected <slug> <session-id>");
             }
             const r = bindSession(sessionPositionals[0], sessionPositionals[1], sessionValues.tack);
-            console.log(formatRoute(r));
+            console.log(renderRoute(r));
+            break;
+        }
+        case "sessions": {
+            const all = sessions.all();
+            if (rest.includes("--json")) {
+                console.log(JSON.stringify(all, null, 2));
+                break;
+            }
+            console.log(formatSessions(all));
             break;
         }
         case "find": {
@@ -939,7 +961,7 @@ function run() {
             const force = rest.includes("--force");
             const r = route.removeTack(rest[0], rest[1], { force });
             console.log(`Removed: ${rest[0]}/${rest[1]}`);
-            console.log(formatRoute(r));
+            console.log(renderRoute(r));
             break;
         }
         case "export": {
