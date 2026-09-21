@@ -198,6 +198,30 @@ Full contract: the COMPAT requirements in [`SPEC.md`](SPEC.md).
 - **Dependencies, not workflows.** Tacks declare what they depend on. No enforced state machine. The skills that open and close a route ask before closing on work that isn't durable yet, and name the next commands rather than running them.
 - **Local only.** No server, no sync, no cloud.
 
+## Development
+
+`just` is the front door: run it bare for the grouped list of every recipe.
+
+```bash
+git clone https://github.com/chris-peterson/tack
+cd tack
+just setup     # npm ci
+just check     # reports every prerequisite and the recipes that want it
+just test      # build, then the full suite
+```
+
+`just setup` is optional in practice: any recipe that compiles installs the
+dependencies on a checkout that hasn't got `node_modules` yet. `just check` is
+what to run when a recipe fails for a reason that isn't your code, since it
+names the missing tool instead of leaving you to read a stack trace.
+
+To run your working copy as the installed CLI, `just trial-on` puts it on your
+PATH and `just trial-off` puts the published build back. `tack --version`
+answers `<version>-dev.g<sha>` while you're trialling.
+
+Build order, the CI gates, and how generated artifacts are projected are in
+[`AGENTS.md`](AGENTS.md).
+
 ## License
 
 MIT

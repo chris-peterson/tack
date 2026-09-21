@@ -66,8 +66,8 @@ sees a grammar change.
 `spec/cli.yml`, and the `dist/` that `bin/tack` runs. It builds, regenerates,
 and commits the result to the branch, so a committed artifact matches its source
 and the diff a reviewer approves is the change that lands. The other rendered
-pages are git-ignored and rebuilt on deploy. `just check` shows what it
-would write, leaving the projected paths in your tree to restore.
+pages are git-ignored and rebuilt on deploy. `just check-generated` shows what
+it would write, leaving the projected paths in your tree to restore.
 
 A push therefore leaves CI's checks sitting on a commit you didn't write. The
 projection lands on top of your work, and GitHub withholds workflow runs from a
@@ -90,6 +90,13 @@ git log $(git describe --tags --abbrev=0)..main --no-merges
 ```
 
 ## Running your changes
+
+Bare `just` lists every recipe, grouped by what you want it for. `just setup`
+installs the npm dependencies with `npm ci`, and a recipe that compiles runs it
+for you on a checkout that hasn't got `node_modules` yet. `just check` reports
+the rest of the prerequisites (uv, docsify, shellcheck, `claude`) and names the
+recipes each one serves, so a missing tool surfaces before a recipe fails
+halfway.
 
 `just trial-on` points the `tack` on your PATH at this working copy, and
 `just trial-off` puts the installed plugin back. Both go through the CLI's own
