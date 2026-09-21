@@ -49,7 +49,7 @@ describe("serve documents", () => {
   it("names the store it read in the footer", async () => {
     await withServer(async (base) => {
       const body = await (await fetch(`${base}/`)).text();
-      assert.ok(body.includes(`${route.storeRoot()}/&lt;year&gt;/routes`));
+      assert.ok(body.includes(`<code>${route.storeRoot()}</code>`));
     });
   });
 
@@ -76,6 +76,73 @@ describe("serve documents", () => {
       const body = await (await fetch(`${base}/route/gamma`)).text();
       assert.match(body, /the work/);
       assert.match(body, /id="t1"/);
+    });
+  });
+
+  it("serves a tack as its own document", async () => {
+    route.init("solo");
+    route.addTack("solo", "the work");
+    route.setDeliverable("solo", "t1", "PR #9", "https://github.com/o/r/pull/9");
+    route.addLink("solo", "t1", "the issue", "https://github.com/o/r/issues/2");
+
+    await withServer(async (base) => {
+      const res = await fetch(`${base}/route/solo/t1`);
+      assert.equal(res.status, 200);
+      const body = await res.text();
+      assert.match(body, /the work/);
+      // The deliverable is set apart from the references, not run together
+      // with them — several CR links otherwise read as several deliverables.
+      assert.match(body, /class="landed[^"]*"[^>]*>\s*<span class="what">delivered<\/span>/);
+      assert.match(body, /class="refs"/);
+      assert.match(body, /href="\/route\/solo"/);
+    });
+  });
+
+  it("says what would produce a deliverable when a tack has none", async () => {
+    route.init("bare");
+    route.addTack("bare", "not landed");
+
+    await withServer(async (base) => {
+      const body = await (await fetch(`${base}/route/bare/t1`)).text();
+      assert.match(body, /Nothing landed yet/);
+      assert.match(body, /tack deliverable bare t1/);
+    });
+  });
+
+  it("links a dependency to the tack's own document, across routes", async () => {
+    route.init("dep-lib");
+    route.addTack("dep-lib", "ship it");
+    route.init("dep-app");
+    route.addTack("dep-app", "consume it");
+    route.addDependency("dep-app", "t1", "dep-lib/t1");
+
+    await withServer(async (base) => {
+      const body = await (await fetch(`${base}/route/dep-app/t1`)).text();
+      assert.match(body, /href="\/route\/dep-lib\/t1"/);
+    });
+  });
+
+  it("404s a tack id the route does not carry", async () => {
+    route.init("short");
+    route.addTack("short", "only one");
+
+    await withServer(async (base) => {
+      const res = await fetch(`${base}/route/short/t9`);
+      assert.equal(res.status, 404);
+      assert.match(await res.text(), /No tack t9 on short/);
+    });
+  });
+
+  it("serves the tack alone as JSON", async () => {
+    route.init("jsontack");
+    route.addTack("jsontack", "work");
+
+    await withServer(async (base) => {
+      const res = await fetch(`${base}/route/jsontack/t1`, {
+        headers: { accept: "application/json" },
+      });
+      assert.equal(res.status, 200);
+      assert.deepEqual(await res.json(), { id: "t1", summary: "work", status: "pending" });
     });
   });
 
@@ -467,7 +534,7 @@ describe("description markdown", () => {
 });
 
 describe("group documents link out to each tack", () => {
-  it("points every tack at its own route's anchor", async () => {
+  it("points every tack at its own document", async () => {
     route.init("ga", { group: "linked" });
     route.addTack("ga", "one");
     route.init("gb", { group: "linked" });
@@ -475,8 +542,8 @@ describe("group documents link out to each tack", () => {
 
     await withServer(async (base) => {
       const body = await (await fetch(`${base}/group/linked`)).text();
-      assert.match(body, /href="\/route\/ga#t1"/);
-      assert.match(body, /href="\/route\/gb#t1"/);
+      assert.match(body, /href="\/route\/ga\/t1"/);
+      assert.match(body, /href="\/route\/gb\/t1"/);
       assert.match(body, /href="\/route\/ga"/);
     });
   });

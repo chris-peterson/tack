@@ -1575,10 +1575,21 @@ a shell profile never reaches it, and the default root is a directory that on
 such a machine holds nothing — which serves an empty index rather than failing,
 the one outcome a reader cannot tell from an empty store.
 
-**[SERVE-16]** Every document shall name the store it was rendered from
-([STORE-01], [STORE-03]), rather than a fixed path. It is the only place the
-page says where its content came from, and it is what a reader looking at an
-empty index has to reason from.
+**[SERVE-16]** Every document shall name the store root it was rendered from
+([STORE-01]), rather than a fixed path. It is the only place the page says where
+its content came from, and it is what a reader looking at an empty index has to
+reason from. The root alone: a document is rendered from every year the store
+holds ([STORE-03]), so naming one would be false.
+
+**[SERVE-17]** A tack shall be addressable on its own, at
+`/route/<slug>/<tack-id>`. It is the unit a CLI line, a hook nudge and a link
+pasted into a thread all name, and until it had an address, pointing at one
+meant pointing at the route and saying which.
+
+The document shall lead with what the tack delivered ([DELIVER-01]), set apart
+from the links it merely references: a tack holds one deliverable and any number
+of links, and rendering them alike reads as several deliverables. Where there is
+none, the document shall name the command that records one.
 
 ---
 
