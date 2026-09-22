@@ -1,4 +1,4 @@
-import { isOpen, routeState } from "./route.js";
+import { isOpen, normalizeTackId, routeState } from "./route.js";
 const STATUS_ICONS = {
     pending: " ",
     in_progress: ">",
@@ -195,7 +195,7 @@ export function treeData(routes, path) {
             const route = routes.find((r) => r.slug === slug);
             if (!route)
                 return { error: `Route not found: ${slug}` };
-            const tack = route.tacks.find((t) => t.id === tackId);
+            const tack = route.tacks.find((t) => t.id === normalizeTackId(tackId));
             if (!tack)
                 return { error: `Tack not found: ${tackId} in route ${slug}` };
             if (aspect) {
@@ -301,7 +301,7 @@ export function formatTree(routes, path, depth) {
             const route = routes.find((r) => r.slug === slug);
             if (!route)
                 return `Route not found: ${slug}`;
-            const tack = route.tacks.find((t) => t.id === tackId);
+            const tack = route.tacks.find((t) => t.id === normalizeTackId(tackId));
             if (!tack)
                 return `Tack not found: ${tackId} in route ${slug}`;
             if (aspect) {

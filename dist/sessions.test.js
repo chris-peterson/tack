@@ -47,23 +47,23 @@ describe("the session store", () => {
         renameSync(sessionFile("sess-a"), sessionFile("sess-renamed"));
         assert.throws(() => sessions.load("sess-renamed"), /declares id 'sess-a'/);
     });
-    it("names that file and keeps listing the rest", () => {
+    it("records that file and keeps listing the rest", () => {
         sessions.record("sess-a", "one", "t1");
         sessions.record("sess-b", "one", "t1");
         renameSync(sessionFile("sess-a"), sessionFile("sess-renamed"));
-        const warnings = [];
-        const write = process.stderr.write.bind(process.stderr);
-        process.stderr.write = ((s) => {
-            warnings.push(s);
-            return true;
-        });
-        try {
-            assert.deepEqual(sessions.all().map((s) => s.id), ["sess-b"]);
-        }
-        finally {
-            process.stderr.write = write;
-        }
-        assert.match(warnings.join(""), /sess-renamed\.yaml/);
+        assert.deepEqual(sessions.all().map((s) => s.id), ["sess-b"]);
+        const skipped = sessions.invalidSessions();
+        assert.deepEqual(skipped.map((s) => s.id), ["sess-renamed"]);
+        assert.match(skipped[0].errors.join("\n"), /declares id 'sess-a'/);
+    });
+    it("clears the record of a skipped file on the next scan", () => {
+        sessions.record("sess-a", "one", "t1");
+        renameSync(sessionFile("sess-a"), sessionFile("sess-renamed"));
+        sessions.all();
+        assert.equal(sessions.invalidSessions().length, 1);
+        renameSync(sessionFile("sess-renamed"), sessionFile("sess-a"));
+        sessions.all();
+        assert.equal(sessions.invalidSessions().length, 0);
     });
     it("lists every session it holds", () => {
         sessions.record("sess-a", "one", "t1");

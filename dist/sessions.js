@@ -93,6 +93,7 @@ export function load(id) {
 // stderr rather than taking the listing down with it, as [STORE-09] has the
 // route scan do.
 export function all() {
+    skipped.clear();
     const sessions = [];
     for (const year of years()) {
         const dir = yearDir(year);
@@ -101,17 +102,30 @@ export function all() {
         for (const f of readdirSync(dir)) {
             if (!f.endsWith(".yaml"))
                 continue;
+            const id = f.replace(/\.yaml$/, "");
             try {
-                const session = load(f.replace(/\.yaml$/, ""));
+                const session = load(id);
                 if (session)
                     sessions.push(session);
             }
             catch (e) {
-                process.stderr.write(`warning: ${e.message}\n`);
+                recordSkip(id, e.message);
             }
         }
     }
     return sessions.sort((a, b) => b.started_at.localeCompare(a.started_at));
+}
+const skipped = new Map();
+export function invalidSessions() {
+    return [...skipped.values()].sort((a, b) => a.id.localeCompare(b.id));
+}
+function recordSkip(id, message) {
+    const [, ...rules] = message.split("\n");
+    skipped.set(id, {
+        id,
+        file: sessionPath(id),
+        errors: rules.length ? rules : [message],
+    });
 }
 export function tackRef(slug, tackId) {
     return `${slug}/${tackId}`;

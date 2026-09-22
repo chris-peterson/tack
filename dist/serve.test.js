@@ -506,6 +506,14 @@ describe("a route file that will not load", () => {
             assert.match(await res.text(), /must NOT have more than 500 characters/);
         });
     });
+    it("refuses a tack document inside that route the same way", async () => {
+        writeBadRoute("unreadable");
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/route/unreadable/t1`);
+            assert.equal(res.status, 500);
+            assert.match(await res.text(), /must NOT have more than 500 characters/);
+        });
+    });
     it("still 404s a route that was never there", async () => {
         writeBadRoute("unreadable");
         await withServer(async (base) => {

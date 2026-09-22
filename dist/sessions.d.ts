@@ -2,6 +2,12 @@ import type { Session } from "./types.js";
 export declare function assertValidId(id: string): void;
 export declare function load(id: string): Session | null;
 export declare function all(): Session[];
+export type InvalidSession = {
+    id: string;
+    file: string;
+    errors: string[];
+};
+export declare function invalidSessions(): InvalidSession[];
 export declare function tackRef(slug: string, tackId: string): string;
 export declare function record(id: string, slug: string, tackId?: string): Session | null;
 export declare function end(id: string): Session | null;
