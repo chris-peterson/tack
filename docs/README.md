@@ -1,8 +1,41 @@
-<p align="center">
-  <img src="hero.svg" alt="tack — route tracker for AI-assisted development" width="800">
-</p>
+<div class="ph-hero" style="--accent: var(--color-purple)">
 
-[](_home.md ':include')
+<h1 class="ph-lede"><span class="ph-name">tack</span> your progress across sessions.</h1>
+
+<div class="ph-badge"><img class="ph-mark" src="favicon.svg" alt="tack" width="26" height="26">
+
+[](_tags.md ':include')
+
+</div>
+
+</div>
+
+Keep losing your place between sessions? It remembers what you were doing so you don't re-explain it every time.
+
+Tracks what you're working on across crashes, context overflow, or jumping between projects. Start a fresh session and pick up exactly where you left off.
+
+## Install
+
+```bash
+claude plugin marketplace add chris-peterson/claude-marketplace
+claude plugin install tack@chris-peterson
+```
+
+## Skills
+
+| Skill | What it does |
+|---|---|
+| [`/tack:start`](/skills/start) | Open a session — read the ticket, cut the branch, bind the route |
+| [`/tack:end`](/skills/end) | Close it — record what landed, report what's still owed |
+
+What the plugin does without being asked, and the wiring behind it:
+[hooks](/hooks), [events](/events).
+
+## Works with
+
+| Project | What it adds |
+|---|---|
+| <img class="ph-peer" src="https://chris-peterson.github.io/anchor/favicon.svg" alt="" width="18" height="18">[anchor](https://chris-peterson.github.io/anchor) | supplies the commit, CR, merge, and release commands end reports as owed |
 
 ## In action
 

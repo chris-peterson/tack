@@ -1,8 +1,12 @@
-<p align="center">
-  <img src="assets/hero.svg" alt="tack — route tracker for AI-assisted development" width="800">
-</p>
+# tack
 
-Route tracker for AI-assisted development work — pivots, deliverables, and dependencies — across session boundaries.
+**tack** your progress across sessions.
+
+![Claude Code](https://img.shields.io/badge/Claude%20Code-%23D97757.svg?logo=claudecode&logoColor=white)
+![GitHub top language](https://img.shields.io/github/languages/top/chris-peterson/tack)
+![GitHub Release](https://img.shields.io/github/v/release/chris-peterson/tack?sort=semver&display_name=release&logo=github&label=latest)
+
+Route tracker for AI-assisted development work (pivots, deliverables and dependencies) across session boundaries.
 
 tack captures the non-linear reality of how development actually happens — pivots, context switches, multi-repo changes — so that work-in-progress survives context exhaustion, crashes, and session boundaries.
 
