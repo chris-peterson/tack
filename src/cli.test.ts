@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { gzipSync, gunzipSync } from "node:zlib";
 
@@ -623,6 +623,21 @@ describe("the session lifecycle tack publishes", () => {
     assert.ok(ended.ended_at);
     assert.deepEqual(ended.tacks, ["pub/t1", "other/t1"]);
     assert.equal(json.find((s) => s.id === "sess-2")!.ended_at, undefined);
+  });
+
+  it("names a session file it could not read and exits non-zero [SESS-08]", () => {
+    const { home, e } = store();
+    run(e, "init", "pub");
+    run(e, "add", "pub", "Work");
+    run(e, "session", "pub", "sess-1", "--tack", "t1");
+
+    const dir = join(home, String(new Date().getFullYear()), "sessions");
+    renameSync(join(dir, "sess-1.yaml"), join(dir, "sess-renamed.yaml"));
+
+    const r = spawnSync("node", [cli, "sessions"], { env: e, encoding: "utf-8" });
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /sess-renamed\.yaml/);
+    assert.match(r.stderr, /declares id 'sess-1'/);
   });
 
   it("says so when the store holds no sessions", () => {

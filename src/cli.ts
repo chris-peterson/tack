@@ -874,9 +874,11 @@ function run(): void {
       const all = sessions.all();
       if (rest.includes("--json")) {
         console.log(JSON.stringify(all, null, 2));
+        reportInvalidSessions();
         break;
       }
       console.log(formatSessions(all));
+      reportInvalidSessions();
       break;
     }
 
@@ -1154,6 +1156,25 @@ function run(): void {
 // Issue #49: a route file the scan could not read is missing from whatever the
 // command just printed. Name it, and exit non-zero — the answer is incomplete,
 // and a caller reading only the exit code has no other way to learn that.
+// The session-store counterpart. `tack doctor` reports route files ([CLI-57]),
+// so this one names the rule itself rather than pointing at a command that
+// would not cover it.
+function reportInvalidSessions(): void {
+  const invalid = sessions.invalidSessions();
+  if (invalid.length === 0) return;
+
+  const n = invalid.length;
+  console.error(
+    `\ntack: ${n} session file${n === 1 ? "" : "s"} could not be read ` +
+      `and ${n === 1 ? "was" : "were"} left out:`,
+  );
+  for (const s of invalid) {
+    console.error(`  ${s.id}.yaml`);
+    for (const e of s.errors) console.error(`    ${e}`);
+  }
+  process.exitCode = 1;
+}
+
 function reportInvalidRoutes(): void {
   const invalid = route.invalidRoutes();
   if (invalid.length === 0) return;

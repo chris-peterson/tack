@@ -4,13 +4,20 @@
 // thousand-column diff nobody can read.
 export const ZSH_COMPLETION: string = `#compdef tack
 
+# A route file lives under the year its route was opened in
+# ([STORE-02]): <root>/<year>/routes/<slug>.yaml. Every lookup below globs across
+# years, because the year a given slug sits under is not knowable from the name.
+_tack_route_file() {
+  local -a found
+  found=( "\${TACK_HOME:-$HOME/.tack}"/*/routes/"$1".yaml(N) )
+  (( \${#found} )) && print -r -- "\${found[1]}"
+}
+
 # Any arguments are passed through to compadd, so a caller can attach a suffix
 # (\`-S /\` when a route slug is the first half of a <slug>/<tack-id> argument).
 _tack_routes() {
-  local tack_dir="\${TACK_HOME:-$HOME/.tack}/routes"
-  [[ -d "$tack_dir" ]] || return
   local -a routes
-  routes=( "$tack_dir"/*.yaml(N:t:r) )
+  routes=( "\${TACK_HOME:-$HOME/.tack}"/*/routes/*.yaml(N:t:r) )
   (( \${#routes} )) && compadd "$@" -a routes
 }
 
@@ -29,9 +36,8 @@ _tack_repo_names() {
 
 _tack_tack_ids() {
   local slug="$1"
-  local tack_dir="\${TACK_HOME:-$HOME/.tack}/routes"
-  local route_file="$tack_dir/$slug.yaml"
-  [[ -f "$route_file" ]] || return
+  local route_file="$(_tack_route_file "$slug")"
+  [[ -n "$route_file" ]] || return
   local -a ids descs
   local id summary
   while IFS= read -r line; do
@@ -53,29 +59,26 @@ _tack_tack_ids() {
 
 _tack_link_urls() {
   local slug="$1" tack_id="$2"
-  local tack_dir="\${TACK_HOME:-$HOME/.tack}/routes"
-  local route_file="$tack_dir/$slug.yaml"
-  [[ -f "$route_file" ]] || return
+  local route_file="$(_tack_route_file "$slug")"
+  [[ -n "$route_file" ]] || return
   local -a urls
   urls=( \${(f)"$(awk -v tid="$tack_id" '
     /^  - id: / { in_tack = ($3 == tid) ? 1 : 0; in_links = 0; next }
     in_tack && /^    links:/ { in_links = 1; next }
-    in_tack && /^    [a-z]/ { in_links = 0 }
-    in_tack && in_links && /^      url: / { print $2 }
+    in_tack && /^    [a-z_]+:/ { in_links = 0 }
+    in_tack && in_links && /^        url: / { v=$2; gsub(/^"|"$/, "", v); print v }
   ' "$route_file")"} )
   (( \${#urls} )) && compadd -a urls
 }
 
 _tack_move_src() {
-  local tack_dir="\${TACK_HOME:-$HOME/.tack}/routes"
-  [[ -d "$tack_dir" ]] || return
   local cur="\${words[CURRENT]}"
 
   # slug/ → complete tack IDs only, no trailing slash, no aspect drill-down
   if [[ "$cur" == */* ]]; then
     local slug="\${cur%%/*}"
-    local route_file="$tack_dir/$slug.yaml"
-    [[ -f "$route_file" ]] || return
+    local route_file="$(_tack_route_file "$slug")"
+    [[ -n "$route_file" ]] || return
     local -a tack_ids tack_descs
     local id summary
     while IFS= read -r line; do
@@ -94,13 +97,11 @@ _tack_move_src() {
 
   # no slash → route slugs with / suffix to continue typing the tack-id
   local -a slugs
-  slugs=( "$tack_dir"/*.yaml(N:t:r) )
+  slugs=( "\${TACK_HOME:-$HOME/.tack}"/*/routes/*.yaml(N:t:r) )
   (( \${#slugs} )) && compadd -S / -q -a slugs
 }
 
 _tack_tree_path() {
-  local tack_dir="\${TACK_HOME:-$HOME/.tack}/routes"
-  [[ -d "$tack_dir" ]] || return
   local cur="\${words[CURRENT]}"
   local -a parts
   parts=("\${(@s:/:)cur}")
@@ -110,26 +111,22 @@ _tack_tree_path() {
   if (( nparts >= 3 )) || { (( nparts == 2 )) && [[ "$cur" == */*/  ]]; }; then
     local slug="\${parts[1]}"
     local tack_id="\${parts[2]}"
-    local route_file="$tack_dir/$slug.yaml"
-    [[ -f "$route_file" ]] || return
+    local route_file="$(_tack_route_file "$slug")"
+    [[ -n "$route_file" ]] || return
     local prefix="$slug/$tack_id/"
     local -a aspects
     # parse which aspects this tack actually has
-    local in_tack=0 has_deliverable=0 has_before=0 has_after=0 has_links=0 has_depends=0
+    local in_tack=0 has_deliverable=0 has_links=0 has_depends=0
     while IFS= read -r line; do
       if [[ "$line" =~ '^  - id: (.+)' ]]; then
         [[ "\${match[1]}" == "$tack_id" ]] && in_tack=1 || { (( in_tack )) && break; }
       elif (( in_tack )); then
         [[ "$line" =~ '^    deliverable:' ]] && has_deliverable=1
-        [[ "$line" =~ '^    before:' ]] && has_before=1
-        [[ "$line" =~ '^    after:' ]] && has_after=1
         [[ "$line" =~ '^    links:' ]] && has_links=1
         [[ "$line" =~ '^    depends_on:' ]] && has_depends=1
       fi
     done < "$route_file"
     (( has_deliverable )) && aspects+=("\${prefix}deliverable")
-    (( has_before )) && aspects+=("\${prefix}before")
-    (( has_after )) && aspects+=("\${prefix}after")
     (( has_links )) && aspects+=("\${prefix}links")
     (( has_depends )) && aspects+=("\${prefix}depends_on")
     (( \${#aspects} )) && compadd -Q -a aspects
@@ -139,8 +136,8 @@ _tack_tree_path() {
   # slug/ → complete tack IDs
   if [[ "$cur" == */* ]]; then
     local slug="\${cur%%/*}"
-    local route_file="$tack_dir/$slug.yaml"
-    [[ -f "$route_file" ]] || return
+    local route_file="$(_tack_route_file "$slug")"
+    [[ -n "$route_file" ]] || return
     local -a tack_ids tack_descs
     local id summary
     while IFS= read -r line; do
@@ -160,9 +157,9 @@ _tack_tree_path() {
   # no slash → complete route slugs
   local -a routes slugs descs
   local slug route_file open total
-  routes=( "$tack_dir"/*.yaml(N:t:r) )
+  routes=( "\${TACK_HOME:-$HOME/.tack}"/*/routes/*.yaml(N:t:r) )
   for slug in "\${routes[@]}"; do
-    route_file="$tack_dir/$slug.yaml"
+    route_file="$(_tack_route_file "$slug")"
     total=\$(grep -c '^  - id: ' "$route_file" 2>/dev/null || echo 0)
     open=\$(awk '/^  - id:/{t=1} t && /^    status:/{if(\$2!="done" && \$2!="dropped")c++; t=0} END{print c+0}' "$route_file")
     slugs+=("$slug")

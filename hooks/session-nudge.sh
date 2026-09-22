@@ -101,13 +101,17 @@ if [ ! -f "$bound_file" ] && command -v tack >/dev/null 2>&1; then
 "
     fi
   elif [ ! -f "$nudged_file" ]; then
-    touch "$nudged_file"
     # A prompt that already opens a session needs no recommendation to, and
-    # outside a git repo there is no branch for a route to answer to.
+    # outside a git repo there is no branch for a route to answer to. The skill
+    # is invoked as `/tack:start` where the plugin is namespaced and `/start`
+    # where it is not, so both forms suppress. The debounce is marked only when
+    # the nudge is actually emitted: a suppressed prompt that burned the marker
+    # would silence the nudge for the rest of the session.
     case "$prompt" in
-      */start*) ;;
+      */start*|*/tack:start*) ;;
       *)
         if [ -n "$toplevel" ]; then
+          touch "$nudged_file"
           # Real newlines rather than literal `\n`: this is printed with
           # `printf '%s'` so that the URL nudge above, which carries untrusted
           # text, cannot have escapes in it expanded.

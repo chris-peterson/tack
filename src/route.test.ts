@@ -1,6 +1,6 @@
 import { describe, it, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -96,6 +96,20 @@ describe("addTack", () => {
     route.init("dep-test");
     route.addTack("dep-test", "First");
     const t2 = route.addTack("dep-test", "Second", { dependsOn: ["t1"] });
+    assert.deepEqual(t2.depends_on, ["t1"]);
+  });
+
+  it("stores an edge naming this route's own slug bare", () => {
+    route.init("self-dep");
+    route.addTack("self-dep", "First");
+    const t2 = route.addTack("self-dep", "Second", { dependsOn: ["self-dep/t1"] });
+    assert.deepEqual(t2.depends_on, ["t1"]);
+  });
+
+  it("normalizes a bare dependency id to its canonical form", () => {
+    route.init("bare-dep");
+    route.addTack("bare-dep", "First");
+    const t2 = route.addTack("bare-dep", "Second", { dependsOn: ["1"] });
     assert.deepEqual(t2.depends_on, ["t1"]);
   });
 
@@ -314,6 +328,45 @@ describe("rename", () => {
     route.rename("rename-id-src", "rename-id-dst");
     const renamed = route.load("rename-id-dst");
     assert.equal(renamed.id, original.id);
+  });
+
+  it("keeps the renamed file in the year the route was opened in", () => {
+    const earlier = join(tmp, "2024", "routes");
+    mkdirSync(earlier, { recursive: true });
+    writeFileSync(
+      join(earlier, "old-year.yaml"),
+      [
+        "id: 11111111-1111-4111-8111-111111111111",
+        "slug: old-year",
+        "created_at: 2024-02-01T00:00:00.000Z",
+        "updated_at: 2024-02-01T00:00:00.000Z",
+        "tacks: []",
+        "",
+      ].join("\n"),
+    );
+
+    route.rename("old-year", "new-year");
+
+    assert.ok(existsSync(join(earlier, "new-year.yaml")));
+    assert.equal(existsSync(join(earlier, "old-year.yaml")), false);
+    assert.equal(
+      existsSync(join(tmp, String(new Date().getFullYear()), "routes", "new-year.yaml")),
+      false,
+    );
+    assert.equal(route.load("new-year").slug, "new-year");
+  });
+
+  it("leaves the route readable under its old name when the write fails", () => {
+    route.init("rename-unwritable");
+    const dir = join(tmp, String(new Date().getFullYear()), "routes");
+    chmodSync(dir, 0o555);
+    try {
+      assert.throws(() => route.rename("rename-unwritable", "rename-arrived"));
+    } finally {
+      chmodSync(dir, 0o755);
+    }
+    assert.equal(route.load("rename-unwritable").slug, "rename-unwritable");
+    assert.equal(existsSync(join(dir, "rename-arrived.yaml")), false);
   });
 
   it("refuses if the destination already exists", () => {
@@ -1551,6 +1604,19 @@ describe("moveTack", () => {
     assert.equal(moved.deliverable!.url, "https://github.com/acme/repo/pull/5");
     assert.equal(moved.links!.length, 1);
     assert.equal(moved.links![0].url, "https://example.com/design");
+  });
+
+  it("moves the tack a bare id names, the same as t<N>", () => {
+    route.init("move-bare-src");
+    route.init("move-bare-dst");
+    route.addTack("move-bare-src", "First thing");
+
+    const result = route.moveTack("move-bare-src", "1", "move-bare-dst");
+
+    assert.equal(result.moved.length, 1);
+    assert.equal(result.moved[0].srcId, "t1");
+    assert.equal(route.load("move-bare-src").tacks.length, 0);
+    assert.equal(route.load("move-bare-dst").tacks[0].summary, "First thing");
   });
 
   it("assigns the next sequential id in the destination", () => {

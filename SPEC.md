@@ -96,6 +96,7 @@ Repo database (1 YAML file, ~/.tack/repos.yaml)
 | FALLBACK | Behavior when an optional companion plugin is absent |
 | HOOK | Hook responsibilities (nudges, freshness checks) |
 | REPO | Repo database (name→remote index, captured as work is observed) |
+| EVENTS | The routing keys tack announces for sibling plugins to act on |
 | SERVE | Loopback document server and the terminal hyperlinks into it |
 | COMPAT | What a `1.x` release freezes, and what it leaves free to change |
 
@@ -464,6 +465,14 @@ control-character cleaning a write applies, so text that exceeds the limit only
 in whitespace the write is about to collapse is not refused for a length it
 never reaches.
 
+**[STORE-12]** When a write relocates a route file — the rename of [CLI-35] —
+the CLI shall write the new file before removing the old one, so that a failure
+at either step leaves a readable route: the old file untouched where the write
+fails, and both files where the removal does. Writing the new slug into the old
+file and moving it afterwards leaves a file whose name and `slug` disagree,
+which [STORE-07] then refuses to load — a store holding a route nothing can read
+is a worse outcome than a rename that did not happen.
+
 ---
 
 ### CLI — CLI
@@ -624,7 +633,7 @@ levels:
 - `<slug>` — display that route's tacks
 - `<slug>/<tack-id>` — display that tack's details
 - `<slug>/<tack-id>/<aspect>` — display only that aspect (`deliverable`,
-  `before`, `after`, `links`, `depends_on`)
+  `links`, `depends_on`)
 
 **[CLI-21b]** Path segments may contain glob wildcards (`*`, `?`, `**`) which
 match against values at that level. `*` matches within a single segment, `**`
@@ -649,8 +658,7 @@ routes with `updated_at` on or after the given ISO 8601 date (e.g.,
 
 **[CLI-24]** When displaying individual tack state in text output, the CLI shall
 prefix the tack ID with a bracketed status icon: `[ ]` pending, `[>]`
-in_progress, `[x]` done, `[!]` blocked, `[-]` dropped. Todo items shall use
-`[x]` for done and `[ ]` for not done.
+in_progress, `[x]` done, `[!]` blocked, `[-]` dropped.
 
 **[CLI-23]** `tack find --url <url> [--json]` — When invoked with `--url`, the
 CLI shall search all routes for tacks whose deliverable URL or link URLs match
@@ -698,8 +706,8 @@ shall update the specified tack's `summary` field in place and refresh
 `updated_at`.
 
 **[CLI-28]** `tack merge <slug> <source-id> <target-id>` — When invoked, the
-CLI shall merge the source tack into the target: todos (`before`/`after`)
-and `links` are appended to the target (with new sequential todo IDs); if
+CLI shall merge the source tack into the target: its `links` are appended to
+the target; if
 the source has a `deliverable` and the target does not, the deliverable is
 moved to the target; if both tacks have a deliverable, the target's
 deliverable is kept and the source's is discarded. The source tack is then
@@ -829,8 +837,9 @@ an unrecognized command, the CLI shall print the same usage text to stderr
 and exit non-zero; the unrecognized-command case shall name the offending
 command.
 
-**[CLI-41]** Subcommand-group verbs (`tack status set`, `tack todo`, `tack
-link`, `tack depends`) invoked without a valid subcommand shall print a
+**[CLI-41]** Subcommand-group verbs (`tack status set`, `tack link`, `tack
+depends`, `tack session`, `tack find`, `tack describe`, `tack serve`) invoked
+without a valid subcommand shall print a
 group-scoped error to stderr that names the offending input and the accepted
 subcommands (e.g. `tack link: expected 'add' or 'rm' (got 'my-slug')`), then
 exit non-zero — rather than dumping the global usage text. This keeps the
@@ -881,7 +890,8 @@ exits zero.
 
 **[CLI-49]** Export — `tack export [--out-file <path>] [--compress]` shall
 serialize the entire local store (all routes and the repo database) as a
-single JSON document carrying a top-level `schemaVersion` (currently `1`), an
+single JSON document carrying a top-level `schemaVersion` (`2` where any route
+holds a cross-route `depends_on` entry, `1` otherwise), an
 `exportedAt` ISO timestamp, and a `generator` string. It shall write the archive
 uncompressed to stdout by default; `--out-file` shall redirect it to a file
 (emitting the summary line to stderr) and `--compress` shall gzip the output.
@@ -1062,8 +1072,8 @@ the agent shall run `tack init <slug>` and add the first tack with `tack add`.
 
 **[AGENT-05]** When a hook emits a deliverable reminder per [HOOK-02], or a PR/MR
 URL otherwise appears in the session, the agent shall record the URL on the
-active route's current tack via `tack deliverable <slug> <tack-id> <label>
-<url>` without prompting the user. If no active tack exists, the agent shall
+active route's current tack via `tack deliverable <slug> <tack-id> <url>`
+([CLI-08], which derives the label from the URL) without prompting the user. If no active tack exists, the agent shall
 add one with `tack add` and then record the deliverable.
 
 **[AGENT-06]** When a hook emits a link reminder per [HOOK-02], or a non-PR/MR
@@ -1076,8 +1086,12 @@ per [CLI-13].
 event. If the user ignores or dismisses a prompt, the agent shall not re-ask
 about the same work item in the same session.
 
-**[AGENT-08]** When the user completes a tack, the agent shall surface any
-pending `after` todo items per [TACK-04] before moving on.
+**[AGENT-08]** ~~When the user completes a tack, the agent shall surface any
+pending `after` todo items before moving on.~~
+
+_Retired 2026-09-21 — the pre-work and post-work todo surface it belonged to was
+retired, along with the TACK requirement that defined those fields. The ID is
+not reused._
 
 **[AGENT-09]** When the agent begins operating on a route, it shall record the
 route on the current session per [SESS-04], which `tack session` does. When the
@@ -1302,7 +1316,7 @@ writes what the CLI just wrote. [HOOK-04] covers the session the skill cannot:
 one that resolves onto a route it did not create.
 
 **[SESSION-06]** The plugin shall provide an `end` skill that closes a work session
-by reading the end state fresh, holding the durability floor of the FLOOR
+by reading the end state fresh, holding the durability floor of the DURABILITY
 category, recording what landed on the route, and reporting the commands still
 owed.
 
@@ -1455,9 +1469,10 @@ another user's private work-tracking files away from being a disclosure, and a
 
 **[SERVE-02]** The server shall render three documents: an index of every route
 at `/`, one route at `/route/<slug>`, and every route of a group at
-`/group/<slug>`. A tack shall be an anchor within its route document
-(`/route/<slug>#<tack-id>`) rather than a document of its own, so following a
-link to a tack lands in the context of its route.
+`/group/<slug>`. A tack shall additionally be an anchor within its route
+document (`/route/<slug>#<tack-id>`), so a link into a route can land on the
+tack in the context of the route it belongs to; a tack's own document is
+[SERVE-17].
 
 **[SERVE-02a]** A group document combines routes that each number their tacks
 from `t1`, so it shall not anchor them in place — every tack and every route
@@ -1568,7 +1583,7 @@ listening. A liveness probe would cost a round trip on every `tack status` to
 pre-answer a question the browser answers when the link is followed; a link to
 a server that is down fails at click time, which is the cheaper failure.
 
-**[SERVE-15]** `tack serve install` ([SERVE-06]) shall record the store root it
+**[SERVE-15]** `tack serve install` ([SERVE-08]) shall record the store root it
 was run against in the unit's environment, where `TACK_HOME` ([STORE-01]) names
 one. A supervisor starts the server without a login shell, so a variable set in
 a shell profile never reaches it, and the default root is a directory that on
@@ -1656,7 +1671,7 @@ what a `1.x` release lets them build on, and what it does not.
 change additively ([COMPAT-02]), or by retirement ([COMPAT-07]):
 
 - the route schema — the field names, types, and value formats given by ROUTE,
-  TACK, DEL, DEP, and LINK, as enforced by `schema/route.schema.json`
+  TACK, DELIVER, DEPENDS, and LINKS, as enforced by `schema/route.schema.json`
   ([STORE-04]);
 - the session schema — the fields given by SESS, as enforced by
   `schema/session.schema.json` ([SESS-02]);
@@ -1694,7 +1709,7 @@ what its successors will. The export archive behaves the same way, refusing a
   bookkeeping, reached through the commands that own it (`tack repo`); it is not
   governed by a published JSON Schema ([REPO-05]), and reading or writing the
   file directly is outside the contract;
-- the plugin surface — hook nudge text and the skill's prose ([AGT], [HOOK]).
+- the plugin surface — hook nudge text and the skill's prose ([AGENT], [HOOK]).
   It is Claude-Code-specific and reasons rather than stores; the CLI it drives
   is the frozen part.
 
@@ -1759,12 +1774,33 @@ cannot resolve makes the removal a major ([COMPAT-04]).
 
 The following are explicitly out of scope:
 
-- **No project management.** No sprints, epics, story points, or velocity.
+- **No project management.** No sprints, epics, story points, velocity,
+  backlogs, prioritization, assignment, or planning state. A route records work
+  that is happening or has happened; what *should* happen next, and who should
+  pick it up, belong to whatever system the team already runs. The test a
+  proposed field has to pass: does it describe work someone did, or a decision
+  about work nobody has started? The second is project management wearing a
+  schema field.
+- **No manual bookkeeping.** A tack is written as a side effect of the work.
+  The CLI is fed by hooks, skills, and single commands that run at the moment a
+  fact appears, so nothing in the schema may ask a developer to change how they
+  work, maintain a field by hand, or revisit a tack on a schedule to keep it
+  true. A field that goes stale when nobody tends it is a field tack should not
+  have — which is why a route's completeness is derived from its tacks
+  ([ROUTE-13]) rather than set by a caller.
 - **No time tracking.** No start times, durations, or estimates.
 - **No git operations in the CLI or schema.** The CLI creates no branches,
   commits, or tags, and nothing git-derived is stored in a route. The Claude
   Code skill layer reads git state and cuts the branch a route is named for,
   which is an integration concern in the same sense as the rest of the plugin.
+- **Read-only toward the forge.** tack asks forges questions and never answers
+  for them: no comments, no label or assignee changes, no issue or change
+  request created or transitioned. A route references a forge artifact by URL
+  and stores nothing of its content, so nothing tack holds can go stale against
+  it — tack is an index over forge artifacts, not a cache of them, and an index
+  owes no invalidation. The one forge-derived value written is the merge
+  timestamp of [CLI-56a], which is a fact about work that happened rather than a
+  copy of forge state.
 - **No enforced workflows.** No prescribed state machines beyond the status
   enum. Users can move between statuses freely (except where dependencies
   constrain transitions per [DEPENDS-03]). Where the skill layer holds a durability

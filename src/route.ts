@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, renameSync, unlinkSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -545,7 +545,12 @@ export function addTack(
   const route = load(slug);
   const id = nextTackId(route);
 
-  const dependsOn = opts.dependsOn?.map(normalizeTackId);
+  // Through the dep-ref pair, not `normalizeTackId` alone: an edge naming this
+  // route by its own slug is stored bare [DEPENDS-02], the same shape
+  // `tack depends add` writes for it.
+  const dependsOn = opts.dependsOn?.map((entry) =>
+    formatDepRef(parseDepRef(entry, route.slug), route.slug),
+  );
   if (dependsOn?.length) {
     checkDependencies(route, dependsOn);
     detectCycle(route, id, dependsOn);
@@ -722,16 +727,20 @@ export function rename(oldSlug: string, newSlug: string): Route {
   }
 
   const oldPath = routePath(oldSlug);
-  const newPath = routePath(newSlug);
-
   if (!existsSync(oldPath)) {
     throw new Error(`Route not found: ${oldSlug}`);
   }
+
+  const route = load(oldSlug);
+
+  // The renamed file stays in the year the route was opened in [STORE-01b], so
+  // its year comes from `created_at` rather than from today.
+  const newYear = String(route.created_at).slice(0, 4);
+  const newPath = join(yearDir(newYear), `${newSlug}.yaml`);
   if (existsSync(newPath)) {
     throw new Error(`Route already exists: ${newSlug}`);
   }
 
-  const route = load(oldSlug);
   route.slug = newSlug;
   route.updated_at = now();
 
@@ -743,7 +752,7 @@ export function rename(oldSlug: string, newSlug: string): Route {
   // Inbound cross-route edges name this route by slug, so they are rewritten in
   // the same operation [DEPENDS-05]. Every dependent is validated before
   // anything is written, so a rename that cannot complete leaves nothing half
-  // done — the route file itself moves last.
+  // done.
   const dependents = new Map<string, Route>();
   for (const { slug } of inboundRefs(oldSlug)) {
     if (!dependents.has(slug)) dependents.set(slug, load(slug));
@@ -768,8 +777,14 @@ export function rename(oldSlug: string, newSlug: string): Route {
     }
   }
 
-  writeFileSync(oldPath, stringify(route), "utf-8");
-  renameSync(oldPath, newPath);
+  // The new file is written before the old one is removed, so a failure at
+  // either step leaves a readable route behind: the old file untouched if the
+  // write fails, both files if the removal does. Rewriting the slug into the old
+  // file first would leave a file whose name and `slug` disagree, which [STORE-07]
+  // then refuses to load.
+  ensureDir(newYear);
+  writeFileSync(newPath, stringify(route), "utf-8");
+  unlinkSync(oldPath);
   for (const dep of dependents.values()) writeRoute(dep);
 
   // Session refs name this route by slug too, for the reason the inbound edges
@@ -1275,9 +1290,11 @@ export function moveTack(
 
   const srcRoute = load(srcSlug);
   const dstRoute = load(dstSlug);
-  findTack(srcRoute, srcTackId);
+  // The canonical id, not the argument: a bare `<N>` names the same tack as
+  // `t<N>` [TACK-08], and the partition below matches on `t.id`.
+  const srcTackCanonicalId = findTack(srcRoute, srcTackId).id;
 
-  const movingIds = new Set<string>([srcTackId]);
+  const movingIds = new Set<string>([srcTackCanonicalId]);
   if (opts.includeDependents) {
     let changed = true;
     while (changed) {

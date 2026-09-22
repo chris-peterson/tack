@@ -1,5 +1,5 @@
 import type { Route, Session, Tack } from "./types.js";
-import { isOpen, routeState, type FindMatch } from "./route.js";
+import { isOpen, normalizeTackId, routeState, type FindMatch } from "./route.js";
 import type { RepoMatch } from "./repos.js";
 
 const STATUS_ICONS: Record<string, string> = {
@@ -218,7 +218,7 @@ export function treeData(routes: Route[], path?: string): unknown {
     if (tackId) {
       const route = routes.find((r) => r.slug === slug);
       if (!route) return { error: `Route not found: ${slug}` };
-      const tack = route.tacks.find((t) => t.id === tackId);
+      const tack = route.tacks.find((t) => t.id === normalizeTackId(tackId));
       if (!tack) return { error: `Tack not found: ${tackId} in route ${slug}` };
       if (aspect) {
         if (!ASPECTS.includes(aspect as Aspect)) return { error: `Unknown aspect: ${aspect}` };
@@ -335,7 +335,7 @@ export function formatTree(routes: Route[], path?: string, depth?: number): stri
     if (tackId) {
       const route = routes.find((r) => r.slug === slug);
       if (!route) return `Route not found: ${slug}`;
-      const tack = route.tacks.find((t) => t.id === tackId);
+      const tack = route.tacks.find((t) => t.id === normalizeTackId(tackId));
       if (!tack) return `Tack not found: ${tackId} in route ${slug}`;
 
       if (aspect) {

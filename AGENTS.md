@@ -29,6 +29,12 @@ tack is not a project management system. It answers three questions:
   no enforced state machine or prescribed workflow. The skills that open and
   close a route ask before closing on work that isn't durable yet; they name
   the commands that would advance it rather than running them.
+- **Low friction.** A tack is a side effect of the work, not a second job:
+  hooks, skills, and one-line commands feed the CLI at the moment a fact
+  appears. A feature that asks the developer to maintain a field
+  by hand, or to revisit a tack to keep it accurate, is out of scope. So is
+  anything that answers *what should happen next* or *who should pick it up* —
+  see SPEC.md's Anti-Requirements for the test a proposed field has to pass.
 - **Tool-agnostic core.** The schema has no assumptions about Claude Code,
   Cursor, Windsurf, or any specific AI coding tool. Integrations are packaging
   concerns, not schema concerns.

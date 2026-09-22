@@ -106,21 +106,44 @@ export function load(id: string): Session | null {
 // stderr rather than taking the listing down with it, as [STORE-09] has the
 // route scan do.
 export function all(): Session[] {
+  skipped.clear();
   const sessions: Session[] = [];
   for (const year of years()) {
     const dir = yearDir(year);
     if (!existsSync(dir)) continue;
     for (const f of readdirSync(dir)) {
       if (!f.endsWith(".yaml")) continue;
+      const id = f.replace(/\.yaml$/, "");
       try {
-        const session = load(f.replace(/\.yaml$/, ""));
+        const session = load(id);
         if (session) sessions.push(session);
       } catch (e) {
-        process.stderr.write(`warning: ${(e as Error).message}\n`);
+        recordSkip(id, (e as Error).message);
       }
     }
   }
   return sessions.sort((a, b) => b.started_at.localeCompare(a.started_at));
+}
+
+// A file the scan could not read, kept for the caller to report. `all` names
+// the ones it left out and the CLI exits non-zero over them [SESS-08], which is
+// what [STORE-09] asks of a listing: a skipped file nothing mentions is
+// indistinguishable from a session that was never recorded.
+export type InvalidSession = { id: string; file: string; errors: string[] };
+
+const skipped = new Map<string, InvalidSession>();
+
+export function invalidSessions(): InvalidSession[] {
+  return [...skipped.values()].sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function recordSkip(id: string, message: string): void {
+  const [, ...rules] = message.split("\n");
+  skipped.set(id, {
+    id,
+    file: sessionPath(id),
+    errors: rules.length ? rules : [message],
+  });
 }
 
 export function tackRef(slug: string, tackId: string): string {

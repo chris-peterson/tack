@@ -82,12 +82,19 @@ describe("session-nudge route resolution", () => {
 
   let session = 0;
 
-  function run(cwd: string, tackHome: string, prompt = "carry on"): { out: string; calls: string } {
-    const stub = mkdtempSync(join(tmpdir(), "tack-hook-stub-"));
+  // `state` and `sessionId` are overridable so a test can send two prompts as
+  // one session: the once-per-session markers live under TMPDIR, keyed by id.
+  function run(
+    cwd: string,
+    tackHome: string,
+    prompt = "carry on",
+    opts: { sessionId?: string; state?: string } = {},
+  ): { out: string; calls: string } {
+    const stub = opts.state ?? mkdtempSync(join(tmpdir(), "tack-hook-stub-"));
     const log = join(stub, "calls.log");
     writeFileSync(join(stub, "tack"), `#!/bin/sh\necho "$@" >> "${log}"\n`, { mode: 0o755 });
     const out = execFileSync("bash", [join(repoRoot, "hooks", "session-nudge.sh")], {
-      input: JSON.stringify({ prompt, cwd, session_id: `hook-test-${session++}` }),
+      input: JSON.stringify({ prompt, cwd, session_id: opts.sessionId ?? `hook-test-${session++}` }),
       encoding: "utf-8",
       env: { ...process.env, PATH: `${stub}:${process.env.PATH}`, TACK_HOME: tackHome, TMPDIR: stub },
     });
@@ -130,6 +137,32 @@ describe("session-nudge route resolution", () => {
     const { out, calls } = run(repo, home);
     assert.equal(calls, "");
     assert.match(out, /No tack route resolves for this cwd/);
+  });
+
+  it("says nothing when the prompt already opens a session", () => {
+    const repo = makeRepo("some-other-branch");
+    const home = makeRoutes("unrelated");
+    const { out, calls } = run(repo, home, "/tack:start https://example.com/issues/1");
+    assert.equal(calls, "");
+    assert.equal(out, "");
+  });
+
+  it("still nudges on a later prompt in the same session when the first was suppressed", () => {
+    const repo = makeRepo("some-other-branch");
+    const home = makeRoutes("unrelated");
+    const state = mkdtempSync(join(tmpdir(), "tack-hook-state-"));
+    const opts = { sessionId: "hook-test-suppressed", state };
+    assert.equal(run(repo, home, "/tack:start", opts).out, "");
+    assert.match(run(repo, home, "carry on", opts).out, /No tack route resolves for this cwd/);
+  });
+
+  it("nudges once per session, not on every prompt", () => {
+    const repo = makeRepo("some-other-branch");
+    const home = makeRoutes("unrelated");
+    const state = mkdtempSync(join(tmpdir(), "tack-hook-state-"));
+    const opts = { sessionId: "hook-test-debounced", state };
+    assert.match(run(repo, home, "carry on", opts).out, /No tack route resolves/);
+    assert.equal(run(repo, home, "carry on again", opts).out, "");
   });
 
   it("says nothing outside a git repo", () => {

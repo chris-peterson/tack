@@ -48,7 +48,7 @@ A CR description just landed, so the session is at a handoff point.
 Once the CR reporting is done, close the turn with one table in the `end`
 skill's shape rather than a prose recap: a `change | state | next` row per thing
 to act on, with `next` carrying the commands in the order they run, then the
-bold-labelled `route` / `retro` / `notes` footer. Step 5 of that skill is the
+bold-labelled `route` / `retro` footer. Step 5 of that skill is the
 spec. This is a preview of the close, not the close — `/tack:end` still records
 the deliverable on the route and hands off the retro.
 EOF

@@ -496,7 +496,15 @@ export function handle(req: IncomingMessage, res: ServerResponse): void {
   const tackMatch = path.match(/^\/route\/([^/]+)\/(t[0-9]+)\/?$/);
   if (tackMatch) {
     const r = routes.find((x) => x.slug === tackMatch[1]);
-    if (!r) return fail(404, `No route ${tackMatch[1]}.`);
+    if (!r) {
+      // Same refusal the route's own document gives ([SERVE-04]): a reader
+      // following a tack link into a route whose file broke is owed the
+      // validation errors, not "no such route".
+      const bad = unreadable.find((x) => x.slug === tackMatch[1]);
+      return bad
+        ? fail(500, `Invalid route file ${bad.slug}.yaml:\n${bad.errors.join("\n")}`)
+        : fail(404, `No route ${tackMatch[1]}.`);
+    }
     const t = r.tacks.find((x) => x.id === tackMatch[2]);
     if (!t) return fail(404, `No tack ${tackMatch[2]} on ${r.slug}.`);
     return json

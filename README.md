@@ -37,19 +37,14 @@ Confirm what's installed: `tack --version`. See [`CHANGELOG.md`](CHANGELOG.md) f
 tack init auth-rewrite
 
 # Add tacks (units of work)
-tack add auth-rewrite "Replace session middleware" --project org/api-server
-tack add auth-rewrite "Update client SDK" --project org/sdk --depends-on t1
-
-# Track pre-work and post-work todos
-tack before auth-rewrite t1 "Read compliance requirements"
-tack after auth-rewrite t1 "Notify security team"
+tack add auth-rewrite "Replace session middleware"
+tack add auth-rewrite "Update client SDK" --depends-on t1
 
 # Start working
-tack todo done auth-rewrite t1 b1
 tack start auth-rewrite t1
 
-# Attach the deliverable (the change request)
-tack deliverable auth-rewrite t1 "Session middleware PR" https://github.com/org/api-server/pull/42
+# Attach the deliverable (the change request) — the label comes from the url
+tack deliverable auth-rewrite t1 https://github.com/org/api-server/pull/42
 
 # Add reference links
 tack link add auth-rewrite t1 "Design doc" https://docs.example.com/auth-design
@@ -68,18 +63,13 @@ Route (1 YAML file per route)
 ├── id (UUID), slug, created_at, updated_at
 ├── title (optional display name), description (optional markdown)
 ├── group (optional grouping slug)
-├── depends_on: [route slugs]
 └── tacks[]
     ├── id (t1, t2, ...), summary, status
-    ├── project, done_at
-    ├── depends_on: [tack IDs]
+    ├── done_at
+    ├── depends_on: [tack IDs, or <slug>/t<N> across routes]
     ├── deliverable — the change request
     │   └── label, url
-    ├── before[] — pre-work todos
-    │   └── id (b1, b2, ...), text, done, done_at
-    ├── after[] — post-work todos
-    │   └── id (a1, a2, ...), text, done, done_at
-    └── links[] — references
+    └── links[] — references (docs, issues, threads)
         └── label, url
 ```
 
@@ -160,10 +150,6 @@ Moving an existing `~/.tack` into a store is a file move: place each
 | `tack merge-routes <new-slug> <src-slug>... [--group <slug>] [--created-at <date>] [--break-deps]` | Fold whole routes into one new route; destination t-IDs land in chronological order |
 | `tack deliverable <slug> <tack-id> <url> [--label <text>]` | Set the change request (label auto-derived from the url; `--label` overrides) |
 | `tack deliverable rm <slug> <tack-id> [--to-link]` | Clear the deliverable, or `--to-link` to demote it into links |
-| `tack before <slug> <tack-id> <text>` | Add a pre-work todo |
-| `tack after <slug> <tack-id> <text>` | Add a post-work todo |
-| `tack todo done <slug> <tack-id> <todo-id>` | Complete a todo |
-| `tack todo rm <slug> <tack-id> <todo-id>` | Delete a todo |
 | `tack link add <slug> <tack-id> <label> <url>` | Add a reference link |
 | `tack link rm <slug> <tack-id> <url>` | Remove a reference link |
 | `tack rm <slug> [--force]` | Delete an entire route |
@@ -196,6 +182,8 @@ Full contract: the COMPAT requirements in [`SPEC.md`](SPEC.md).
 - **One file per route.** Easy to list, archive, delete, or version-control.
 - **Flat over nested.** A tack is one unit of work with one deliverable. No sub-items.
 - **Dependencies, not workflows.** Tacks declare what they depend on. No enforced state machine. The skills that open and close a route ask before closing on work that isn't durable yet, and name the next commands rather than running them.
+- **Records itself.** A tack is written as a side effect of the work, by hooks and skills and one-line commands. Nothing asks you to maintain a field by hand or revisit a tack to keep it true.
+- **Not project management.** No sprints, points, backlogs, or planning state. A route says what is happening and what it depends on; what *should* happen next stays in whatever system you already run.
 - **Local only.** No server, no sync, no cloud.
 
 ## Development
