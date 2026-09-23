@@ -22,7 +22,6 @@
 - **Tab completion offers slugs, tack ids and link URLs again.**
 - **The start nudge stays quiet on `/tack:start`**, and `tack sessions` exits non-zero when it skips a file it couldn't read.
 - **The CLI-freshness banner fires when the `tack` on your PATH is stale.** It compared version strings that always matched; it now checks the path each wrapper runs, and `tack doctor` lists any wrapper pinned to an older install.
-
 - **A supervised `tack serve` now reads the store you actually use.** `tack serve install` records `TACK_HOME` in the launchd/systemd unit; launchd starts the server without a login shell, so a `TACK_HOME` exported from a shell profile never reached it and the server silently served an empty index from `~/.tack`. Reinstall with `tack serve install` to pick this up.
 - **Every page says which store it rendered from**, instead of a hardcoded `~/.tack/routes` that was wrong for any other root and predated routes being filed by year. It is the only line on the page that says where the content came from, which is what makes an empty index diagnosable.
 
