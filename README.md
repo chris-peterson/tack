@@ -8,7 +8,7 @@
 
 Route tracker for AI-assisted development work (pivots, deliverables and dependencies) across session boundaries.
 
-tack captures the non-linear reality of how development actually happens — pivots, context switches, multi-repo changes — so that work-in-progress survives context exhaustion, crashes, and session boundaries.
+tack captures the non-linear reality of how development actually happens (pivots, context switches, multi-repo changes), so that work-in-progress survives context exhaustion, crashes, and session boundaries.
 
 ## Installation
 
@@ -47,7 +47,7 @@ tack add auth-rewrite "Update client SDK" --depends-on t1
 # Start working
 tack start auth-rewrite t1
 
-# Attach the deliverable (the change request) — the label comes from the url
+# Attach the deliverable (the change request): the label comes from the url
 tack deliverable auth-rewrite t1 https://github.com/org/api-server/pull/42
 
 # Add reference links
@@ -71,18 +71,18 @@ Route (1 YAML file per route)
     ├── id (t1, t2, ...), summary, status
     ├── done_at
     ├── depends_on: [tack IDs, or <slug>/t<N> across routes]
-    ├── deliverable — the change request
+    ├── deliverable: the change request
     │   └── label, url
-    └── links[] — references (docs, issues, threads)
+    └── links[]: references (docs, issues, threads)
         └── label, url
 ```
 
 ```
 Session (1 YAML file per session)
-├── id — the Claude Code session identifier, and the filename
+├── id: the Claude Code session identifier, and the filename
 ├── started_at, ended_at
-├── routes[] — the routes it touched
-└── tacks[] — the tacks it drove, as <slug>/t<N>
+├── routes[]: the routes it touched
+└── tacks[]: the tacks it drove, as <slug>/t<N>
 ```
 
 ## Where routes are stored
@@ -100,10 +100,10 @@ every year present, so a route that runs past New Year stays in the one file it
 started in.
 
 A session is its own document because it has no direct relationship with a
-route. It produces however many tacks it produces — often none — and those
+route. It produces however many tacks it produces, often none, and those
 tacks land wherever they belong, which may be one route or several. So the
 session file holds all of it: the routes it touched, the tacks it drove as
-`<slug>/t<N>`, when it started, and — once `/tack:end` closes it — when it
+`<slug>/t<N>`, when it started, and, once `/tack:end` closes it, when it
 declared itself finished. Nothing about a session is written to a route file,
 which is what keeps the two from disagreeing.
 
@@ -116,8 +116,8 @@ that touched one route.
 
 ### Keeping the store in git
 
-Point `TACK_HOME` at a checkout and the record becomes durable and auditable —
-who changed what, and when — instead of living only on one machine:
+Point `TACK_HOME` at a checkout and the record becomes durable and auditable
+(who changed what, and when) instead of living only on one machine:
 
 ```bash
 export TACK_HOME="$HOME/src/<you>/tack.db"   # in ~/.zshenv, so hooks see it too
@@ -148,7 +148,7 @@ Moving an existing `~/.tack` into a store is a file move: place each
 | `tack start <slug> <tack-id>` | Start a tack (checks dependencies) |
 | `tack done <slug> <tack-id>` | Complete a tack |
 | `tack drop <slug> <tack-id>` | Mark tack as dropped (preserved for history) |
-| `tack reconcile [slug] [--dry-run]` | Close every open tack whose deliverable has merged, stamped with the merge time — the one command that reaches out to the git forge (GitHub, GitLab), via your `gh` / `glab` login |
+| `tack reconcile [slug] [--dry-run]` | Close every open tack whose deliverable has merged, stamped with the merge time; the one command that reaches out to the git forge (GitHub, GitLab), via your `gh` / `glab` login |
 | `tack remove <slug> <tack-id> [--force]` | Delete a tack (use `--force` to strip dependent refs) |
 | `tack move <src-slug>/<tack-id> <dst-slug> [--include-dependents]` | Move a tack to another route, preserving metadata |
 | `tack merge-routes <new-slug> <src-slug>... [--group <slug>] [--created-at <date>] [--break-deps]` | Fold whole routes into one new route; destination t-IDs land in chronological order |
@@ -158,7 +158,7 @@ Moving an existing `~/.tack` into a store is a file move: place each
 | `tack link rm <slug> <tack-id> <url>` | Remove a reference link |
 | `tack rm <slug> [--force]` | Delete an entire route |
 | `tack doctor [--json]` | Report route files that will not load, naming each file and the rule it breaks |
-| `tack serve [--port <n>]` | Serve route documents at `http://127.0.0.1:8788/` — index, one route, one group; re-read from disk on every request. HTML or JSON by `Accept`; a route's title and description are editable from the page |
+| `tack serve [--port <n>]` | Serve route documents at `http://127.0.0.1:8788/`: index, one route, one group; re-read from disk on every request. HTML or JSON by `Accept`; a route's title and description are editable from the page |
 | `tack serve install\|uninstall\|status` | Manage an opt-in supervised server (launchd on macOS, systemd on Linux) |
 | `tack install-cli [--dir <path>]` | Install `tack` wrapper on PATH + zsh completions (plugin install) |
 | `tack completions zsh` | Install zsh completion script |
@@ -169,8 +169,8 @@ Anything that reads the route files or shells out to `tack` is a first-class con
 
 | Frozen for `1.x` | Free to change |
 |---|---|
-| The route schema — field names, types, formats | Human-readable output text and layout |
-| The CLI grammar — commands, subcommands, flags, positional order | Error and warning wording (the `tack:` prefix and non-zero exit stay) |
+| The route schema: field names, types, formats | Human-readable output text and layout |
+| The CLI grammar: commands, subcommands, flags, positional order | Error and warning wording (the `tack:` prefix and non-zero exit stay) |
 | Exit codes | `~/.tack/repos.yaml`, the CLI's own bookkeeping |
 | `--json` output shapes | The Claude Code plugin's hook nudges and skill prose |
 

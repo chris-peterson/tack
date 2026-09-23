@@ -25,8 +25,8 @@ claude plugin install tack@chris-peterson
 
 | Skill | What it does |
 |---|---|
-| [`/tack:start`](/skills/start) | Open a session — read the ticket, cut the branch, bind the route |
-| [`/tack:end`](/skills/end) | Close it — record what landed, report what's still owed |
+| [`/tack:start`](/skills/start) | Open a session: read the ticket, cut the branch, bind the route |
+| [`/tack:end`](/skills/end) | Close it: record what landed, report what's still owed |
 
 What the plugin does without being asked, and the wiring behind it:
 [hooks](/hooks), [events](/events).
@@ -39,17 +39,17 @@ What the plugin does without being asked, and the wiring behind it:
 
 ## In action
 
-You stepped away mid-refactor and burned through the context window. Next morning, a fresh session picks the route back up from disk — no re-explaining:
+You stepped away mid-refactor and burned through the context window. Next morning, a fresh session picks the route back up from disk, with no re-explaining:
 
 <div class="cw-session" data-cw-session="session"></div>
 
-The two moves you reach for most — resuming a route and capturing a deliverable as it ships:
+The moves you reach for most, resuming a route and capturing a deliverable as it ships:
 
 <div class="cw-session" data-cw-session="examples"></div>
 
 ## The CLI
 
-The plugin bundles the CLI. To make `tack` callable from any shell, run `/tack:install-tack` once — it drops a `tack` wrapper at `~/.local/bin/tack` and installs the zsh completions. Without the plugin, the same binary is on npm as `tack`.
+The plugin bundles the CLI. To make `tack` callable from any shell, run `/tack:install-tack` once: it drops a `tack` wrapper at `~/.local/bin/tack` and installs the zsh completions. Without the plugin, the same binary is on npm as `tack`.
 
 ```bash
 tack init auth-rewrite
@@ -74,18 +74,18 @@ Route (1 YAML file per route)
 ├── group (optional grouping slug)
 ├── depends_on: [route slugs]
 ├── sessions[]
-│   └── id, started_at, tacks[] — route-scoped tack IDs the session is driving
+│   └── id, started_at, tacks[]: route-scoped tack IDs the session is driving
 └── tacks[]
     ├── id (t1, t2, ...), summary, status
     ├── done_at
     ├── depends_on: [tack IDs]
-    ├── deliverable — the change request
+    ├── deliverable: the change request
     │   └── label, url
-    ├── before[] — pre-work todos
+    ├── before[]: pre-work todos
     │   └── id (b1, b2, ...), text, done, done_at
-    ├── after[] — post-work todos
+    ├── after[]: post-work todos
     │   └── id (a1, a2, ...), text, done, done_at
-    └── links[] — references
+    └── links[]: references
         └── label, url
 ```
 
@@ -101,9 +101,9 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 
 ## Reference
 
-- [SPEC](/spec) — the frozen contract the CLI implements, with formal requirement IDs
-- [CLI reference](/cli) — every command, subcommand, and flag, grouped by what you're doing; the usage lines are generated from `tack --help`
-- [Examples & visualizations](/examples) — sample routes, and the views (Sankey, dependency graph, Gantt) derived from them
-- **Skills** — [`/tack:start`](/skills/start) and [`/tack:end`](/skills/end), sourced from each `SKILL.md`
-- [Hooks](/hooks) — what the plugin does without being asked, and the scripts each hook runs
-- [Coverage](/status) — which requirements are implemented, and where
+- [SPEC](/spec): the frozen contract the CLI implements, with formal requirement IDs
+- [CLI reference](/cli): every command, subcommand, and flag, grouped by what you're doing; the usage lines are generated from `tack --help`
+- [Examples & visualizations](/examples): sample routes, and the views (Sankey, dependency graph, Gantt) derived from them
+- **Skills**: [`/tack:start`](/skills/start) and [`/tack:end`](/skills/end), sourced from each `SKILL.md`
+- [Hooks](/hooks): what the plugin does without being asked, and the scripts each hook runs
+- [Coverage](/status): which requirements are implemented, and where
