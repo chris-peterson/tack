@@ -44,6 +44,30 @@ describe("load", () => {
         assert.throws(() => route.load("nonexistent"), /not found/i);
     });
 });
+describe("pre-1.7 flat layout", () => {
+    it("refuses a store whose routes still sit in <root>/routes/", () => {
+        const flat = join(tmp, "routes");
+        mkdirSync(flat);
+        writeFileSync(join(flat, "old.yaml"), "slug: old\n");
+        try {
+            assert.throws(() => route.list(), /routes\/ holds 1 route file .*<year>\/routes\//);
+            assert.throws(() => route.doctor(), /layout tack used through 1\.6/);
+        }
+        finally {
+            rmSync(flat, { recursive: true, force: true });
+        }
+    });
+    it("ignores an empty <root>/routes/", () => {
+        const flat = join(tmp, "routes");
+        mkdirSync(flat);
+        try {
+            assert.deepEqual(route.list(), []);
+        }
+        finally {
+            rmSync(flat, { recursive: true, force: true });
+        }
+    });
+});
 describe("list", () => {
     it("returns empty array when no routes", () => {
         const result = route.list();

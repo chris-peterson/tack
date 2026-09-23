@@ -1746,6 +1746,9 @@ afterwards.
 
 Moving the session records out of the route files ([SESS-01]) is one: a route
 still carrying `sessions` is refused with a message naming where they live now.
+Filing routes by year ([STORE-01]) is another: a root whose `routes/` directory
+still holds route files is refused, by every command that reads the store, with
+a message naming `<root>/<year>/routes/` as where they go.
 
 **[COMPAT-07]** A surface with no live use may be **retired** in a minor
 release: removed from the schema, the CLI, and this document in one change.

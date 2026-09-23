@@ -4,22 +4,36 @@
 
 ### Changed
 
+- **Routes are filed by year, at `<root>/<year>/routes/<slug>.yaml`, and the preferred store is a git repository.** Point `TACK_HOME` at a checkout and the work record becomes durable and auditable; committing and pushing it is yours, since the CLI makes no git operations. **A store still in the 1.6 layout (`~/.tack/routes/*.yaml`) is refused until you move each file into `~/.tack/<year>/routes/` by its `created_at`** — every command says so, rather than showing an empty store.
 - **Sessions are their own documents, at `<root>/<year>/sessions/<id>.yaml`, and route files no longer mention them.** A session has no direct relationship with a route — it produces whatever tacks it produces, and those land on however many routes they belong to — so a session held inside a route file was copied once per route its tacks reached, and the copies each carried their own `started_at`, free to disagree. Each session now records the routes it touched and the tacks it drove as `<slug>/t<N>`, and it is the only writer of either. Stores were converted in place when this landed; a route file that turns up still carrying `sessions` is refused with a message saying where they live now.
 - **Binding a session no longer writes to the route at all.** A route's `updated_at` is the time it last changed rather than the time you last typed — the prompt hook binds on every prompt.
 - **A session is recorded once it drives a tack, not when it first touches a route.** Most conversations open a route, read around and exit; the prompt hook binds on every one of them, so recording each would fill the store with files saying nothing happened. Where a session's work is on record, a later route it visits still is too. A live session's route, before it has produced anything, rides on the `session.started` announcement rather than the store.
 - **`tack status <slug>` is where a route's sessions show**, since answering that now costs a scan of the session store. The renders that follow a mutation — `tack add`, `tack session`, `tack done` — leave the block out.
+- **Attaching a URL another tack already holds names the dependency you probably meant**, as a ready-to-run `tack depends add` with the reference in the right form for where the other tack sits. The attach still completes.
+
+### Removed
+
+- **`tack before`, `tack after`, `tack todo done`, `tack todo rm`, route-level `depends_on`, and `merge-routes --break-deps`.** None had live use; tack-level `depends_on` and `tack depends add` / `rm` stay. A route file still carrying `before`, `after`, or a route-level `depends_on` is refused with a message naming the field and the release that retired it, and `tack rename` no longer refuses a rename over route references.
+- **`tack rebuild-local`.** With routes held directly in the store, there is no second copy for it to fill.
 
 ### Fixed
+
+- **`tack move <slug>/<N>` with a bare tack id moves the tack.** It used to write both routes, move nothing, and report success.
+- **Tab completion offers slugs, tack ids and link URLs again.**
+- **The start nudge stays quiet on `/tack:start`**, and `tack sessions` exits non-zero when it skips a file it couldn't read.
+- **The CLI-freshness banner fires when the `tack` on your PATH is stale.** It compared version strings that always matched; it now checks the path each wrapper runs, and `tack doctor` lists any wrapper pinned to an older install.
 
 - **A supervised `tack serve` now reads the store you actually use.** `tack serve install` records `TACK_HOME` in the launchd/systemd unit; launchd starts the server without a login shell, so a `TACK_HOME` exported from a shell profile never reached it and the server silently served an empty index from `~/.tack`. Reinstall with `tack serve install` to pick this up.
 - **Every page says which store it rendered from**, instead of a hardcoded `~/.tack/routes` that was wrong for any other root and predated routes being filed by year. It is the only line on the page that says where the content came from, which is what makes an empty index diagnosable.
 
 ### Added
 
+- **A tack can depend on a tack in another route**, written `<slug>/t<N>` beside the bare `t<N>` a route uses for its own. `rename` rewrites references to the renamed route, `rm` refuses over inbound references (`--force` strips them), `move` carries an edge across the boundary, and `tack doctor` reports references to something that isn't there.
+- **Every tack has its own page** at `/route/<slug>/<tack-id>` in `tack serve`, leading with its deliverable, set apart from the links it references. Dependencies link to the depended-on tack's page, across routes.
 - **A session records when it finished, so a dashboard can stop guessing.** `tack session end <slug> <session-id>`, which `/tack:end` calls, stamps `ended_at` on the session. A reader ageing out work-in-progress had only `updated_at` to go on — which meant inventing a staleness threshold and applying it to every session alike; the stamp separates the ones that said they were done. Touching tack again clears it, so a session that comes back reads as live.
 - **`tack sessions [--json]`** lists the store, newest first: live or ended, and the tacks each session drove across routes. `tack status` answers about one route; this is the read that spans them.
 - **`schema/session.schema.json`** publishes the session document, as `route.schema.json` does the route. A fleet view reading the store is the case it exists for.
-- **`tack --version` says when you are on a trial.** A working copy carries a `.git` at its package root where a marketplace install does not, so a trial now reports `1.6.0-dev.g<sha>`, with `.dirty` where the tree has moved past that commit. Both copies used to answer with the same manifest version, which left reading the wrapper on your PATH as the only way to tell them apart. The marker is derived from the module's own location rather than `CLAUDE_PLUGIN_ROOT`, so a wrapper pointed at a checkout reports the checkout.
+- **`tack --version` says when you are on a trial.** A working copy carries a `.git` at its package root where a marketplace install does not, so a trial now reports `<version>-dev.g<sha>`, with `.dirty` where the tree has moved past that commit. Both copies used to answer with the same manifest version, which left reading the wrapper on your PATH as the only way to tell them apart. The marker is derived from the module's own location rather than `CLAUDE_PLUGIN_ROOT`, so a wrapper pointed at a checkout reports the checkout.
 
 ## 1.6.0
 

@@ -14,10 +14,25 @@ const YEAR_DIR = /^\d{4}$/;
 function years() {
     if (!existsSync(TACK_HOME))
         return [];
+    assertNoFlatLayout();
     return readdirSync(TACK_HOME, { withFileTypes: true })
         .filter((e) => e.isDirectory() && YEAR_DIR.test(e.name))
         .map((e) => e.name)
         .sort();
+}
+// Through 1.6 every route sat directly in `<root>/routes/`. Nothing reads that
+// directory now, so left unmoved it would read as an empty store ([COMPAT-06a]).
+function assertNoFlatLayout() {
+    const flat = join(TACK_HOME, "routes");
+    if (!existsSync(flat))
+        return;
+    const n = readdirSync(flat).filter((f) => f.endsWith(".yaml")).length;
+    if (n === 0)
+        return;
+    const root = storeRoot();
+    throw new Error(`${root}/routes/ holds ${n} route file${n === 1 ? "" : "s"} in the layout tack used through 1.6. ` +
+        `Routes now live in ${root}/<year>/routes/, under the year each was opened (its created_at). ` +
+        `Move each file there to load it.`);
 }
 function yearDir(year) {
     return join(TACK_HOME, year, "routes");
