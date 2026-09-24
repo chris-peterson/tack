@@ -36,13 +36,35 @@ async function withServer(fn) {
     }
 }
 describe("serve documents", () => {
-    // The footer is the one place the page says where its content came from, so a
-    // reader looking at an empty index needs it to name the store actually read —
-    // not a default the process may not be using.
-    it("names the store it read in the footer", async () => {
+    // The toolbar is the one place the page says where its content came from, so
+    // a reader looking at an empty index needs it to name the store actually read
+    // — not a default the process may not be using.
+    it("names the store it read in the toolbar and on an empty index", async () => {
         await withServer(async (base) => {
             const body = await (await fetch(`${base}/`)).text();
+            assert.ok(body.includes(`title="Store: ${route.storeRoot()}"`));
             assert.ok(body.includes(`<code>${route.storeRoot()}</code>`));
+        });
+    });
+    it("offers a copy button carrying the qualified tack id", async () => {
+        route.init("copyme");
+        route.addTack("copyme", "work");
+        await withServer(async (base) => {
+            const body = await (await fetch(`${base}/route/copyme`)).text();
+            assert.match(body, /class="copy" data-copy="copyme"/);
+            assert.match(body, /class="copy" data-copy="copyme\/t1"/);
+        });
+    });
+    it("orders a route's tacks after the tacks they depend on", async () => {
+        route.init("ord-lib");
+        route.addTack("ord-lib", "first");
+        route.addTack("ord-lib", "second");
+        route.addDependency("ord-lib", "t1", "t2");
+        await withServer(async (base) => {
+            const body = await (await fetch(`${base}/route/ord-lib`)).text();
+            assert.ok(body.indexOf('data-key="ord-lib/t2"') < body.indexOf('data-key="ord-lib/t1"'));
+            assert.match(body, /data-depth="1"/);
+            assert.match(body, /Needs<\/span><a class="dep s-pending" href="\/route\/ord-lib\/t2"/);
         });
     });
     it("serves an index of every route", async () => {
@@ -55,7 +77,7 @@ describe("serve documents", () => {
             assert.equal(res.status, 200);
             assert.match(body, /alpha/);
             assert.match(body, /beta/);
-            assert.match(body, /ungrouped/);
+            assert.match(body, /<span class="bucket">Ungrouped<\/span>/);
         });
     });
     it("serves one route with its tacks anchored by id", async () => {
@@ -361,14 +383,16 @@ describe("editing a route from the page", () => {
         route.init("ed-form", { group: "formteam" });
         await withServer(async (base) => {
             assert.match(await (await fetch(`${base}/route/ed-form`)).text(), /action="\/route\/ed-form\/edit"/);
-            assert.doesNotMatch(await (await fetch(`${base}/group/formteam`)).text(), /<form/);
+            const group = await (await fetch(`${base}/group/formteam`)).text();
+            assert.doesNotMatch(group, /action="\/route\/[^"]*\/edit"/);
+            assert.doesNotMatch(group, /\sdata-field="/);
         });
     });
 });
 describe("description markdown", () => {
     async function descHtml(base, slug) {
         const body = await (await fetch(`${base}/route/${slug}`)).text();
-        return body.match(/<div class="desc">([\s\S]*?)<\/div>/)?.[1] ?? "";
+        return body.match(/<div class="desc"[^>]*>([\s\S]*?)<\/div>/)?.[1] ?? "";
     }
     it("renders bold, italic, and inline code", async () => {
         route.init("md-inline");
@@ -435,23 +459,29 @@ describe("description markdown", () => {
         });
     });
 });
-describe("group documents link out to each tack", () => {
-    it("points every tack at its own document", async () => {
-        route.init("ga", { group: "linked" });
-        route.addTack("ga", "one");
-        route.init("gb", { group: "linked" });
-        route.addTack("gb", "two");
+// A group document lists its routes, each with its tacks in flight and its
+// edges to other routes; every tack it names links to the tack's own document.
+describe("group documents", () => {
+    it("lists routes, dependencies first, with the tacks in flight", async () => {
+        route.init("gp-lib", { group: "gp" });
+        route.addTack("gp-lib", "ship the library");
+        route.setStatus("gp-lib", "t1", "in_progress");
+        route.addTack("gp-lib", "not started");
+        route.init("gp-app", { group: "gp" });
+        route.addTack("gp-app", "consume it");
+        route.addDependency("gp-app", "t1", "gp-lib/t1");
         await withServer(async (base) => {
-            const body = await (await fetch(`${base}/group/linked`)).text();
-            assert.match(body, /href="\/route\/ga\/t1"/);
-            assert.match(body, /href="\/route\/gb\/t1"/);
-            assert.match(body, /href="\/route\/ga"/);
+            const body = await (await fetch(`${base}/group/gp`)).text();
+            assert.ok(body.indexOf('href="/route/gp-lib"') < body.indexOf('href="/route/gp-app"'));
+            assert.match(body, /<ul class="flight"><li><a class="tid" href="\/route\/gp-lib\/t1">t1<\/a>/);
+            assert.doesNotMatch(body, /not started/);
+            assert.match(body, /Needs<\/span><a class="dep s-in_progress" href="\/route\/gp-lib\/t1"/);
+            assert.match(body, /Unblocks<\/span><a class="dep s-pending" href="\/route\/gp-app\/t1"/);
         });
     });
-    // Several routes render into one group document, and each numbers its tacks
-    // from t1 — so anchoring them in place would emit the same id repeatedly and
-    // a link to #t1 would land on whichever came first.
-    it("emits no duplicate anchors across the routes it combines", async () => {
+    // Several routes share a group and each numbers its tacks from t1, so the
+    // group document must not anchor a tack in place.
+    it("emits no tack anchors", async () => {
         route.init("da", { group: "dup" });
         route.addTack("da", "one");
         route.init("db", { group: "dup" });
@@ -459,6 +489,7 @@ describe("group documents link out to each tack", () => {
         await withServer(async (base) => {
             const body = await (await fetch(`${base}/group/dup`)).text();
             assert.equal(body.match(/id="t1"/g), null);
+            assert.doesNotMatch(body, /\sdata-key="/);
         });
     });
     it("still anchors tacks in a single route document", async () => {

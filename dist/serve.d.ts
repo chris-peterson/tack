@@ -4,13 +4,13 @@ import type { Route, Tack } from "./types.js";
 export declare const DEFAULT_PORT = 8788;
 export declare function hyperlinkBase(env?: NodeJS.ProcessEnv, isTty?: boolean): string | null;
 export declare function renderRoute(r: Route, opts?: {
-    crumb?: boolean;
-    editable?: boolean;
-    linkTacks?: boolean;
+    routes?: Route[];
 }): string;
-export declare function renderTack(r: Route, t: Tack): string;
+export declare function renderTack(r: Route, t: Tack, routes?: Route[]): string;
 export declare function renderIndex(routes: Route[], invalid?: route.InvalidRoute[]): string;
-export declare function renderGroup(group: string, routes: Route[]): string;
+export declare function indexFilters(routes: Route[]): string;
+export declare function tackFilters(tacks: Tack[]): string;
+export declare function renderGroup(group: string, routes: Route[], all?: Route[]): string;
 export declare function prefersJson(accept: string | undefined): boolean;
 export declare function handle(req: IncomingMessage, res: ServerResponse): void;
 export declare function serve(port?: number): Server;
