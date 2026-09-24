@@ -987,7 +987,8 @@ export function rebuildRepos() {
                 urls.push(link.url);
         }
     }
-    return repos.rebuildFrom({ urls });
+    const srcRoot = process.env.TACK_SRC_ROOT ?? join(homedir(), "src");
+    return repos.rebuildFrom({ urls, srcRoot });
 }
 /**
  * `depends_on` entries pointing at a route or tack that isn't there [DEPENDS-07].

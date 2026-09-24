@@ -766,7 +766,7 @@ tack repo alias <match> <alias>
 tack repo prune
     Drop locals that no longer exist on disk
 tack repo rebuild
-    Backfill the repo db from existing routes
+    Backfill the repo db from routes and ~/src checkouts
 tack repo rm <match>
     Remove a repo entry
 ```

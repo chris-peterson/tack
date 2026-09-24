@@ -1,6 +1,6 @@
 import { describe, it, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
@@ -149,6 +149,29 @@ describe("rebuildFrom (CLI-47)", () => {
         // The custom alias survives the rebuild.
         assert.ok(repos.matchByName("anch").length === 1);
         assert.equal(repos.matchByName("moor").length, 1);
+    });
+    it("records a checkout found under the source root whose origin is the repo", () => {
+        const srcRoot = join(tmp, "src");
+        const checkout = join(srcRoot, "github", "chris-peterson", "anchor");
+        const impostor = join(srcRoot, "gitlab", "chris-peterson", "moor");
+        for (const [dir, origin] of [
+            [checkout, "git@github.com:chris-peterson/anchor.git"],
+            [impostor, "https://gitlab.com/someone-else/moor.git"],
+        ]) {
+            mkdirSync(dir, { recursive: true });
+            execFileSync("git", ["init", "-q", dir]);
+            execFileSync("git", ["-C", dir, "remote", "add", "origin", origin]);
+        }
+        const result = repos.rebuildFrom({
+            urls: [
+                "https://github.com/chris-peterson/anchor/pull/2",
+                "https://github.com/chris-peterson/moor/issues/3",
+            ],
+            srcRoot,
+        });
+        assert.equal(result.localsAdded, 1);
+        assert.deepEqual(repos.matchByName("anchor")[0].locals, [checkout]);
+        assert.deepEqual(repos.matchByName("moor")[0].locals, []);
     });
 });
 describe("removeRepo (CLI-46)", () => {

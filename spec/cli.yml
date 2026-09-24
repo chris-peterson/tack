@@ -299,7 +299,7 @@ commands:
     - summary: Drop locals that no longer exist on disk
   - name: rebuild
     usages:
-    - summary: Backfill the repo db from existing routes
+    - summary: Backfill the repo db from routes and ~/src checkouts
   - name: rm
     usages:
     - summary: Remove a repo entry

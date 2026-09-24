@@ -28,10 +28,12 @@ export interface PrunedLocal {
 export declare function pruneLocals(): PrunedLocal[];
 export interface RebuildInput {
     urls: string[];
+    srcRoot?: string;
 }
 export interface RebuildResult {
     repoCount: number;
     urlsMatched: number;
+    localsAdded: number;
 }
 export declare function rebuildFrom(input: RebuildInput): RebuildResult;
 export declare function removeRepo(match: string): RepoMatch;
