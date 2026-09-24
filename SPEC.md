@@ -1468,17 +1468,23 @@ another user's private work-tracking files away from being a disclosure, and a
 `--host` flag is the shape that mistake takes.
 
 **[SERVE-02]** The server shall render three documents: an index of every route
-at `/`, one route at `/route/<slug>`, and every route of a group at
+at `/`, one route at `/route/<slug>`, and the routes of a group at
 `/group/<slug>`. A tack shall additionally be an anchor within its route
 document (`/route/<slug>#<tack-id>`), so a link into a route can land on the
 tack in the context of the route it belongs to; a tack's own document is
 [SERVE-17].
 
-**[SERVE-02a]** A group document combines routes that each number their tacks
-from `t1`, so it shall not anchor them in place — every tack and every route
-name in it shall instead link to that route's own document, where the anchor is
-unambiguous. Anchoring in place would emit one id several times and send every
-link to whichever route rendered first.
+**[SERVE-02a]** A group document shall list the group's routes, ordered so a
+route that another route in the group depends on comes first. Each route shall
+show its tacks in flight (in progress or blocked) and its dependency edges to
+tacks in other routes, in both directions. The rest of a route's tacks belong
+to its own document: the group document answers what is moving across the
+group and how its routes connect, which no single route document can.
+
+The routes of a group each number their tacks from `t1`, so the group document
+shall not anchor a tack in place; every tack and route it names shall link to
+that tack's or route's own document. Anchoring in place would emit one id
+several times and send every link to whichever route rendered first.
 
 **[SERVE-03]** The server shall hold no state of its own: every request re-reads
 the store ([STORE-01]) so a document and the CLI cannot disagree. An
@@ -1591,9 +1597,10 @@ such a machine holds nothing — which serves an empty index rather than failing
 the one outcome a reader cannot tell from an empty store.
 
 **[SERVE-16]** Every document shall name the store root it was rendered from
-([STORE-01]), rather than a fixed path. It is the only place the page says where
-its content came from, and it is what a reader looking at an empty index has to
-reason from. The root alone: a document is rendered from every year the store
+([STORE-01]), rather than a fixed path, on its toolbar's home link; an empty
+index shall additionally name it in the body. It is the only place the page says
+where its content came from, and it is what a reader looking at an empty index
+has to reason from. The root alone: a document is rendered from every year the store
 holds ([STORE-03]), so naming one would be false.
 
 **[SERVE-17]** A tack shall be addressable on its own, at
