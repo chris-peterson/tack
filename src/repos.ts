@@ -3,7 +3,7 @@
 // Internal derived state — tack is its sole writer, so it carries no
 // published JSON Schema (REPO-05). Stored as a bare map keyed by normalized
 // remote at ~/.tack/repos.yaml (REPO-01).
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { execFileSync } from "node:child_process";
@@ -238,18 +238,40 @@ export function pruneLocals(): PrunedLocal[] {
 
 export interface RebuildInput {
   urls: string[];
+  // Directory whose children hold checkouts at the repo's path without its
+  // host, e.g. <srcRoot>/github/chris-peterson/anchor.
+  srcRoot?: string;
 }
 
 export interface RebuildResult {
   repoCount: number;
   urlsMatched: number;
+  localsAdded: number;
+}
+
+// Checkouts of a repo at <parent>/<repo path>, kept only when the directory's
+// origin remote normalizes to the key itself.
+function probeLocals(parents: string[], key: string): string[] {
+  const repoPath = key.slice(key.indexOf("/") + 1);
+  return parents
+    .map((parent) => join(parent, repoPath))
+    .filter((dir) => existsSync(dir) && repoKeyForCwd(dir) === key);
+}
+
+function childDirs(dir: string): string[] {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => join(dir, d.name));
 }
 
 // CLI-47: reconstruct the database from the forge URLs recorded on routes in a
-// single load/save. Additive — existing aliases and locals are preserved.
+// single load/save, then look for each repo's checkout under srcRoot. Additive
+// — existing aliases and locals are preserved.
 export function rebuildFrom(input: RebuildInput): RebuildResult {
   const db = loadRepos();
   let urlsMatched = 0;
+  let localsAdded = 0;
 
   for (const url of input.urls) {
     const key = repoKeyFromForgeUrl(url);
@@ -258,8 +280,19 @@ export function rebuildFrom(input: RebuildInput): RebuildResult {
     upsert(db, key, { name: repoNameFromKey(key) });
   }
 
+  if (input.srcRoot) {
+    const parents = childDirs(input.srcRoot);
+    for (const [key, entry] of Object.entries(db)) {
+      for (const local of probeLocals(parents, key)) {
+        if (entry.locals?.includes(local)) continue;
+        upsert(db, key, { local });
+        localsAdded++;
+      }
+    }
+  }
+
   saveRepos(db);
-  return { repoCount: Object.keys(db).length, urlsMatched };
+  return { repoCount: Object.keys(db).length, urlsMatched, localsAdded };
 }
 
 // CLI-46

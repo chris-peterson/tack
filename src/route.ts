@@ -1210,7 +1210,8 @@ export function rebuildRepos(): repos.RebuildResult {
       for (const link of tack.links ?? []) urls.push(link.url);
     }
   }
-  return repos.rebuildFrom({ urls });
+  const srcRoot = process.env.TACK_SRC_ROOT ?? join(homedir(), "src");
+  return repos.rebuildFrom({ urls, srcRoot });
 }
 
 export interface DanglingRef {

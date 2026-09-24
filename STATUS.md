@@ -277,12 +277,12 @@ the names a repo is known by to its remote, keyed by the remote normalized to
 scheme-less `host/path` form (REPO-02) so the HTTPS and SSH forms of one remote
 collapse to a single entry. Captured best-effort as tack observes work:
 recording a deliverable/link URL that parses as a forge change reference upserts
-the repo (REPO-06), and `tack init` / `tack pin` read the cwd's `origin` remote to
+the repo (REPO-06), and `tack init` reads the cwd's `origin` remote to
 record a local checkout (REPO-07). `tack repo <partial>` (CLI-42) matches a partial
 against every repo's `names` and returns the HTTPS remote; `tack repo` lists
 (CLI-43); `alias` adds a custom name (CLI-44); `prune` drops stale locals while
 retaining URL-only entries (CLI-45); `rebuild` backfills the database from every
-forge URL across routes plus pinned directories' origin remotes (CLI-47); `rm`
+forge URL across routes plus the checkouts it finds under `~/src` (CLI-47); `rm`
 removes an entry (CLI-46). The database
 is internal derived state like pins — no published JSON Schema (REPO-05). Covered
 by `src/repos.ts`, `src/cli.ts`, `src/display.ts`, `src/completions.ts`; tested

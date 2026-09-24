@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`tack repo rebuild` fills in `locals` again, by looking for each repo's checkout under `~/src`.** A repo is found at `~/src/<dir>/<owner>/<repo>` (for example `~/src/github/chris-peterson/anchor`) and recorded only when that checkout's `origin` is the repo itself, so a fork at the same path is left out. Set `TACK_SRC_ROOT` to probe a different root.
+
 ## 1.7.0
 
 ### Changed

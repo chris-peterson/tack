@@ -71,7 +71,7 @@ Usage:
   tack repo [<partial>] [--json]     Look up repo remote(s) by name; no arg lists all
   tack repo alias <match> <alias>    Add a custom name to a repo
   tack repo prune                    Drop locals that no longer exist on disk
-  tack repo rebuild                  Backfill the repo db from existing routes
+  tack repo rebuild                  Backfill the repo db from routes and ~/src checkouts
   tack repo rm <match>               Remove a repo entry
   tack doctor [--json]               Report route files that will not load
   tack rm <slug> [--force]
@@ -931,7 +931,7 @@ function run(): void {
       } else if (sub === "rebuild") {
         const r = route.rebuildRepos();
         console.log(
-          `rebuilt repos.yaml: ${r.repoCount} repos (${r.urlsMatched} forge URLs across routes)`,
+          `rebuilt repos.yaml: ${r.repoCount} repos (${r.urlsMatched} forge URLs across routes, ${r.localsAdded} new locals)`,
         );
       } else if (sub === "rm") {
         if (!subArgs[0]) usage();

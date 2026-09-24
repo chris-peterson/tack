@@ -873,9 +873,17 @@ fail and list the candidates.
 
 **[CLI-47]** `tack repo rebuild` — When invoked, the CLI shall reconstruct the
 repo database from existing tack data: every deliverable and link URL across all
-routes that parses as a forge change reference ([REPO-06]). The rebuild is
-additive — it adds names but removes nothing, so custom aliases ([CLI-44]) and
-recorded locals ([REPO-07]) survive a re-run. It backfills the database for routes recorded before capture existed.
+routes that parses as a forge change reference ([REPO-06]). For every repo in
+the database, it shall then probe `<src>/<dir>/<path>` for each directory
+`<dir>` directly under the source root `<src>`, where `<path>` is the repo key
+without its host (so `github.com/chris-peterson/anchor` is found at
+`~/src/github/chris-peterson/anchor`), and add a candidate to `locals` only when
+its `origin` remote normalizes to that key ([REPO-02]). The source root shall be
+the `TACK_SRC_ROOT` environment variable where set, and `~/src` otherwise. The
+rebuild is additive — it adds names and locals but removes nothing, so custom
+aliases ([CLI-44]) and recorded locals ([REPO-07]) survive a re-run. It
+backfills the database for routes recorded before capture existed, and for
+checkouts no tack command has run inside.
 
 **[CLI-48]** Duplicate-URL warning — When a URL is attached as a deliverable
 (`tack add --deliverable`, `tack deliverable`) or a link (`tack link add`),
