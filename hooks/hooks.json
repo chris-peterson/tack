@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/cli-freshness.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/cli-freshness.sh\""
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/session-nudge.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-nudge.sh\""
           }
         ]
       }
@@ -26,15 +26,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/capture-urls.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/capture-urls.sh\""
           },
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/landing-nudge.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/landing-nudge.sh\""
           },
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/record-landed.sh"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/record-landed.sh\""
           }
         ]
       }
