@@ -5,6 +5,9 @@
 ### Fixed
 
 - **`tack repo rebuild` fills in `locals` again, by looking for each repo's checkout under `~/src`.** A repo is found at `~/src/<dir>/<owner>/<repo>` (for example `~/src/github/chris-peterson/anchor`) and recorded only when that checkout's `origin` is the repo itself, so a fork at the same path is left out. Set `TACK_SRC_ROOT` to probe a different root.
+
+### Added
+
 - **`tack add` and `tack init` take `--no-session` (`-s`) to leave the current Claude session alone.** Filing tacks for work that already shipped, such as a triage pass recording merged CRs across several routes, would otherwise attribute the session to each route it touched and announce `session.started`, relabelling the session in beacon. Without the flag both commands record the route as before.
 
 ## 1.7.0
