@@ -15,6 +15,7 @@
 - Skills
   - [start](/skills/start)
   - [end](/skills/end)
+  - [note](/skills/note)
 - [Hooks](/hooks)
 - Guides
   - [Working a tack route](/guides/routes)

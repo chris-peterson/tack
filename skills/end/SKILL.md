@@ -49,7 +49,11 @@ git log --oneline '@{upstream}..HEAD'    # single-quoted: @{…} trips the bash 
 gh pr view --json number,isDraft,mergeable,statusCheckRollup,reviewDecision
 glab mr view --output json               # GitLab equivalent of the line above
 tack status {slug}
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/notes.sh" --session "$CLAUDE_CODE_SESSION_ID"
 ```
+
+The last line lists the notes the user took with `/tack:note`, which step 5
+hands back. They're the user's own reminders: read them, don't act on them.
 
 **A pushed branch with an open draft CR and green checks is a stall, not a
 finish.** It is the state a session leaves behind when it runs
@@ -189,6 +193,9 @@ commands that advance it. This is the skill's whole output:
 | [cleat#7](https://…/pull/7) | merged · `a91c204` | — |
 
 **route** cleat t5 open, #3 and the commit as links · **retro** launched in a new tab
+
+**notes**
+- check whether the preview env still points at staging
 ```
 
 - **Emit it as markdown, not inside a fence.** The example above is fenced so
@@ -201,6 +208,9 @@ commands that advance it. This is the skill's whole output:
   explanations. Nothing left to run is `—`.
 - **The footer is `route` and `retro`**, bold-labelled, one line each, and any
   field with nothing to say is dropped.
+- **`notes` closes the output** when step 1 found any: the session's
+  `/tack:note` notes, verbatim, one bullet each, so the user can check each
+  before the session ends. No commentary on them.
 - **Live links, not dead tokens.** The change cell carries a linked forge
   reference (`cleat#3`, `ai-tools!23`), never a bare number or a raw URL, and
   shas go in backticks at 7 characters. Name absent signals as absent (`no
