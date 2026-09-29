@@ -479,12 +479,13 @@ is a worse outcome than a rename that did not happen.
 
 **[CLI-01]** The CLI shall be invoked as `tack <command> [options]`.
 
-**[CLI-02]** `tack init <slug> [--group <slug>]` — When invoked, the CLI shall
+**[CLI-02]** `tack init <slug> [--group <slug>] [--no-session]` — When invoked, the CLI shall
 create a new route file at `<root>/<year>/routes/<slug>.yaml` with a generated v4
 UUID as `id`, an empty `tacks` array, and `created_at`/`updated_at` set to
 the current time. When `--group` is passed, the route's `group` shall be set
 to the given slug. When the `CLAUDE_CODE_SESSION_ID` environment variable is
-set (the CLI is running inside a Claude Code session), the CLI shall also
+set (the CLI is running inside a Claude Code session) and `--no-session` (`-s`)
+is not passed, the CLI shall also
 record the route on that session per [SESS-04] — the touch, without binding a
 tack (binding is reserved for [CLI-07] / [CLI-17], which know the tack), so a
 session with no file yet is unaffected ([SESS-01a]).
@@ -498,7 +499,7 @@ deliverable. Tacks with status `dropped` shall be omitted by
 default; when `--all` is passed, dropped tacks shall be included. When invoked
 without a slug, the CLI shall display a summary of all routes.
 
-**[CLI-04]** `tack add <slug> <summary> [--depends-on <id,...>] [--done] [--date <ts>] [--deliverable <url>] [--link "label,url"]...` —
+**[CLI-04]** `tack add <slug> <summary> [--depends-on <id,...>] [--done] [--date <ts>] [--deliverable <url>] [--link "label,url"]... [--no-session]` —
 When invoked, the CLI shall add a new tack to the specified route with the
 next sequential ID. When `--done` is passed, the tack shall be created with
 status `done` and `done_at` set to the current ISO 8601 date-time, or to the
@@ -517,9 +518,12 @@ with a usage error naming the expected `"label,url"` form. Links are
 deduplicated on creation against the deliverable and one another, consistent
 with [CLI-13]. The CLI shall
 reject unknown flags with a usage error rather than silently ignoring them.
-When the `CLAUDE_CODE_SESSION_ID` environment variable is set, the CLI shall
-also record the route on that session per [SESS-04], the touch alone (as
-[CLI-02] does for `tack init`).
+When the `CLAUDE_CODE_SESSION_ID` environment variable is set and
+`--no-session` (`-s`) is not passed, the CLI shall also record the route on that
+session per [SESS-04], the touch alone (as [CLI-02] does for `tack init`).
+`--no-session` is for bookkeeping a session does on routes it isn't working,
+such as filing already-merged CRs during triage, which would otherwise
+attribute the session to each route it touched.
 
 **[CLI-05]** `tack done <slug> <tack-id> [--date <ts>]` — When invoked, the CLI
 shall set the specified tack's status to `done`. `done_at` shall be set to the

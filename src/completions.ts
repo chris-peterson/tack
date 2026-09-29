@@ -216,10 +216,10 @@ _tack() {
 
   case "$command" in
     init)
-      # tack init <slug> [--group <slug>]
+      # tack init <slug> [--group <slug>] [--no-session]
       case "$CURRENT" in
         3) _message 'slug' ;;
-        *) _arguments '--group[Group slug]:group:_tack_routes' ;;
+        *) _arguments '--group[Group slug]:group:_tack_routes' '(-s --no-session)'{-s,--no-session}'[Leave the Claude session unattributed]' ;;
       esac
       ;;
     status)
@@ -272,7 +272,8 @@ _tack() {
              '--done[Create the tack already done]' \
              '--date[Backfill done_at]:date:' \
              '--deliverable[Set deliverable URL on creation]:url:' \
-             '*--link[Attach a link (label,url); repeatable]:link:' ;;
+             '*--link[Attach a link (label,url); repeatable]:link:' \
+             '(-s --no-session)'{-s,--no-session}'[Leave the Claude session unattributed]' ;;
       esac
       ;;
     start|done|drop)

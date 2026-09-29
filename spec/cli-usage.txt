@@ -4,7 +4,7 @@
 tack — route tracker for AI-assisted development
 
 Usage:
-  tack init <slug> [--group <slug>]
+  tack init <slug> [--group <slug>] [--no-session]
   tack rename <old-slug> <new-slug>
   tack group <slug> [<group>] [--clear]   (no group: show current; --clear: ungroup)
   tack title <slug> [<text>] [--clear]    (no text: show current; --clear: remove)
@@ -14,7 +14,7 @@ Usage:
   tack list [--json]
   tack recent [--count <n>] [--since <date>] [--json]
   tack tree [path] [-d <depth>] [--json]    (path supports glob: */*/deliverable)
-  tack add <slug> <summary> [--depends-on <id,...>] [--done] [--date <ts>] [--deliverable <url>] [--link "label,url"]...
+  tack add <slug> <summary> [--depends-on <id,...>] [--done] [--date <ts>] [--deliverable <url>] [--link "label,url"]... [--no-session]
   tack edit <slug> <tack-id> <summary>
   tack merge <slug> <source-id> <target-id>
   tack move <src-slug>/<tack-id> <dst-slug> [--include-dependents]
