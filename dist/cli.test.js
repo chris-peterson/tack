@@ -471,6 +471,14 @@ describe("the session lifecycle tack publishes", () => {
         // that fires — no skill has to remember to announce.
         assert.match(run({ ...e, CLAUDE_CODE_SESSION_ID: "sess-init" }, "init", "pub"), /session\.started/);
     });
+    it("announces nothing when add or init is passed --no-session", () => {
+        const { e } = store();
+        const s = { ...e, CLAUDE_CODE_SESSION_ID: "sess-quiet" };
+        assert.doesNotMatch(run(s, "init", "pub", "--no-session"), /session\.started/);
+        assert.doesNotMatch(run(s, "add", "pub", "Shipped", "--done", "-s"), /session\.started/);
+        // The start is still unspent, so the session's first real binding announces.
+        assert.match(run(s, "add", "pub", "Next"), /session\.started/);
+    });
     it("stays silent when TACK_ANNOUNCE=0 says nobody can hear it", () => {
         const { e } = store();
         run(e, "init", "pub");

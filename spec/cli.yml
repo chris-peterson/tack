@@ -21,6 +21,7 @@ commands:
     flags:
     - name: --group
       arg: slug
+    - name: --no-session
 - name: rename
   usages:
   - args:
@@ -113,6 +114,7 @@ commands:
     - name: --link
       arg: label,url
       repeatable: true
+    - name: --no-session
 - name: edit
   usages:
   - args:
