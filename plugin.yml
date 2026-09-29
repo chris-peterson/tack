@@ -131,12 +131,14 @@ suite:
   describe:
     skills:
       end: 'Close a work session: read what actually landed, refuse to close on work that isn''t durable yet, record the deliverable on the tack route, hand off the retro, and report the commands still owed rather than sequencing them.'
+      note: 'Jot a note mid-session without derailing the work: acknowledge it in one line and carry on.'
       start: 'Open a work session: read the linked issue or CR thread in full, derive one slug, cut the branch, and bind the tack route.'
     hooks:
       capture-urls: PostToolUse — Detects PR/MR/issue URLs in Bash tool output and nudges the agent to ensure a tack route mapping exists for each.
       cli-freshness: SessionStart — Detects when the installed tack CLI wrapper is stale relative to the plugin version and nudges to refresh it.
-      hooks: 'Hook wiring: SessionStart→cli-freshness; UserPromptSubmit→session-nudge; PostToolUse→capture-urls (Bash), landing-nudge (Bash), record-landed (Bash).'
+      hooks: 'Hook wiring: SessionStart→cli-freshness, notes-after-compact (compact); UserPromptSubmit→session-nudge; PostToolUse→capture-urls (Bash), landing-nudge (Bash), record-landed (Bash).'
       landing-nudge: PostToolUse — Detects a change-request description landing and prompts the handoff report the end skill defines, so it isn't produced from recall.
+      notes-after-compact: SessionStart — Restores the notes taken with /tack:note to context after the conversation is compacted.
       record-landed: PostToolUse — Closes the tack holding a change request a sibling announced as merged, dated by the forge, and reports a published release for attaching to the tack that shipped.
       session-nudge: UserPromptSubmit — Detects untracked PR/MR/issue URLs in user messages, resolves and records the session's tack route, and recommends opening one when none resolves.
     commands:
