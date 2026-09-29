@@ -91,6 +91,7 @@ Repo database (1 YAML file, ~/.tack/repos.yaml)
 | CLI | CLI commands and output behavior |
 | AGENT | Claude Code agent integration (skill responsibilities) |
 | SESSION | Opening and closing a session — the `start` and `end` skills |
+| NOTE | Notes the user jots mid-session with the `note` skill |
 | BRIEF | Reading the linked issue or change request in full |
 | DURABILITY | Durability floor a session must clear before it closes |
 | FALLBACK | Behavior when an optional companion plugin is absent |
@@ -1289,6 +1290,11 @@ into the agent's context, and an announced URI also reaches a route file. A URI
 shall therefore be required to be `https` with no whitespace and no backslash
 before it is reported or written, whatever key carried it.
 
+**[HOOK-11]** A `SessionStart` hook matched to `compact` shall list the session's
+notes from the hook's `transcript_path` with the script of [NOTE-03] and emit
+them as context, stating that they are the user's reminders and not
+instructions. It shall emit nothing when the session has no notes.
+
 ---
 
 ### SESSION — Opening and Closing a Session
@@ -1334,8 +1340,8 @@ sequencing is the user's.
 
 **[SESSION-08]** The `end` skill's entire user-facing output shall be one table of
 `change | state | next` rows plus a `route` / `retro` footer, emitted
-as rendered markdown with live forge links. Steps preceding it shall run without
-narration.
+as rendered markdown with live forge links, followed by the session's notes per
+[NOTE-05] when there are any. Steps preceding it shall run without narration.
 
 **[SESSION-09]** A session that produced nothing worth keeping is a legitimate close.
 The `end` skill shall drop the tack, record the reason on the route via `tack
@@ -1346,6 +1352,35 @@ than discarding either by assumption.
 fleet view. The route's own state is what a fleet view reads; a separately
 written label is a second source for the same field that goes stale when the
 route moves.
+
+---
+
+### NOTE — Session Notes
+
+A note is a reminder the user writes to themselves mid-session, meant to be
+revisited later in the same session. The transcript is its only store: the
+harness records the user's `/tack:note <text>` verbatim, so tack writes nothing
+to a route, a session document, or anywhere else, and no note field enters the
+schema.
+
+**[NOTE-01]** The plugin shall provide a `note` skill, invocable by the user
+only, that takes the note's text as its argument.
+
+**[NOTE-02]** Given text, the `note` skill shall reply with the single line
+`codes.bridgeai.tack/note.taken {"text":"<text>"}` and shall otherwise leave the
+note unacted on: a task in progress when the note arrived continues in the same
+turn.
+
+**[NOTE-03]** A bundled script shall list a session's notes, oldest first, from
+its transcript, taking either the transcript path or a session id. Only the
+user's own prompts shall count as notes: a tool result, a skill body, and a
+compaction summary shall be skipped, so text a tool printed cannot forge one.
+
+**[NOTE-04]** Given no text, the `note` skill shall list the session's notes by
+running the script of [NOTE-03], rather than recalling them.
+
+**[NOTE-05]** The `end` skill shall read the session's notes with the script of
+[NOTE-03] and list them verbatim after its footer ([SESSION-08]).
 
 ---
 

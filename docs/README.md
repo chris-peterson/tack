@@ -27,6 +27,7 @@ claude plugin install tack@chris-peterson
 |---|---|
 | [`/tack:start`](/skills/start) | Open a session: read the ticket, cut the branch, bind the route |
 | [`/tack:end`](/skills/end) | Close it: record what landed, report what's still owed |
+| [`/tack:note`](/skills/note) | Jot a note for later without derailing the work; it comes back after compaction and at `/tack:end` |
 
 What the plugin does without being asked, and the wiring behind it:
 [hooks](/hooks), [events](/events).
@@ -104,6 +105,6 @@ Routes are stored as YAML files in `~/.tack/routes/`.
 - [SPEC](/spec): the frozen contract the CLI implements, with formal requirement IDs
 - [CLI reference](/cli): every command, subcommand, and flag, grouped by what you're doing; the usage lines are generated from `tack --help`
 - [Examples & visualizations](/examples): sample routes, and the views (Sankey, dependency graph, Gantt) derived from them
-- **Skills**: [`/tack:start`](/skills/start) and [`/tack:end`](/skills/end), sourced from each `SKILL.md`
+- **Skills**: [`/tack:start`](/skills/start), [`/tack:end`](/skills/end), and [`/tack:note`](/skills/note), sourced from each `SKILL.md`
 - [Hooks](/hooks): what the plugin does without being asked, and the scripts each hook runs
 - [Coverage](/status): which requirements are implemented, and where

@@ -3,6 +3,10 @@ hooks:
   - event: SessionStart
     command: 'bash "${CLAUDE_PLUGIN_ROOT}/hooks/cli-freshness.sh"'
     description: Detects when the installed tack CLI wrapper is stale relative to the plugin version and nudges to refresh it.
+  - event: SessionStart
+    matcher: compact
+    command: 'bash "${CLAUDE_PLUGIN_ROOT}/hooks/notes-after-compact.sh"'
+    description: Restores the notes taken with /tack:note to context after the conversation is compacted.
   - event: UserPromptSubmit
     command: 'bash "${CLAUDE_PLUGIN_ROOT}/hooks/session-nudge.sh"'
     description: Detects untracked PR/MR/issue URLs in user messages, resolves and records the session's tack route, and recommends opening one when none resolves.

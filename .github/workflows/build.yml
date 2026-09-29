@@ -59,7 +59,7 @@ jobs:
 
       # Fail by name on a runner without shellcheck.
       - run: shellcheck --version
-      - run: shellcheck hooks/*.sh scripts/lib-url.sh
+      - run: shellcheck hooks/*.sh scripts/lib-url.sh scripts/notes.sh
 
   report:
     name: Report onto the commit the projection pushed

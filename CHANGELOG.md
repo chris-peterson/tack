@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- **`/tack:note <text>` jots a note mid-session without pulling the agent off its task.** The agent acknowledges it in one line (`codes.bridgeai.tack/note.taken {…}`) and carries on. Nothing is stored: the transcript already records the note verbatim. `/tack:note` with no text lists the session's notes, a hook restores them to context after compaction, and `/tack:end` lists them before the session closes.
+
 ### Fixed
 
 - **`tack repo rebuild` fills in `locals` again, by looking for each repo's checkout under `~/src`.** A repo is found at `~/src/<dir>/<owner>/<repo>` (for example `~/src/github/chris-peterson/anchor`) and recorded only when that checkout's `origin` is the repo itself, so a fork at the same path is left out. Set `TACK_SRC_ROOT` to probe a different root.

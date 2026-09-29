@@ -79,7 +79,7 @@ completions-check:
 # Lint the shell half of the plugin (hooks, the URL library, the trial helper)
 [group('build and test')]
 lint-shell:
-    shellcheck hooks/*.sh scripts/lib-url.sh scripts/trial-off.sh
+    shellcheck hooks/*.sh scripts/lib-url.sh scripts/notes.sh scripts/trial-off.sh
 
 # Everything build.yml's `ts` job runs — build, test, verify completions
 [group('build and test')]

@@ -123,6 +123,7 @@ suite:
   cmds:
     - ["/tack:start", "Open a session — read the ticket, cut the branch, bind the route"]
     - ["/tack:end", "Close it — record what landed, report what's still owed"]
+    - ["/tack:note", "Jot a note for later without derailing the work"]
     - ["/tack:install-tack", "Put the `tack` CLI on your PATH, with zsh completions"]
   # Skill-anchored previews of the flagship flows, shown live on the docs site;
   # the session: below is the at-a-glance flow the hub also reads.
