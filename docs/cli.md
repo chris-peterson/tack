@@ -25,7 +25,7 @@ Making a route, and finding your way around the ones you have.
 ### `tack init`
 
 ```text
-tack init <slug> [--group <slug>]
+tack init <slug> [--group <slug>] [--no-session]
 ```
 
 Create a new route.
@@ -314,7 +314,7 @@ The units of work on a route.
 ### `tack add`
 
 ```text
-tack add <slug> <summary> [--depends-on <id,...>] [--done] [--date <ts>] [--deliverable <url>] [--link <label,url>]...
+tack add <slug> <summary> [--depends-on <id,...>] [--done] [--date <ts>] [--deliverable <url>] [--link <label,url>]... [--no-session]
 ```
 
 Add a tack to a route.

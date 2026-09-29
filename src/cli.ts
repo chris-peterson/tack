@@ -35,7 +35,7 @@ function usage(exitCode = 1): never {
   print(`tack — route tracker for AI-assisted development
 
 Usage:
-  tack init <slug> [--group <slug>]
+  tack init <slug> [--group <slug>] [--no-session]
   tack rename <old-slug> <new-slug>
   tack group <slug> [<group>] [--clear]   (no group: show current; --clear: ungroup)
   tack title <slug> [<text>] [--clear]    (no text: show current; --clear: remove)
@@ -45,7 +45,7 @@ Usage:
   tack list [--json]
   tack recent [--count <n>] [--since <date>] [--json]
   tack tree [path] [-d <depth>] [--json]    (path supports glob: */*/deliverable)
-  tack add <slug> <summary> [--depends-on <id,...>] [--done] [--date <ts>] [--deliverable <url>] [--link "label,url"]...
+  tack add <slug> <summary> [--depends-on <id,...>] [--done] [--date <ts>] [--deliverable <url>] [--link "label,url"]... [--no-session]
   tack edit <slug> <tack-id> <summary>
   tack merge <slug> <source-id> <target-id>
   tack move <src-slug>/<tack-id> <dst-slug> [--include-dependents]
@@ -125,8 +125,9 @@ function warnUrlCollision(url: string, slug: string, tackId: string): void {
 // Attribute the current Claude session to a route it just touched, so fleet
 // views can see which session is driving the work. A no-op outside a Claude
 // session (the env var is unset in an ad-hoc terminal). `init` and `add` record
-// route-level (a session that created a route/tack is working that route);
-// `start` additionally binds the specific tack it just started.
+// route-level (a session that created a route/tack is working that route),
+// unless `--no-session` says the write is bookkeeping for work the session isn't
+// driving; `start` additionally binds the specific tack it just started.
 function recordSessionIfPresent(slug: string, tackId?: string): void {
   const sid = process.env.CLAUDE_CODE_SESSION_ID;
   if (sid) bindSession(slug, sid, tackId);
@@ -311,18 +312,19 @@ function run(): void {
   switch (command) {
     case "init": {
       if (!rest[0]) usage();
-      const { values: initValues } = parseArgs({
+      const { values: initValues, positionals: initPositionals } = parseArgs({
         args: rest,
         options: {
           group: { type: "string" },
+          "no-session": { type: "boolean", short: "s" },
         },
         allowPositionals: true,
       });
-      const slug = rest.filter((a) => !a.startsWith("--"))[0];
+      const slug = initPositionals[0];
       const r = route.init(slug, {
         group: initValues.group as string | undefined,
       });
-      recordSessionIfPresent(slug);
+      if (!initValues["no-session"]) recordSessionIfPresent(slug);
       console.log(renderRoute(r));
       break;
     }
@@ -435,6 +437,7 @@ function run(): void {
           date: { type: "string" },
           deliverable: { type: "string" },
           link: { type: "string", multiple: true },
+          "no-session": { type: "boolean", short: "s" },
         },
         allowPositionals: true,
       });
@@ -473,7 +476,7 @@ function run(): void {
       });
       if (deliverableUrl) warnUrlCollision(deliverableUrl, slug, tack.id);
       for (const link of tack.links ?? []) warnUrlCollision(link.url, slug, tack.id);
-      recordSessionIfPresent(slug);
+      if (!values["no-session"]) recordSessionIfPresent(slug);
       console.log(formatTack(tack));
       break;
     }
