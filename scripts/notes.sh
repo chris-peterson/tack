@@ -20,7 +20,7 @@ if [ "${1:-}" = "--session" ]; then
     exit 2
   fi
   projects="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects"
-  transcript=$(find "$projects" -name "${session_id}.jsonl" -not -path '*/subagents/*' 2>/dev/null | head -n 1)
+  transcript=$(find "$projects" -name "${session_id}.jsonl" -not -path '*/subagents/*' -print -quit)
   if [ -z "$transcript" ]; then
     echo "notes.sh: no transcript for session $session_id under $projects" >&2
     exit 1
@@ -37,7 +37,7 @@ jq -R -r '
   | select(.type == "user" and (.isMeta | not) and (.isCompactSummary | not) and (.isSidechain | not))
   | .message.content
   | if type == "string" then . else ([.[]? | select(.type == "text") | .text] | join("\n")) end
-  | select(test("<command-name>/(tack:)?note</command-name>"))
+  | select(test("<command-name>/tack:note</command-name>"))
   | (capture("<command-args>(?<args>[\\s\\S]*?)</command-args>").args // "")
   | gsub("^\\s+|\\s+$"; "")
   | select(length > 0)

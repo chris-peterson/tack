@@ -572,6 +572,31 @@ describe("session notes", () => {
         ]);
         assert.equal(notes(path), "");
     });
+    it("ignores another plugin's /note", () => {
+        const path = transcript([user(command("/note", "someone else's"))]);
+        assert.equal(notes(path), "");
+    });
+    it("finds the transcript by session id", () => {
+        const config = mkdtempSync(join(tmpdir(), "tack-notes-config-"));
+        const project = join(config, "projects", "-Users-me-src-repo");
+        mkdirSync(join(project, "abc-123", "subagents"), { recursive: true });
+        writeFileSync(join(project, "abc-123.jsonl"), JSON.stringify(user(command("/tack:note", "found it"))) + "\n");
+        writeFileSync(join(project, "abc-123", "subagents", "abc-123.jsonl"), JSON.stringify(user(command("/tack:note", "subagent"))) + "\n");
+        const out = execFileSync("bash", [join(repoRoot, "scripts", "notes.sh"), "--session", "abc-123"], {
+            encoding: "utf-8",
+            env: { ...process.env, CLAUDE_CONFIG_DIR: config },
+        });
+        assert.equal(out, "- found it\n");
+    });
+    it("names the session it could not find", () => {
+        const config = mkdtempSync(join(tmpdir(), "tack-notes-config-"));
+        mkdirSync(join(config, "projects"));
+        assert.throws(() => execFileSync("bash", [join(repoRoot, "scripts", "notes.sh"), "--session", "nope"], {
+            encoding: "utf-8",
+            stdio: "pipe",
+            env: { ...process.env, CLAUDE_CONFIG_DIR: config },
+        }), /no transcript for session nope/);
+    });
     it("tolerates a line the harness is still writing", () => {
         const path = transcript([user(command("/tack:note", "kept"))], '{"type":"user","mess');
         assert.equal(notes(path), "- kept\n");

@@ -1369,7 +1369,8 @@ only, that takes the note's text as its argument.
 **[NOTE-02]** Given text, the `note` skill shall reply with the single line
 `codes.bridgeai.tack/note.taken {"text":"<text>"}` and shall otherwise leave the
 note unacted on: a task in progress when the note arrived continues in the same
-turn.
+turn. The line is the agent's reply rather than a command's stdout, so it is not
+an announcement under EVENTS and is not declared in the event catalog.
 
 **[NOTE-03]** A bundled script shall list a session's notes, oldest first, from
 its transcript, taking either the transcript path or a session id. Only the
