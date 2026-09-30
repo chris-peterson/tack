@@ -6,13 +6,13 @@
 
 - **`/tack:note <text>` jots a note mid-session without pulling the agent off its task.** The agent acknowledges it in one line (`codes.bridgeai.tack/note.taken {…}`) and carries on. Nothing is stored: the transcript already records the note verbatim. `/tack:note` with no text lists the session's notes, a hook restores them to context after compaction, and `/tack:end` lists them before the session closes.
 
+- **`tack add` and `tack init` take `--no-session` (`-s`) to leave the current Claude session alone.** Filing tacks for work that already shipped, such as a triage pass recording merged CRs across several routes, would otherwise attribute the session to each route it touched and announce `session.started`, relabelling the session in beacon. Without the flag both commands record the route as before.
+- **`tack serve`'s pages are built for daily reading.** A dark theme with a light alternative, copy buttons for slugs and tack ids, tacks ordered and indented under the tacks they depend on, start/update/done dates, in-place title and description editing, pins, and Active/Done and date filters that the browser remembers. A group page lists its routes with their tacks in flight and the edges between them.
+
 ### Fixed
 
 - **`tack repo rebuild` fills in `locals` again, by looking for each repo's checkout under `~/src`.** A repo is found at `~/src/<dir>/<owner>/<repo>` (for example `~/src/github/chris-peterson/anchor`) and recorded only when that checkout's `origin` is the repo itself, so a fork at the same path is left out. Set `TACK_SRC_ROOT` to probe a different root.
-
-### Added
-
-- **`tack add` and `tack init` take `--no-session` (`-s`) to leave the current Claude session alone.** Filing tacks for work that already shipped, such as a triage pass recording merged CRs across several routes, would otherwise attribute the session to each route it touched and announce `session.started`, relabelling the session in beacon. Without the flag both commands record the route as before.
+- **Hooks run when the plugin is installed under a path containing a space.**
 
 ## 1.7.0
 
