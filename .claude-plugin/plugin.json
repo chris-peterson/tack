@@ -18,5 +18,6 @@
     "deliverables",
     "dependencies"
   ],
-  "homepage": "https://chris-peterson.github.io/tack/#/"
+  "homepage": "https://chris-peterson.github.io/tack/#/",
+  "documentationUrl": "https://chris-peterson.github.io/tack/#/"
 }
