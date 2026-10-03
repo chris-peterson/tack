@@ -96,8 +96,6 @@ usage-snapshot: build
 check-generated: build
     {{shipyard}} generate
     git --no-pager diff --stat
-    @echo
-    @echo "Projected paths are left in your tree; \`git restore .\` discards them."
 
 # Preview the docs site locally — dirties the tracked docs/cli.md
 [group('docs')]
