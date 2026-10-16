@@ -290,6 +290,12 @@ dialog.confirm button[value="clear"] { border-color: var(--accent); background: 
 .pin button { flex: none; width: 1.4rem; height: 1.4rem; margin-right: .15rem; padding: 0; border: 0;
   border-radius: 50%; background: none; color: var(--muted); font-size: 1rem; line-height: 1; cursor: pointer; }
 .pin button:hover { color: var(--fg); background: var(--line); }
+.pin .copy { margin-right: 0; }
+.pin .copy svg { width: .8rem; height: .8rem; }
+/* The strip scrolls, so a label above or below the chip would be clipped;
+   the failure reads over the chip's own text instead. */
+.pin .copy[data-state="failed"]::after { left: auto; right: calc(100% + 2px); bottom: auto;
+  top: 50%; transform: translateY(-50%); }
 @media (prefers-reduced-motion: reduce) { .pin:not([hidden]) { animation: none; } }
 .card-head { display: flex; align-items: flex-start; gap: .75rem; justify-content: space-between; }
 .card-title { display: flex; align-items: baseline; gap: .15rem .5rem; flex-wrap: wrap; min-width: 0; }
@@ -370,6 +376,7 @@ h1[data-untitled] { color: var(--muted); }
 }
 `;
 // Runs before first paint so a stored light choice never flashes dark.
+const COPY_ICON = `<svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5V3.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg><svg class="ok" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg>`;
 const THEME_BOOT = `try{var t=localStorage.getItem("tack-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}document.documentElement.classList.add("js")`;
 // Copy and theme controls are rendered `hidden` and revealed here, so a page
 // with script off shows no control that cannot work. A failed clipboard write
@@ -383,7 +390,7 @@ const SCRIPT = `
     clearTimeout(b._t);
     b._t = setTimeout(function () { delete b.dataset.state; }, 1400);
   }
-  document.querySelectorAll("button.copy").forEach(function (b) {
+  function wireCopy(b) {
     b.hidden = false;
     b.addEventListener("click", function () {
       navigator.clipboard.writeText(b.dataset.copy).then(
@@ -391,7 +398,8 @@ const SCRIPT = `
         function (e) { console.error("tack: copy failed", e); flash(b, "failed", "Copy failed: " + e.message); }
       );
     });
-  });
+  }
+  document.querySelectorAll("button.copy").forEach(wireCopy);
   var root = document.documentElement;
   var themeSwitch = document.querySelector(".theme");
   function sync() { themeSwitch.setAttribute("aria-checked", String(root.dataset.theme === "dark")); }
@@ -470,6 +478,7 @@ const SCRIPT = `
   // reading preference, not a fact about the route, so it never reaches the
   // route file.
   var PINS_KEY = "tack-pins";
+  var COPY_ICON = ${JSON.stringify(COPY_ICON)};
   var strip = document.getElementById("pin-strip");
   var pinList = strip.querySelector(".pins");
   var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -530,11 +539,16 @@ const SCRIPT = `
         e.preventDefault();
         target.scrollIntoView({ block: isTack(p.key) ? "center" : "start", behavior: reduceMotion ? "auto" : "smooth" });
       });
+      var c = document.createElement("button");
+      c.type = "button"; c.className = "copy"; c.dataset.copy = p.key;
+      c.title = "Copy " + p.key; c.setAttribute("aria-label", "Copy " + p.key);
+      c.innerHTML = COPY_ICON;
+      wireCopy(c);
       var x = document.createElement("button");
       x.type = "button"; x.textContent = "×";
       x.setAttribute("aria-label", "Unpin " + p.key);
       x.addEventListener("click", function () { toggle(p.key); });
-      chip.append(a, x);
+      chip.append(a, c, x);
       return chip;
     }));
   }
@@ -752,7 +766,6 @@ const SCRIPT = `
   }
 })();
 `;
-const COPY_ICON = `<svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5V3.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg><svg class="ok" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg>`;
 const PIN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>`;
 // A pin is a tack (`<slug>/<tack-id>`) or a whole route (`<slug>`). The label
 // and status ride on the button so the strip can draw the pin on any page.
