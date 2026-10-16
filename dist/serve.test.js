@@ -1,6 +1,6 @@
 import { describe, it, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { request } from "node:http";
@@ -87,6 +87,43 @@ describe("serve documents", () => {
             const body = await (await fetch(`${base}/route/gamma`)).text();
             assert.match(body, /the work/);
             assert.match(body, /id="t1"/);
+        });
+    });
+    it("keeps a card to its deliverable, with the other links folded", async () => {
+        route.init("fold");
+        route.addTack("fold", "the work");
+        route.setDeliverable("fold", "t1", "PR #9", "https://github.com/o/r/pull/9");
+        route.addLink("fold", "t1", "the issue", "https://github.com/o/r/issues/2");
+        route.addLink("fold", "t1", "pipeline", "https://github.com/o/r/actions/runs/3");
+        await withServer(async (base) => {
+            const body = await (await fetch(`${base}/route/fold`)).text();
+            assert.match(body, /<details class="more"><summary>2 links<\/summary><ul class="refs">/);
+        });
+    });
+    // The page script is a template literal in serve.ts, where an escape meant
+    // for the browser (`\\n`) is easy to write single and turn into a raw
+    // newline inside a string; the browser then runs none of it.
+    it("emits a page script that parses", async () => {
+        await withServer(async (base) => {
+            const body = await (await fetch(`${base}/`)).text();
+            const scripts = [...body.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+            assert.ok(scripts.length > 0);
+            for (const src of scripts)
+                assert.doesNotThrow(() => new Function(src));
+        });
+    });
+    it("offers a pin for a group, keyed apart from any route", async () => {
+        route.init("gpin-a", { group: "gpin" });
+        route.addTack("gpin-a", "work");
+        route.init("gpin-b", { group: "gpin" });
+        route.init("solo-a", { group: "solo" });
+        await withServer(async (base) => {
+            for (const path of ["/", "/group/gpin"]) {
+                const body = await (await fetch(`${base}${path}`)).text();
+                assert.match(body, /class="pin-btn" data-pin="group:gpin" data-label="gpin" data-status="active"/);
+            }
+            // A group of one route is that route; pinning the route covers it.
+            assert.doesNotMatch(await (await fetch(`${base}/group/solo`)).text(), /data-pin="group:solo"/);
         });
     });
     it("serves a tack as its own document", async () => {
@@ -549,6 +586,178 @@ describe("a route file that will not load", () => {
         writeBadRoute("unreadable");
         await withServer(async (base) => {
             assert.equal((await fetch(`${base}/route/never-existed`)).status, 404);
+        });
+    });
+});
+// Stats are gathered when asked for: sessions from their transcripts, change
+// requests from the forge. The forge is stubbed so the suite never calls gh.
+describe("stats documents", () => {
+    const config = mkdtempSync(join(tmpdir(), "tack-serve-claude-"));
+    after(() => rmSync(config, { recursive: true, force: true }));
+    const PR = "https://github.com/acme/widget/pull/7";
+    const opened = new Date(Date.now() - 3 * 3600_000).toISOString();
+    const mergedAt = new Date(Date.parse(opened) + 2 * 3600_000).toISOString();
+    const COMMIT = "https://github.com/acme/widget/commit/3122b40";
+    const probe = async (url) => {
+        if (url === COMMIT)
+            return { kind: "commit", committed_at: "2026-10-16T00:53:36Z", additions: 35, deletions: 9, files: 2 };
+        if (url !== PR)
+            throw new Error(`gh failed for ${url}: Could not resolve to a PullRequest`);
+        return { kind: "change_request", state: "merged", opened_at: opened, merged_at: mergedAt, additions: 12, deletions: 3, files: 2, commits: 1 };
+    };
+    async function withStatsServer(fn) {
+        process.env.CLAUDE_CONFIG_DIR = config;
+        const server = serve.serve(0, { probe });
+        await new Promise((r) => server.once("listening", r));
+        const { port } = server.address();
+        try {
+            await fn(`http://127.0.0.1:${port}`);
+        }
+        finally {
+            server.close();
+            delete process.env.CLAUDE_CONFIG_DIR;
+        }
+    }
+    async function seed() {
+        const sessions = await import("./sessions.js");
+        route.init("st");
+        route.addTack("st", "ship the widget");
+        route.setDeliverable("st", "t1", "widget#7", PR);
+        route.addTack("st", "unreadable change");
+        route.setDeliverable("st", "t2", "widget#8", "https://github.com/acme/widget/pull/8");
+        sessions.record("sess-with-transcript", "st", "t1");
+        sessions.record("sess-aged-out", "st", "t1");
+        const dir = join(config, "projects", "-src-widget");
+        mkdirSync(dir, { recursive: true });
+        const t = (s) => new Date(Date.parse("2026-10-15T18:00:00Z") + s * 1000).toISOString();
+        writeFileSync(join(dir, "sess-with-transcript.jsonl"), [
+            { type: "user", timestamp: t(0), cwd: "/src/widget", origin: { kind: "human" }, message: { content: "go" } },
+            { type: "assistant", timestamp: t(60), requestId: "r", message: { id: "m", usage: { input_tokens: 5, output_tokens: 2000, cache_read_input_tokens: 1_200_000, cache_creation_input_tokens: 0 } } },
+        ].map((r) => JSON.stringify(r)).join("\n"));
+    }
+    it("leaves a slot on the route and tack documents for the page to fill", async () => {
+        route.init("slot");
+        route.addTack("slot", "work");
+        await withStatsServer(async (base) => {
+            // A route page's slot names the route whose cards take each tack's row.
+            assert.match(await (await fetch(`${base}/route/slot`)).text(), /<section class="stats" data-stats="\/route\/slot\/stats" data-cards="slot">/);
+            assert.match(await (await fetch(`${base}/route/slot/t1`)).text(), /data-stats="\/route\/slot\/t1\/stats"/);
+        });
+    });
+    it("serves a route's stats as JSON", async () => {
+        await seed();
+        await withStatsServer(async (base) => {
+            const s = await (await fetch(`${base}/route/st/stats`, { headers: { accept: "application/json" } })).json();
+            const read = s.sessions.find((x) => x.id === "sess-with-transcript");
+            assert.equal(read.usage.prompts, 1);
+            assert.equal(read.usage.tokens.output, 2000);
+            assert.equal(s.sessions.find((x) => x.id === "sess-aged-out").usage, null);
+            assert.equal(s.tacks[0].change.stats.additions, 12);
+            assert.match(s.tacks[1].change.error, /Could not resolve/);
+        });
+    });
+    it("renders the totals, naming what it could not read", async () => {
+        await seed();
+        await withStatsServer(async (base) => {
+            const body = await (await fetch(`${base}/route/st/stats`)).text();
+            assert.match(body, /<b>2<\/b> sessions<\/span>/);
+            assert.match(body, /<span class="hstat" data-tip="Duration\n1m of work across a 1m span, from 1 of 2 sessions[^"]*"><b>1m<\/b> duration<\/span>/);
+            assert.match(body, /<span class="hstat" data-tip="Tokens\n1,202,005 tokens: [^"]*"><b>1M<\/b> tokens<\/span>/);
+            assert.match(body, /<b>1 of 2<\/b> changes landed/);
+            // A deleted transcript leaves nothing to act on, so the totals say how
+            // many sessions they cover on hover rather than warning about it.
+            assert.doesNotMatch(body, /no transcript/);
+            assert.match(body, /from 1 of 2 sessions; the others&#39; transcripts are deleted/);
+            assert.match(body, /<span class="err" data-tip="Couldn&#39;t read\nwidget#8: gh failed for [^"]*Could not resolve[^"]*">1 change couldn't be read<\/span>/);
+        });
+    });
+    it("shades a heatmap row per tack, with the numbers behind each cell", async () => {
+        await seed();
+        route.addTack("st", "file the follow-up");
+        route.setDeliverable("st", "t3", "widget#9", "https://github.com/acme/widget/issues/9");
+        await withStatsServer(async (base) => {
+            const body = await (await fetch(`${base}/route/st/stats`)).text();
+            // One of t1's two sessions left no transcript, so its effort cells are
+            // marked incomplete rather than passing the readable share off as the whole.
+            assert.match(body, /class="hc t-effort partial" data-l="4" data-v="1202005" data-tip="Tokens\n1\.2M \([^)]*\) from 1 of 2 sessions; the others&#39; transcripts are deleted"/);
+            assert.match(body, /class="hc t-size" data-l="4" data-v="15" style="--add:80%" data-tip="Lines changed\n\+12 −3 in 2 files"/);
+            assert.match(body, /class="hc t-merged" data-l="4" data-v="7200" data-tip="Time to merge\nmerged after 2h00m"/);
+            assert.match(body, /class="hc t-size failed" data-l="0" data-tip="Lines changed\ngh failed for [^"]*Could not resolve/);
+            // An issue as the deliverable has no size or merge time to shade.
+            assert.match(body, /class="hc t-size na" data-l="0" data-tip="Lines changed\nwidget#9 is not a change request or commit"/);
+            assert.match(body, /widget#9 is not a change request or commit, so it has no size or merge time/);
+            assert.match(body, /<span class="hstat"><b class="add">\+12<\/b> <b class="del">−3<\/b><\/span>/);
+        });
+    });
+    it("serves one tack's slice: its change and the sessions that drove it", async () => {
+        await seed();
+        await withStatsServer(async (base) => {
+            const s = await (await fetch(`${base}/route/st/t1/stats`, { headers: { accept: "application/json" } })).json();
+            assert.equal(s.tack.id, "t1");
+            assert.deepEqual(s.sessions.map((x) => x.id).sort(), ["sess-aged-out", "sess-with-transcript"]);
+            const body = await (await fetch(`${base}/route/st/t1/stats`)).text();
+            assert.match(body, /Transcript deleted: Claude Code keeps them 30 days/);
+            assert.match(body, /<td>widget<\/td>/);
+        });
+    });
+    it("404s stats for a tack the route does not carry", async () => {
+        route.init("st-404");
+        await withStatsServer(async (base) => {
+            assert.equal((await fetch(`${base}/route/st-404/t9/stats`)).status, 404);
+            assert.equal((await fetch(`${base}/route/nope/stats`)).status, 404);
+        });
+    });
+    it("sizes a commit delivered without a change request, and counts it landed", async () => {
+        route.init("st-commit");
+        route.addTack("st-commit", "push the fix");
+        route.setDeliverable("st-commit", "t1", "widget@3122b40", COMMIT);
+        await withStatsServer(async (base) => {
+            const body = await (await fetch(`${base}/route/st-commit/stats`)).text();
+            assert.match(body, /<b>1 of 1<\/b> change landed/);
+            assert.match(body, /class="hc t-size" data-l="4" data-v="44" style="--add:80%" data-tip="Lines changed\n\+35 −9 in 2 files"/);
+            assert.match(body, /class="hc t-open na" data-l="0" data-tip="Time open\nA commit has no review; committed Oct 1[56], 2026"/);
+            assert.match(body, /<span class="status s-committed">committed<\/span>/);
+            const tack = await (await fetch(`${base}/route/st-commit/t1/stats`)).text();
+            assert.match(tack, /<dt>Committed<\/dt>/);
+        });
+    });
+    it("serves a pins page whose tiles roll up each pin the browser sends", async () => {
+        await seed();
+        route.init("st-grouped", { group: "stg" });
+        route.addTack("st-grouped", "grouped work");
+        await withStatsServer(async (base) => {
+            const shell = await (await fetch(`${base}/pins`)).text();
+            assert.match(shell, /<section class="pins-page" data-pins-src="\/pins\/tiles">/);
+            assert.equal((await fetch(`${base}/pins`, { headers: { accept: "application/json" } })).status, 406);
+            const keys = ["st", "st/t1", "group:stg", "gone"].map((k) => `k=${encodeURIComponent(k)}`).join("&");
+            const body = await (await fetch(`${base}/pins/tiles?${keys}`)).text();
+            assert.match(body, /<div class="tile" data-state="active" data-landed="change:widget#7" data-pin-key="st">[\s\S]*?<a class="tile-title" href="\/route\/st">/);
+            assert.match(body, /<a class="tile-title" href="\/route\/st\/t1">[\s\S]*?<b class="add">\+12<\/b>/);
+            // A pinned group holds a tile for each of its routes.
+            assert.match(body, /<div class="tile group-tile" data-state="active" data-landed="" data-pin-key="group:stg">[\s\S]*?<div class="tiles inner"><div class="tile" data-state="active" data-landed="" data-route="st-grouped"><div class="tile-head"><span>route<\/span>[\s\S]*?href="\/route\/st-grouped"/);
+            assert.match(body, /<div class="tile-title">gone<\/div><p class="tnote">Not in the store any more/);
+            // A route inside a pinned group can be popped out onto its own tile.
+            assert.match(body, /<button type="button" class="tile-unpin tile-popout" data-pin="st-grouped" data-label="st-grouped" data-status="active" aria-label="Pin st-grouped on its own"/);
+            // Each tile unpins itself, and each tack square names its tack on hover.
+            assert.match(body, /<button type="button" class="tile-unpin" aria-label="Unpin group:stg"/);
+            assert.match(body, /<i class="s-pending" data-tip="t1, pending\ngrouped work"><\/i>/);
+            assert.match(body, /<b>2<\/b> sessions/);
+        });
+    });
+    it("links the pin strip's icon to the pins page", async () => {
+        await withStatsServer(async (base) => {
+            assert.match(await (await fetch(`${base}/`)).text(), /<a class="pins-link" href="\/pins"/);
+        });
+    });
+    it("says effort is unknown, not zero, when no session left a transcript", async () => {
+        const sessions = await import("./sessions.js");
+        route.init("st-gone");
+        route.addTack("st-gone", "old work");
+        sessions.record("sess-long-gone", "st-gone", "t1");
+        await withStatsServer(async (base) => {
+            const body = await (await fetch(`${base}/route/st-gone/stats`)).text();
+            assert.match(body, /<b>1<\/b> session<\/span><span class="tnote" data-tip="Duration and tokens unknown\nTranscript deleted[^"]*">duration and tokens unknown<\/span>/);
+            assert.doesNotMatch(body, /<b>0m<\/b> duration/);
         });
     });
 });
