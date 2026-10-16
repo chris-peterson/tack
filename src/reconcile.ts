@@ -1,11 +1,11 @@
-import { execFileSync } from "node:child_process";
+import { githubPr, gitlabRef, run } from "./forge.js";
 import * as route from "./route.js";
 import type { Route, Tack } from "./types.js";
 
-// The only part of tack that talks to a network. Every other command reads and
-// writes local files, and the Anti-Requirements keep it that way — asking a
-// forge whether a change request merged is this command's whole job, so the
-// dependency lives here rather than leaking into `status` or `done`.
+// The one command that asks a forge something ([CLI-56b]). Every other command
+// reads and writes local files — asking whether a change request merged is this
+// command's whole job, so the dependency lives here rather than leaking into
+// `status` or `done`.
 
 export interface MergeState {
   merged: boolean;
@@ -18,31 +18,6 @@ export interface Reconciled {
   summary: string;
   url: string;
   mergedAt: string;
-}
-
-// A GitLab MR reached through the REST API rather than `glab mr view`, which
-// takes an id plus a repo rather than the URL we hold. The project path is
-// everything between the host and the `/-/` separator, so a group-nested
-// project survives.
-function gitlabRef(url: string): { host: string; project: string; iid: string } | null {
-  const m = url.match(/^https:\/\/([^/]+)\/(.+?)\/-\/merge_requests\/(\d+)/);
-  return m ? { host: m[1], project: m[2], iid: m[3] } : null;
-}
-
-function githubPr(url: string): boolean {
-  return /^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+/.test(url);
-}
-
-function run(cmd: string, args: string[], url: string): string {
-  try {
-    return execFileSync(cmd, args, { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] });
-  } catch (e) {
-    const err = e as { code?: string; stderr?: string; message: string };
-    if (err.code === "ENOENT") {
-      throw new Error(`reconcile needs the ${cmd} CLI on PATH to read ${url}`);
-    }
-    throw new Error(`${cmd} failed for ${url}: ${(err.stderr || err.message).trim()}`);
-  }
 }
 
 export function mergeState(url: string): MergeState {

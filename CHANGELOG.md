@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **A tack card on a route page shows its deliverable and folds its other links.** Pipelines, the issue a change closes, and the rest open from an "N links" toggle under the deliverable; a tack's own page still lists them all.
+
+### Fixed
+
+- **A long route name in the pin strip ends in an ellipsis instead of running under its copy button.** A tack's pin keeps its id whole and shortens the route in front of it.
+
+### Added
+
+- **Pin a group in `tack serve`.** The pin button sits beside the group's name on the index and on the group's own page, and its chip in the pin strip opens the group. A group of one route has no pin of its own; pin the route.
+- **A pins page in `tack serve`.** The pin icon at the start of the pin strip opens `/pins`: a tile per pin, rolling up a route's tacks by status and its sessions, duration, tokens and changes landed, or a tack's change request and effort. A pinned group is a container holding a tile for each of its routes. Pinning a route inside it pops the route out onto its own tile just above the group, and unpinning that tile puts it back in the group, so a route pinned both ways shows once. Tiles fade in and out as they're pinned and unpinned, and the rest glide to their new places. The page keeps itself current, re-reading every minute and when you return to the tab: a finished pin's tile turns green, and one whose tacks finished or changes landed since the last read glows, says what landed ("Just landed: t2, docs!13"), and counts in the tab title until you point at it. Each tile unpins itself, and hovering a tack's square names it.
+- **Route and tack pages in `tack serve` show stats.** Each tack card gains four heat cells once the stats arrive (tokens, active time, lines changed, and time open or to merge, shaded against the rest of the route), with the numbers in the card's fold; the route's totals sit under its description. "Order by" puts the cards in order of any cell, largest first, to find a route's hotspots. Hovering a cell shows what it measures and its value at once; the lines-changed cell splits green and red by lines added and removed, and an asterisk marks a cell whose session transcript Claude Code has already deleted. For each session that drove a tack: prompts, active time, and input, output and cache tokens, read from its Claude Code transcript. For each change request delivered: draft, open, merged or closed, lines added and deleted, files, commits, and how long it has been open or took to merge, read through `gh` or `glab`. A commit delivered on its own gets its lines, files and commit date, and counts as landed. The section fills in after the page loads. The server asks the forge about a merged or closed change request once per run and an open one at most once a minute, so a reload is quick. The same numbers are at `/route/<slug>/stats` and `/route/<slug>/<tack-id>/stats`, as HTML or JSON. Nothing is written to the route; a session with no transcript on the machine, or a change request the forge can't read, is named on its row.
+
 ## 1.8.0
 
 ### Added

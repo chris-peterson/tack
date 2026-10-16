@@ -999,8 +999,8 @@ route. `--dry-run` reports the same set without writing.
 reports, not the time of the sweep — reconcile is a catch-up, so stamping the
 present would date the work to whenever someone remembered to run it.
 
-**[CLI-56b]** `tack reconcile` is the only command that requires network
-access, and it shall reach the forge through the forge's own CLI (`gh`, `glab`)
+**[CLI-56b]** `tack reconcile` requires network access, and it shall reach the
+forge through the forge's own CLI (`gh`, `glab`)
 rather than a built-in HTTP client, so it inherits the caller's existing
 authentication and never handles a credential. A missing forge CLI, an
 unreadable change request, or a URL from a forge it has no reader for shall fail
@@ -1661,6 +1661,89 @@ from the links it merely references: a tack holds one deliverable and any number
 of links, and rendering them alike reads as several deliverables. Where there is
 none, the document shall name the command that records one.
 
+**[SERVE-18]** A route's stats shall be a document at `/route/<slug>/stats`,
+and a tack's at `/route/<slug>/<tack-id>/stats`, negotiated as [SERVE-11]
+describes; their JSON is the stats themselves, since no CLI command emits a
+shape to match. Stats are gathered on each request and never written to the
+store ([SERVE-03]): the durations they show are computed from timestamps the
+transcripts and the forge already hold, which is how they stay clear of the
+time-tracking anti-requirement. A route or tack document shall carry an empty
+stats section that the page fills from this document once it has loaded —
+reading transcripts and asking a forge takes seconds, and the rest of the
+document should not wait on them.
+
+**[SERVE-19]** A route's sessions are the ones that drove one of its tacks
+([SESS-01]). For each, the stats shall report what its Claude Code transcript
+records: prompts the user typed, API responses, input, output, cache-read and
+cache-write tokens (sub-agents included, each response counted once), the time
+it ran in, and active time, the sum of the gaps of five minutes or less between
+transcript records. A session with no transcript on the machine (Claude Code
+deletes them after its `cleanupPeriodDays`) shall never be counted as zero: its
+cells shall be marked unreadable, and a total that leaves it out shall say how
+many sessions it covers. A session that drove several tacks counts
+in full toward each, and the route's stats shall mark the rows where that
+happens.
+
+The route's stats shall be a heatmap, one row per tack: tokens, active time,
+lines changed, and time open or to merge, each shaded relative to the route's
+largest value, with the value on hover and the full numbers in the row when it
+is opened. On the route document each row joins its tack's card, the cells
+beside the status and the numbers in the card's fold, so a tack's stats are
+read where the tack is; the route's totals sit under its description. The page
+shall offer to order the cards by any one cell, largest first, so a route's
+hotspots can be found without scanning, with the dependency order one click back. A cell that does not apply (a deliverable that is not a
+change request, a tack no session drove) and a cell whose source could not be
+read shall each look different from a low value. Reading the transcript is the one place tack knows its format, kept in
+a module of its own so a session from another tool reads as having none.
+
+**[SERVE-20]** For a tack whose deliverable is a change request, the stats shall
+report its state (draft, open, merged, closed), when it opened and merged or
+closed, lines added and deleted, files changed, and commits, read through the
+forge's own CLI as [CLI-56b] requires of reconcile. For a tack whose deliverable
+is a commit, the stats shall report when it was committed, lines added and
+deleted, and files changed, and count it as landed alongside merged change
+requests. A deliverable that cannot be read shall be shown with the forge's
+error on its row, never left out, and a count of unread deliverables shall carry
+each one's error on hover. A GitLab project that was renamed or moved since the
+URL was recorded shall be followed to its current path; a commit the forge no
+longer has shall be reported as rewritten or never pushed.
+
+The server may keep what the forge answered in memory, and nowhere else: a
+commit or a merged or closed change request for the life of the process, since
+nothing it reports changes again, and an open one for at most a minute. A failed read is
+not kept. This is the one exception to [SERVE-03], and it does not reach the
+reason for that rule: nothing kept comes from the store, so a document still
+cannot disagree with the CLI about a route.
+
+**[SERVE-21]** A reader shall be able to pin a route, a tack, or a group from
+its document, and every document shall show the pins in a strip under the
+toolbar. Pins are a reading preference of one browser and are kept in its
+storage, never in the store. A group pins under `group:<name>`, since a group
+and a route can share a name and no slug contains a colon.
+
+The strip shall link to a pins document at `/pins`, one tile per pin, each
+rolling up its pin with the stats of [SERVE-18]: a route's tacks by status and
+its totals, a tack's change request and the sessions that drove it, and a group
+as a container of its routes' tiles under the group's totals, a session counted
+once. Each pinned tile shall unpin itself, and the pins document shows no strip
+of its own, since the tiles are the pins. A route pinned both on its own and
+through its group shall show once, as its own tile, left out of the group's. A
+route inside a pinned group shall offer its pin, which pops it out onto its own
+tile placed just above the group, and keeps it there in the pin order;
+unpinning that tile returns it to the group.
+
+The pins document is meant to stay open, so it shall re-read its tiles on its
+own, at least once a minute and whenever its tab comes back into view. A
+finished pin shall read as finished across its whole tile, not only its status
+badge. When a re-read finds tacks marked done or change requests landed since
+the last one, the tile shall say what landed and stand out until the reader
+points at it, and the tab's title shall count such tiles until then. A
+group of one route shall offer no pin of its own, since pinning it would pin
+that route. The
+document sends the server the keys it holds, since only the browser knows them;
+a key whose route, tack or group is gone shall say so on its tile. There is no
+JSON form of it.
+
 ---
 
 ### EVENTS — What tack Announces
@@ -1846,7 +1929,9 @@ The following are explicitly out of scope:
   true. A field that goes stale when nobody tends it is a field tack should not
   have — which is why a route's completeness is derived from its tacks
   ([ROUTE-13]) rather than set by a caller.
-- **No time tracking.** No start times, durations, or estimates.
+- **No time tracking.** No start times, durations, or estimates. The durations
+  a stats document shows ([SERVE-18]) are derived on each request from
+  timestamps that live elsewhere, and none is written to the store.
 - **No git operations in the CLI or schema.** The CLI creates no branches,
   commits, or tags, and nothing git-derived is stored in a route. The Claude
   Code skill layer reads git state and cuts the branch a route is named for,
@@ -1868,8 +1953,9 @@ The following are explicitly out of scope:
   Two commands are allowed out of that shell and no more: `tack reconcile`
   ([CLI-56]) asks a forge a question the local files cannot answer, and
   `tack serve` ([SERVE-01]) projects those same files to `127.0.0.1` for the
-  reader sitting at the machine. Neither ships work anywhere, and both are one
-  command wide by design, so nothing else grows a network dependency by
+  reader sitting at the machine, asking the forge only for the stats of the
+  change requests it shows ([SERVE-20]). Neither ships work anywhere, and both
+  are one command wide by design, so nothing else grows a network dependency by
   drifting into it.
 - **No cross-route dependency enforcement.** Route-level `depends_on` is
   informational only per [DEPENDS-04].
