@@ -135,6 +135,20 @@ export function repoKeyForCwd(cwd) {
         return null;
     return normalizeGitRemote(remote);
 }
+// CLI-60: true inside a repository's .git directory (or a bare repository),
+// where there is no checkout to label.
+export function insideGitDir(dir) {
+    try {
+        const out = execFileSync("git", ["-C", dir, "rev-parse", "--is-inside-git-dir"], {
+            encoding: "utf-8",
+            stdio: ["ignore", "pipe", "ignore"],
+        });
+        return out.trim() === "true";
+    }
+    catch {
+        return false;
+    }
+}
 // --- Queries / commands (CLI-42..46) ---
 // Match a partial case-insensitively against every repo's names (CLI-42).
 export function matchByName(partial) {
@@ -161,6 +175,55 @@ function resolveOne(match) {
         throw new Error(`"${match}" matches ${matches.length} repos: ${matches.map((m) => m.key).join(", ")}`);
     }
     return matches[0].key;
+}
+// CLI-60: the shortest label that tells each key apart from every other. A
+// label starts as the repo name, then grows to the top-level namespace and the
+// name, then takes the subgroups nearest the name one at a time, and takes the
+// host only when two keys share their whole path. Every key in a colliding group
+// grows together, except one already showing its whole path.
+export function uniqueLabels(keys) {
+    const steps = new Map();
+    for (const key of new Set(keys)) {
+        const [, ...path] = key.split("/");
+        const name = path[path.length - 1];
+        const labels = [name];
+        for (let k = 0; k <= path.length - 2; k++) {
+            labels.push([path[0], ...path.slice(path.length - 1 - k)].join("/"));
+        }
+        labels.push(key);
+        steps.set(key, labels);
+    }
+    const at = new Map([...steps.keys()].map((k) => [k, 0]));
+    const label = (k) => steps.get(k)[at.get(k)];
+    const wholePath = (k) => at.get(k) >= steps.get(k).length - 2;
+    const withHost = (k) => at.get(k) === steps.get(k).length - 1;
+    // Keys differing only in case end up sharing a label; nothing is left to add.
+    let grew = true;
+    while (grew) {
+        grew = false;
+        const groups = new Map();
+        for (const k of at.keys()) {
+            const id = label(k).toLowerCase();
+            groups.set(id, [...(groups.get(id) ?? []), k]);
+        }
+        for (const group of groups.values()) {
+            if (group.length < 2)
+                continue;
+            const short = group.filter((k) => !wholePath(k));
+            const growing = short.length ? short : group.filter((k) => !withHost(k));
+            for (const k of growing)
+                at.set(k, at.get(k) + 1);
+            grew ||= growing.length > 0;
+        }
+    }
+    return new Map([...at.keys()].map((k) => [k, label(k)]));
+}
+// CLI-60: the label for one key, told apart from every repo in the database.
+export function labelFor(key) {
+    return uniqueLabels([...Object.keys(loadRepos()), key]).get(key);
+}
+export function isKnownRepo(key) {
+    return key in loadRepos();
 }
 export function listRepos() {
     const db = loadRepos();

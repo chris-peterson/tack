@@ -14,6 +14,7 @@ import { TACK_STATUSES } from "./types.js";
 import { announce, announceOnce } from "./announce.js";
 import { formatRoute, formatTack, formatList, formatRecent, formatTree, formatFind, formatRepos, formatSessions, treeData } from "./display.js";
 import { ZSH_COMPLETION } from "./completions.js";
+import { ZSH_PROMPT } from "./prompt.js";
 import { describeVersion } from "./build-info.js";
 import * as sessions from "./sessions.js";
 // A route file says nothing about sessions, so rendering one with its sessions
@@ -67,12 +68,14 @@ Usage:
   tack repo prune                    Drop locals that no longer exist on disk
   tack repo rebuild                  Backfill the repo db from routes and ~/src checkouts
   tack repo rm <match>               Remove a repo entry
+  tack repo label [<path>|<key>] [--json]   Print the shortest label unique among known repos (default cwd)
   tack doctor [--json]               Report route files that will not load
   tack rm <slug> [--force]
   tack export [--out-file <path>] [--compress]  Dump a backup to stdout (routes + repos)
   tack import <file> [--merge|--replace] [--dry-run]  Merge (default) or restore a backup
-  tack install-cli [--dir <path>]    (also installs zsh completions)
+  tack install-cli [--dir <path>] [--prompt]   (also installs zsh completions; --prompt the prompt integration)
   tack completions zsh
+  tack prompt zsh                    Print the zsh prompt integration (sets TACK_PROMPT_DIR)
   tack --version
   tack --help`);
     process.exit(exitCode);
@@ -168,7 +171,7 @@ function pathContains(targetDir) {
     }
     return false;
 }
-function installCli(dir) {
+function installCli(dir, prompt) {
     const source = resolveSource();
     const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
     const targetDir = dir ? resolve(dir) : join(home, ".local", "bin");
@@ -194,6 +197,43 @@ function installCli(dir) {
         console.log(`warning: ${targetDir} is not on $PATH — add it to your shell rc`);
     }
     installZshCompletions();
+    installZshPrompt(prompt);
+}
+// CLI-61a: --prompt installs the integration and sources it from ~/.zshrc. A
+// later install without the flag refreshes a file already there, so an upgrade
+// keeps it current, and leaves a shell that never opted in alone.
+function installZshPrompt(create) {
+    const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
+    const file = join(home, ".zsh", "tack-prompt.zsh");
+    if (!create && !existsSync(file))
+        return;
+    mkdirSync(join(home, ".zsh"), { recursive: true });
+    let existing = null;
+    try {
+        existing = readFileSync(file, "utf-8");
+    }
+    catch { }
+    if (existing === ZSH_PROMPT) {
+        console.log(`prompt integration already installed: ${file}`);
+    }
+    else {
+        writeFileSync(file, ZSH_PROMPT);
+        console.log(`prompt integration installed: ${file}`);
+    }
+    const zshrc = join(home, ".zshrc");
+    let zshrcContent = "";
+    try {
+        zshrcContent = readFileSync(zshrc, "utf-8");
+    }
+    catch { }
+    if (!zshrcContent.includes(".zsh/tack-prompt.zsh")) {
+        writeFileSync(zshrc, `${zshrcContent}
+source ~/.zsh/tack-prompt.zsh
+`);
+        console.log("Updated ~/.zshrc (sources the prompt integration).");
+    }
+    if (create)
+        console.log("Put ${TACK_PROMPT_DIR} in PROMPT, then restart your shell.");
 }
 function installZshCompletions() {
     const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
@@ -916,6 +956,31 @@ function run() {
                 const m = repos.removeRepo(subArgs[0]);
                 console.log(`Removed: ${m.key}`);
             }
+            else if (sub === "label") {
+                const jsonFlag = subArgs.includes("--json");
+                const target = subArgs.filter((a) => a !== "--json")[0] ?? process.cwd();
+                let key;
+                if (existsSync(target)) {
+                    if (repos.insideGitDir(target)) {
+                        console.error(`${target} is inside a git directory, not a checkout`);
+                        process.exit(1);
+                    }
+                    key = repos.repoKeyForCwd(target);
+                    if (!key) {
+                        console.error(`No git repo with an origin remote at ${target}`);
+                        process.exit(1);
+                    }
+                }
+                else {
+                    key = target;
+                    if (!repos.isKnownRepo(key)) {
+                        console.error(`No repo ${key} in the repo database`);
+                        process.exit(1);
+                    }
+                }
+                const label = repos.labelFor(key);
+                console.log(jsonFlag ? JSON.stringify({ key, label }, null, 2) : label);
+            }
             else {
                 const jsonFlag = rest.includes("--json");
                 const partial = rest.filter((a) => !a.startsWith("--"))[0];
@@ -1111,10 +1176,16 @@ function run() {
         case "install-cli": {
             const { values } = parseArgs({
                 args: rest,
-                options: { dir: { type: "string" } },
+                options: { dir: { type: "string" }, prompt: { type: "boolean" } },
                 allowPositionals: true,
             });
-            installCli(values.dir);
+            installCli(values.dir, Boolean(values.prompt));
+            break;
+        }
+        case "prompt": {
+            if (rest[0] !== "zsh")
+                groupError("prompt", expectedOneOf(["zsh"], rest[0]));
+            process.stdout.write(ZSH_PROMPT);
             break;
         }
         case "completions": {

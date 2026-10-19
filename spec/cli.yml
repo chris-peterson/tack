@@ -307,6 +307,17 @@ commands:
     - summary: Remove a repo entry
       args:
       - name: match
+  - name: label
+    usages:
+    - summary: Print the shortest label unique among known repos (default cwd)
+      args:
+      - name: <path>|<key>
+        choices:
+        - <path>
+        - <key>
+        optional: true
+      flags:
+      - name: --json
 - name: doctor
   usages:
   - summary: Report route files that will not load
@@ -340,12 +351,18 @@ commands:
     - name: --dry-run
 - name: install-cli
   usages:
-  - summary: (also installs zsh completions)
+  - summary: (also installs zsh completions; --prompt the prompt integration)
     flags:
     - name: --dir
       arg: path
+    - name: --prompt
 - name: completions
   subcommands:
   - name: zsh
     usages:
     - {}
+- name: prompt
+  subcommands:
+  - name: zsh
+    usages:
+    - summary: Print the zsh prompt integration (sets TACK_PROMPT_DIR)

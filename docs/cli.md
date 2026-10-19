@@ -769,6 +769,8 @@ tack repo rebuild
     Backfill the repo db from routes and ~/src checkouts
 tack repo rm <match>
     Remove a repo entry
+tack repo label [<path>|<key>] [--json]
+    Print the shortest label unique among known repos (default cwd)
 ```
 
 ## Health
@@ -867,12 +869,19 @@ tack import tack-backup-2026-07-07.json.gz --replace  # restore this machine
 ### `tack install-cli`
 
 ```text
-tack install-cli [--dir <path>]
-    (also installs zsh completions)
+tack install-cli [--dir <path>] [--prompt]
+    (also installs zsh completions; --prompt the prompt integration)
 ```
 
 ### `tack completions`
 
 ```text
 tack completions zsh
+```
+
+### `tack prompt`
+
+```text
+tack prompt zsh
+    Print the zsh prompt integration (sets TACK_PROMPT_DIR)
 ```

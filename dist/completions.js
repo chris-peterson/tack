@@ -204,6 +204,7 @@ _tack() {
     'import:Merge or restore a backup'
     'install-cli:Drop a tack wrapper on PATH'
     'completions:Output shell completion script'
+    'prompt:Print the zsh prompt integration'
     'help:Show usage'
   )
 
@@ -463,12 +464,13 @@ _tack() {
       esac
       ;;
     repo)
-      # tack repo [<partial>] [--json] | alias <match> <alias> | prune | rm <match>
+      # tack repo [<partial>] [--json] | alias <match> <alias> | prune | rm <match> | label [<path>|<key>] [--json]
       case "$CURRENT" in
-        3) _alternative 'subcommands:subcommand:((alias\:"add an alias" prune\:"drop stale locals" rebuild\:"backfill from routes" rm\:"remove a repo"))' 'repos:repo:_tack_repo_names' 'options:option:((--json\:"emit JSON"))' ;;
+        3) _alternative 'subcommands:subcommand:((alias\:"add an alias" prune\:"drop stale locals" rebuild\:"backfill from routes" rm\:"remove a repo" label\:"print the shortest unique label"))' 'repos:repo:_tack_repo_names' 'options:option:((--json\:"emit JSON"))' ;;
         4)
           case "\${words[3]}" in
             alias|rm) _tack_repo_names ;;
+            label) _alternative 'dirs:checkout:_files -/' 'options:option:((--json\:"emit JSON"))' ;;
           esac
           ;;
       esac
@@ -504,8 +506,14 @@ _tack() {
       esac
       ;;
     install-cli)
-      # tack install-cli [--dir <path>]
-      _arguments '--dir[Install directory (default ~/.local/bin)]:dir:_files -/'
+      # tack install-cli [--dir <path>] [--prompt]
+      _arguments '--dir[Install directory (default ~/.local/bin)]:dir:_files -/' '--prompt[Install the prompt integration]'
+      ;;
+    prompt)
+      # tack prompt zsh
+      case "$CURRENT" in
+        3) compadd zsh ;;
+      esac
       ;;
     completions)
       # tack completions <shell>
