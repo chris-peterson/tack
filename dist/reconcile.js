@@ -1,28 +1,5 @@
-import { execFileSync } from "node:child_process";
+import { githubPr, gitlabRef, run } from "./forge.js";
 import * as route from "./route.js";
-// A GitLab MR reached through the REST API rather than `glab mr view`, which
-// takes an id plus a repo rather than the URL we hold. The project path is
-// everything between the host and the `/-/` separator, so a group-nested
-// project survives.
-function gitlabRef(url) {
-    const m = url.match(/^https:\/\/([^/]+)\/(.+?)\/-\/merge_requests\/(\d+)/);
-    return m ? { host: m[1], project: m[2], iid: m[3] } : null;
-}
-function githubPr(url) {
-    return /^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+/.test(url);
-}
-function run(cmd, args, url) {
-    try {
-        return execFileSync(cmd, args, { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] });
-    }
-    catch (e) {
-        const err = e;
-        if (err.code === "ENOENT") {
-            throw new Error(`reconcile needs the ${cmd} CLI on PATH to read ${url}`);
-        }
-        throw new Error(`${cmd} failed for ${url}: ${(err.stderr || err.message).trim()}`);
-    }
-}
 export function mergeState(url) {
     if (githubPr(url)) {
         const out = run("gh", ["pr", "view", url, "--json", "state,mergedAt"], url);

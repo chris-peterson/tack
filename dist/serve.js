@@ -1,6 +1,9 @@
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import * as route from "./route.js";
+import * as stats from "./stats.js";
+import { deliverableStats } from "./forge.js";
+import { totalTokens, IDLE_GAP_S } from "./usage.js";
 // beacon holds 8787 and these two sit side by side on one machine, so tack
 // takes the next port up.
 export const DEFAULT_PORT = 8788;
@@ -83,12 +86,14 @@ const STYLE = `
   --bg: #282a36; --bar: #21222c; --card: #2d2f3d; --line: #44475a;
   --fg: #f8f8f2; --muted: #b6bcd6; --accent: #bd93f9; --link: #cfb0fb; --on-accent: #282a36;
   --pending: #b6bcd6; --progress: #ffb86c; --done: #50fa7b; --blocked: #ff9494; --dropped: #b6bcd6;
+  --size: #8be9fd;
 }
 :root[data-theme="light"] {
   color-scheme: light;
   --bg: #fffbeb; --bar: #f4eed5; --card: #fffdf5; --line: #d9d3bb;
   --fg: #1f1f1f; --muted: #57513a; --accent: #644ac9; --link: #5a3fc0; --on-accent: #fffbeb;
   --pending: #57513a; --progress: #8f420f; --done: #0f6308; --blocked: #b02a1c; --dropped: #57513a;
+  --size: #036a96;
 }
 * { box-sizing: border-box; }
 html { scroll-padding-top: 4rem; }
@@ -170,6 +175,69 @@ h2 .count { color: var(--muted); font-weight: 400; margin-left: .35rem; }
 .facts div { display: flex; flex-direction: column; }
 .facts dt { font-size: .75rem; color: var(--muted); }
 .facts dd { margin: 0; font-size: .92rem; }
+.stats { margin: 0 0 1.5rem; }
+.stats .facts { margin: .25rem 0 1rem; }
+.stats .tbl { overflow-x: auto; }
+.stats table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+.stats th, .stats td { padding: .3rem .6rem; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.stats th { font-size: .75rem; font-weight: 600; color: var(--muted); }
+.stats .num { text-align: right; font-variant-numeric: tabular-nums; }
+.add { color: var(--done); }
+.del { color: var(--blocked); }
+.err { color: var(--blocked); }
+.htot { display: flex; flex-wrap: wrap; gap: .25rem 1.4rem; margin: .25rem 0 .9rem; font-size: .9rem; color: var(--muted); }
+.hstat b { color: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+.heat { display: flex; flex-direction: column; }
+.hrow summary, .hhead { display: grid; grid-template-columns: 2.6rem auto minmax(0, 1fr); align-items: center; gap: .8rem; }
+.hrow summary { list-style: none; cursor: pointer; padding: .2rem .35rem; border-radius: 6px; }
+.hrow summary::-webkit-details-marker { display: none; }
+.hrow summary:hover, .hrow[open] summary { background: var(--card); }
+.hhead { padding: 0 .35rem .25rem; font-size: .72rem; color: var(--muted); }
+.cells { display: grid; grid-template-columns: repeat(4, 2.6rem); gap: 3px; }
+.hhead .cells span { text-align: center; }
+.hsum { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .88rem; color: var(--muted); }
+.hrow[open] .hsum { color: var(--fg); }
+.hrow .tnums { margin: .35rem 0 .7rem 3.75rem; }
+.tnums .htot { margin: 0 0 .3rem; gap: .2rem 1rem; align-items: baseline; font-size: .82rem; }
+.tnums .hstat b { font-size: .92rem; }
+.hstat b.add { color: var(--done); }
+.hstat b.del { color: var(--blocked); }
+.hstat[data-tip] { cursor: help; }
+.tnote { color: var(--muted); font-size: .8rem; }
+.hsortrow { display: inline-flex; align-items: center; gap: .5rem; flex-basis: 100%; }
+.sortpill { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; gap: 2px; }
+.sortpill button { font: inherit; font-size: .76rem; padding: .05rem .6rem; border: 0; border-radius: 999px;
+  background: none; color: var(--muted); cursor: pointer; }
+.sortpill button:hover { color: var(--fg); background: var(--line); }
+.sortpill button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.sorted .node { padding-left: 0; }
+.sorted .node[data-depth]::before { display: none; }
+.hc { --tone: var(--accent); --mix: 7%; display: inline-grid; place-items: center; font-size: .72rem; font-weight: 700; line-height: 1; color: var(--fg); cursor: help; width: 2.6rem; height: 1.15rem; border-radius: 3px;
+      background-color: color-mix(in srgb, var(--tone) var(--mix), var(--card)); vertical-align: middle; }
+.hc[data-l="1"] { --mix: 28%; } .hc[data-l="2"] { --mix: 48%; } .hc[data-l="3"] { --mix: 70%; } .hc[data-l="4"] { --mix: 95%; }
+.t-size { --tone: var(--size); } .t-open { --tone: var(--progress); } .t-merged { --tone: var(--done); } .t-closed { --tone: var(--dropped); }
+.hc.shared { background-image: repeating-linear-gradient(135deg, transparent 0 3px, var(--bg) 3px 5px); }
+/* A corner notch says the cell has a note: a count that leaves sessions out,
+   or a forge read that failed. The tooltip says which. */
+.hc.partial, .hc.failed { background-image: linear-gradient(225deg, var(--notch) 5px, transparent 5px); }
+.hc.partial { --notch: var(--fg); }
+.hc.failed { --notch: var(--blocked); }
+.hc.t-size[style] { background: linear-gradient(90deg,
+  color-mix(in srgb, var(--done) var(--mix), var(--card)) 0 var(--add),
+  color-mix(in srgb, var(--blocked) var(--mix), var(--card)) var(--add) 100%); }
+.tip { position: fixed; z-index: 50; max-width: 22rem; padding: .4rem .6rem; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--bar); color: var(--muted); font-size: .8rem; line-height: 1.45; white-space: pre-line; pointer-events: none;
+  box-shadow: 0 4px 14px rgb(0 0 0 / .25); }
+.pid .pgroup { margin-right: .35em; }
+.tip b { display: block; color: var(--fg); font-weight: 600; }
+.hc.na { background: radial-gradient(circle, var(--line) 2px, transparent 2.5px); }
+.hkey { display: flex; flex-wrap: wrap; gap: .3rem 1.1rem; align-items: center; margin: .8rem 0 0; font-size: .78rem; color: var(--muted); }
+.stats[data-cards] { margin: 1.25rem 0 0; }
+section > .hkey { margin: -.35rem 0 .8rem; }
+.card-side .cells { grid-template-columns: repeat(4, 1.5rem); gap: 2px; }
+.card-side .hc { width: 1.5rem; height: .85rem; font-size: .66rem; }
+.more .tnums { margin: .35rem 0 .5rem; }
+@media (max-width: 34rem) { .hrow summary, .hhead { grid-template-columns: 2.2rem auto; } .hsum, .hhead > span:last-child { display: none; } .hrow .facts { margin-left: 0; } }
 
 .copy, .pin-btn { position: relative; display: inline-grid; place-items: center; width: 1.6rem; height: 1.6rem;
         padding: 0; border: 1px solid transparent; border-radius: 5px; background: none;
@@ -194,6 +262,10 @@ h2 .count { color: var(--muted); font-weight: 400; margin-left: .35rem; }
 .s-blocked { color: var(--blocked); }
 .s-dropped { color: var(--dropped); }
 .s-unknown { color: var(--muted); }
+.s-draft { color: var(--progress); }
+.s-open { color: var(--accent); }
+.s-merged, .s-committed { color: var(--done); }
+.s-closed { color: var(--dropped); }
 
 .desc { margin: 0 0 1.5rem; max-width: 46rem; }
 .desc > :first-child { margin-top: 0; }
@@ -234,7 +306,6 @@ h2 .count { color: var(--muted); font-weight: 400; margin-left: .35rem; }
 /* A closed tack sinks into the page: no raised surface, and its deliverable
    drops to the muted color so the open work carries the page's contrast. */
 .card.closed { opacity: .85; background: transparent; border-style: dashed; }
-.card.closed .landed { border-color: var(--line); }
 .card.closed .landed a, .card.closed a.summary { color: var(--muted); }
 .card.closed:hover, .card.closed:focus-within { opacity: 1; }
 /* The work in flight is what a reader comes back for, so it is the one card
@@ -256,7 +327,54 @@ h2 .count { color: var(--muted); font-weight: 400; margin-left: .35rem; }
   background: color-mix(in srgb, var(--accent) 10%, var(--bar)); }
 .pin-in { max-width: 54rem; margin: 0 auto; padding: .35rem 1rem;
   display: flex; align-items: flex-start; gap: .6rem; }
-.pin-in > svg { flex: none; width: .95rem; height: .95rem; margin-top: .4rem; color: var(--accent); }
+.pin-in > .pins-link { flex: none; display: inline-grid; place-items: center; margin-top: .3rem; color: var(--accent); }
+.pins-link svg { width: .95rem; height: .95rem; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); gap: 1rem; margin-top: 1.25rem; }
+.tile { position: relative; display: flex; flex-direction: column; gap: .6rem; padding: 1.1rem 1.2rem 1.2rem; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--card); color: var(--fg); min-width: 0; }
+/* The whole tile is the target, so the outline follows the pointer anywhere in
+   it; a group is a container of targets and only its title reacts. */
+.tile:not(.group-tile):hover { border-color: var(--accent); }
+.group-tile > a.tile-title:hover { text-decoration: underline; }
+a.tile-title { color: var(--fg); }
+a.tile-title:hover { text-decoration: none; }
+a.tile-title::after { content: ""; position: absolute; inset: 0; border-radius: 10px; }
+.tile-head .status { margin-left: auto; }
+.group-tile { grid-column: 1 / -1; background: none; border-style: dashed; }
+.group-tile > .tiles.inner { margin-top: .2rem; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); }
+.group-tile > a.tile-title::after { display: none; }
+.group-tile .tile { position: relative; }
+.tile-unpin { position: relative; z-index: 1; display: inline-grid; place-items: center; width: 1.6rem; height: 1.6rem; padding: 0;
+  border: 1px solid transparent; border-radius: 5px; background: none; color: var(--accent); cursor: pointer; }
+.tile-unpin:hover { border-color: var(--line); }
+.tile-unpin svg { width: .9rem; height: .9rem; fill: currentColor; }
+.tile[hidden], .tiles[hidden] { display: none; }
+.tile[data-state="done"] { border-color: color-mix(in srgb, var(--done) 45%, var(--line));
+  background: color-mix(in srgb, var(--done) 7%, var(--card)); }
+.group-tile[data-state="done"] { background: color-mix(in srgb, var(--done) 4%, transparent); }
+.tile.just-landed { border-color: var(--done); box-shadow: 0 0 0 1px var(--done), 0 0 18px color-mix(in srgb, var(--done) 35%, transparent);
+  animation: landed-glow 1.6s ease-out 2; }
+@keyframes landed-glow { 50% { box-shadow: 0 0 0 2px var(--done), 0 0 28px color-mix(in srgb, var(--done) 55%, transparent); } }
+.landed-note { margin: 0; font-size: .82rem; color: var(--done); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .tile.just-landed { animation: none; } }
+.tile.popped { animation: tile-pop .28s ease-out; }
+@keyframes tile-pop { from { opacity: 0; transform: translateY(-10px) scale(.98); } }
+@media (prefers-reduced-motion: reduce) { .tile.popped { animation: none; } }
+.tile-popout { color: var(--muted); }
+.tile-popout svg { fill: none; }
+.tile-popout:hover { color: var(--accent); }
+.tile .tstrip i { position: relative; z-index: 1; }
+.tile [data-tip] { position: relative; z-index: 1; }
+.tile-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; font-size: .75rem; color: var(--muted); }
+.tile-title { font-weight: 600; font-size: 1.05rem; line-height: 1.35; }
+.tile-key { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78rem; color: var(--muted); overflow-wrap: anywhere; }
+.tile p { margin: 0; }
+.tile .htot { margin: 0; gap: .2rem 1rem; font-size: .86rem; align-items: baseline; }
+.tile .tnote { font-size: .78rem; }
+.tstrip { display: flex; flex-wrap: wrap; gap: 3px; }
+.tstrip i { display: block; width: .7rem; height: .7rem; border-radius: 2px; background: currentColor; cursor: help; }
+.tstrip i.s-pending, .tstrip i.s-dropped { opacity: .45; }
+.tstrip .gap { width: .5rem; }
 /* Pins wrap onto more rows rather than scrolling out of sight; past a third of
    the screen the strip scrolls, so it never buries the page it sits over. */
 .pins { flex: 1; display: flex; flex-wrap: wrap; gap: .4rem; min-width: 0;
@@ -286,7 +404,11 @@ dialog.confirm button[value="clear"] { border-color: var(--accent); background: 
 .pin .proute { display: inline-block; max-width: 9rem; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; vertical-align: bottom; color: var(--muted); }
 .pin .pid { flex: none; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .76rem; color: var(--accent); }
-.pin .psum { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A route or group key shrinks with an ellipsis; a tack key shortens its
+   route prefix instead, so the tack id stays whole. */
+.pin .pid:not(:has(.proute)) { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A tack's summary gives way before its id does. */
+.pin .psum { flex: 0 4 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pin button { flex: none; width: 1.4rem; height: 1.4rem; margin-right: .15rem; padding: 0; border: 0;
   border-radius: 50%; background: none; color: var(--muted); font-size: 1rem; line-height: 1; cursor: pointer; }
 .pin button:hover { color: var(--fg); background: var(--line); }
@@ -307,12 +429,14 @@ a.summary:hover { color: var(--link); }
 .card.dropped .summary { text-decoration: line-through; }
 .card-side { display: flex; align-items: center; gap: .6rem; flex: none; font-size: .78rem;
              color: var(--muted); }
-.landed { border-left: 2px solid var(--accent); padding: .1rem 0 .1rem .7rem;
-          margin: .55rem 0 0; font-size: .9rem; }
-.landed.done { border-color: var(--done); }
-.landed .what { color: var(--muted); font-size: .78rem; display: block; }
+.landed { display: flex; align-items: baseline; gap: .5rem; margin: .45rem 0 0; font-size: .9rem; }
+.landed .what { color: var(--muted); font-size: .78rem; }
 .refs { font-size: .85rem; color: var(--muted); margin: .55rem 0 0; padding-left: 1.1rem; }
 .refs li { margin: .1rem 0; }
+.more { margin: .4rem 0 0; font-size: .8rem; color: var(--muted); }
+.more summary { cursor: pointer; width: fit-content; }
+.more summary:hover { color: var(--fg); }
+.more .refs { margin-top: .25rem; }
 .deps { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin: .55rem 0 0;
         font-size: .8rem; color: var(--muted); }
 .deps .lbl { margin-right: .1rem; }
@@ -495,7 +619,10 @@ const SCRIPT = `
   buttons.forEach(function (b) { fresh[b.dataset.pin] = snapshot(b); });
   pins = pins.map(function (p) { return fresh[p.key] || p; });
   var here = (location.pathname.match(/^\\/route\\/([^/]+)/) || [])[1];
+  var refreshPinsPage = function () {};
   function isTack(key) { return key.indexOf("/") >= 0; }
+  function groupOf(key) { return key.indexOf("group:") === 0 ? key.slice(6) : null; }
+  var hereGroup = (location.pathname.match(/^\\/group\\/([^/]+)/) || [])[1];
   function renderPins() {
     var on = {};
     pins.forEach(function (p) { on[p.key] = true; });
@@ -509,14 +636,18 @@ const SCRIPT = `
       if (card) card.classList.toggle("pinned", pressed);
     });
     document.body.classList.toggle("pinning", pins.some(function (p) { return isTack(p.key); }));
-    strip.hidden = pins.length === 0;
+    refreshPinsPage();
+    // The pins page shows every pin as a tile, each with its own unpin, so the
+    // strip would only repeat it.
+    strip.hidden = pins.length === 0 || !!document.querySelector("section.pins-page");
     pinList.replaceChildren.apply(pinList, pins.map(function (p) {
       var slash = p.key.lastIndexOf("/");
       var slug = slash >= 0 ? p.key.slice(0, slash) : p.key;
       var chip = document.createElement("span");
       chip.className = "pin";
       var a = document.createElement("a");
-      a.href = "/route/" + p.key;
+      var group = groupOf(p.key);
+      a.href = group ? "/group/" + group : "/route/" + p.key;
       a.title = p.key + ": " + p.summary + " (" + p.status.replace(/_/g, " ") + ")";
       var dot = document.createElement("span"); dot.className = "dot s-" + p.status;
       var id = document.createElement("span"); id.className = "pid";
@@ -524,9 +655,12 @@ const SCRIPT = `
         var r = document.createElement("span"); r.className = "proute"; r.textContent = slug + "/";
         id.append(r);
       }
-      id.append(slash >= 0 ? p.key.slice(slash + 1) : slug);
+      if (group) {
+        var gl = document.createElement("span"); gl.className = "proute pgroup"; gl.textContent = "group";
+        id.append(gl, group);
+      } else id.append(slash >= 0 ? p.key.slice(slash + 1) : slug);
       a.append(dot, id);
-      if (p.summary !== p.key) {
+      if (p.summary !== p.key && !group) {
         var sum = document.createElement("span"); sum.className = "psum"; sum.textContent = p.summary;
         a.append(sum);
       }
@@ -534,7 +668,7 @@ const SCRIPT = `
         if (e.metaKey || e.ctrlKey || e.shiftKey) return;
         var target = isTack(p.key)
           ? document.querySelector('.card[data-key="' + CSS.escape(p.key) + '"]')
-          : slug === here ? document.querySelector("main") : null;
+          : (group ? group === hereGroup : slug === here) ? document.querySelector("main") : null;
         if (!target) return;
         e.preventDefault();
         target.scrollIntoView({ block: isTack(p.key) ? "center" : "start", behavior: reduceMotion ? "auto" : "smooth" });
@@ -579,6 +713,216 @@ const SCRIPT = `
     savePins();
     renderPins();
   });
+  // The pins page is the one left open all day, so it re-reads each tile every
+  // minute and whenever the tab comes back into view. A tile whose tacks
+  // finished or whose changes landed since the last read glows, says what
+  // landed, and counts in the tab title until the pointer reaches it.
+  var WATCH_MS = 60000;
+  var watching = false;
+  var unseen = 0;
+  var baseTitle = document.title;
+  var showUnseen = function () { document.title = unseen ? "\u2713 " + unseen + " \u00b7 " + baseTitle : baseTitle; };
+  var startWatching = function () {
+    if (watching) return;
+    watching = true;
+    setInterval(rereadTiles, WATCH_MS);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) rereadTiles(); });
+  };
+  var rereadTiles = function () {
+    if (!pinsSlot) return;
+    pinsSlot.querySelectorAll(".tiles > .tile[data-pin-key]").forEach(function (t) {
+      if (t.querySelector(":scope > p.empty")) return;
+      fetch(pinsSlot.dataset.pinsSrc + "?k=" + encodeURIComponent(t.dataset.pinKey), { headers: { accept: "text/html" } })
+        .then(function (res) { if (!res.ok) throw new Error("HTTP " + res.status); return res.text(); })
+        .then(function (html) {
+          var fresh = new DOMParser().parseFromString(html, "text/html").querySelector("main section.pins-page .tiles > .tile");
+          if (!fresh || !t.isConnected) return;
+          var had = {};
+          (t.dataset.landed || "").split(" ").forEach(function (k) { if (k) had[k] = true; });
+          var landed = (fresh.dataset.landed || "").split(" ").filter(function (k) { return k && !had[k]; });
+          var stillGlowing = t.classList.contains("just-landed") ? t.querySelector(".landed-note") : null;
+          if (fresh.outerHTML === t.outerHTML.replace(/ just-landed/, "")) return;
+          t.replaceWith(fresh);
+          rewire(fresh);
+          var note = stillGlowing ? stillGlowing.textContent.replace(/^Just landed: /, "").split(", ") : [];
+          if (landed.length || note.length) markLanded(fresh, note.concat(landed.map(function (k) {
+            return k.indexOf("change:") === 0 ? k.slice(7) : k.slice(k.lastIndexOf("/") + 1);
+          })), !stillGlowing);
+        })
+        .catch(function (e) { console.error("tack: re-reading " + t.dataset.pinKey + " failed", e); });
+    });
+  };
+  var markLanded = function (t, what, counts) {
+    t.classList.add("just-landed");
+    var note = document.createElement("p");
+    note.className = "landed-note";
+    note.textContent = "Just landed: " + what.join(", ");
+    t.querySelector(".tile-head").after(note);
+    if (counts) { unseen++; showUnseen(); }
+    t.addEventListener("pointerenter", function seen() {
+      t.removeEventListener("pointerenter", seen);
+      t.classList.remove("just-landed");
+      note.remove();
+      unseen = Math.max(0, unseen - 1);
+      showUnseen();
+    });
+  };
+  var rewire = function () {};
+
+  // The pins page renders one tile per pin, asking the server for them by key.
+  var pinsSlot = document.querySelector("section.pins-page[data-pins-src]");
+  var EMPTY_PINS = '<p class="empty">Nothing pinned yet. Use the pin button on a route, a tack, or a group.</p>';
+  if (pinsSlot) {
+    var asked = null;
+    refreshPinsPage = function () {
+      var keys = pins.map(function (p) { return p.key; }).join(" ");
+      if (keys === asked) return;
+      asked = keys;
+      if (!pins.length) {
+        pinsSlot.innerHTML = EMPTY_PINS;
+        return;
+      }
+      // One request per pin, so each tile lands as soon as its own forge calls
+      // do, rather than every tile waiting on the slowest.
+      // Tiles that move when one arrives or leaves glide to their new place:
+      // note where each one is, change the page, then animate from there.
+      var whereTiles = function () {
+        var at = new Map();
+        grid.querySelectorAll(":scope > .tile").forEach(function (t) { at.set(t, t.getBoundingClientRect()); });
+        return at;
+      };
+      var glide = function (at) {
+        if (reduceMotion) return;
+        at.forEach(function (was, t) {
+          if (!t.isConnected) return;
+          var now = t.getBoundingClientRect();
+          var dx = was.left - now.left, dy = was.top - now.top;
+          if (dx || dy) t.animate([{ transform: "translate(" + dx + "px, " + dy + "px)" }, { transform: "none" }], { duration: 260, easing: "ease-out" });
+        });
+      };
+      var arrive = function (t) {
+        if (reduceMotion) return;
+        t.classList.remove("popped");
+        void t.offsetWidth;
+        t.classList.add("popped");
+      };
+      var wireUnpin = function (b) {
+        b.addEventListener("click", function () {
+          var tileEl = b.closest(".tile[data-pin-key]");
+          var key = tileEl.dataset.pinKey;
+          hideTip();
+          b.disabled = true;
+          var leave = function () {
+            var at = whereTiles();
+            tileEl.remove();
+            // The tiles left are already on screen, so the unpin shouldn't refetch them.
+            asked = pins.filter(function (p) { return p.key !== key; }).map(function (p) { return p.key; }).join(" ");
+            if (pins.some(function (p) { return p.key === key; })) toggle(key);
+            if (!pinsSlot.querySelector(".tile")) { pinsSlot.innerHTML = EMPTY_PINS; return; }
+            settle();
+            // A route pinned out of its group goes back in, and shows it arriving.
+            var back = grid.querySelector('.group-tile .tile[data-route="' + CSS.escape(key) + '"]');
+            if (back && !back.hidden) arrive(back);
+            glide(at);
+          };
+          if (reduceMotion) return leave();
+          tileEl.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(.96)" }], { duration: 180, easing: "ease-in" })
+            .finished.then(leave, leave);
+        });
+      };
+      var grid = document.createElement("div");
+      grid.className = "tiles";
+      // A route pinned on its own and through its group shows once: as its own
+      // tile, left out of the group's.
+      var settle = function () {
+        grid.querySelectorAll(".group-tile").forEach(function (g) {
+          var inner = g.querySelector(".tiles.inner");
+          if (!inner) return; // still a placeholder; it settles when it loads
+          var shown = 0;
+          g.querySelectorAll(".tile[data-route]").forEach(function (t) {
+            t.hidden = pins.some(function (p) { return p.key === t.dataset.route; });
+            if (!t.hidden) shown++;
+          });
+          inner.hidden = shown === 0;
+          g.querySelector(".all-pinned").hidden = shown > 0;
+        });
+      };
+      rewire = function (el) { wireTile(el); settle(); };
+      var wireTile = function (el) {
+        el.querySelectorAll(".tile-unpin:not(.tile-popout)").forEach(wireUnpin);
+        el.querySelectorAll(".tile-popout").forEach(wirePopout);
+      };
+      var loadTile = function (key) {
+        return fetch(pinsSlot.dataset.pinsSrc + "?k=" + encodeURIComponent(key), { headers: { accept: "text/html" } })
+          .then(function (res) { if (!res.ok) throw new Error("HTTP " + res.status); return res.text(); })
+          .then(function (html) {
+            return new DOMParser().parseFromString(html, "text/html").querySelector("main section.pins-page .tiles > .tile");
+          });
+      };
+      var addTile = function (p) {
+        var holder = document.createElement("div");
+        holder.className = groupOf(p.key) ? "tile group-tile" : "tile";
+        holder.dataset.pinKey = p.key;
+        var head = document.createElement("div");
+        head.className = "tile-head";
+        head.textContent = groupOf(p.key) ? "group" : isTack(p.key) ? "tack" : "route";
+        var title = document.createElement("div");
+        title.className = "tile-title";
+        title.textContent = p.summary || p.key;
+        var note = document.createElement("p");
+        note.className = "empty";
+        note.textContent = "Reading…";
+        holder.append(head, title, note);
+        grid.append(holder);
+        loadTile(p.key)
+          .then(function (fresh) {
+            if (!holder.isConnected) return;
+            holder.replaceWith(fresh);
+            wireTile(fresh);
+            settle();
+          })
+          .catch(function (e) {
+            console.error("tack: pin " + p.key + " failed", e);
+            note.className = "err";
+            note.textContent = "Couldn't read this pin: " + e.message;
+          });
+      };
+      // Pinning a route inside a group pops it out onto its own tile, placed
+      // just above the group (and kept there in the pin order). The group then
+      // leaves it out until that tile is unpinned.
+      var wirePopout = function (b) {
+        b.addEventListener("click", function () {
+          var p = snapshot(b);
+          var group = b.closest(".group-tile");
+          hideTip();
+          if (pins.some(function (q) { return q.key === p.key; })) return;
+          b.disabled = true;
+          loadTile(p.key).then(function (fresh) {
+            var at = pins.findIndex(function (q) { return q.key === group.dataset.pinKey; });
+            var next = pins.slice();
+            next.splice(at < 0 ? next.length : at, 0, p);
+            asked = next.map(function (q) { return q.key; }).join(" ");
+            pins = next;
+            savePins();
+            renderPins();
+            var at = whereTiles();
+            group.before(fresh);
+            wireTile(fresh);
+            settle();
+            b.disabled = false;
+            arrive(fresh);
+            glide(at);
+          }, function (e) {
+            b.disabled = false;
+            console.error("tack: pin " + p.key + " failed", e);
+          });
+        });
+      };
+      pins.forEach(addTile);
+      startWatching();
+      pinsSlot.replaceChildren(grid);
+    };
+  }
   savePins();
   renderPins();
 
@@ -764,6 +1108,138 @@ const SCRIPT = `
     desc.addEventListener("click", function (e) { if (!e.target.closest("a")) open(); });
     desc.addEventListener("keydown", function (e) { if (e.target === desc && e.key === "Enter") { e.preventDefault(); open(); } });
   }
+
+  // A stats slot is filled from its own document, which the server renders. On
+  // a route page each tack's row of cells moves onto its card and the row's
+  // numbers into the card's fold, so a tack's stats sit with the tack.
+  function enrichCards(slot, fresh) {
+    var slug = slot.dataset.cards;
+    var key = fresh.querySelector(".hkey");
+    var tacksHead = document.querySelector("section[data-filter-scope] > h2");
+    if (key && tacksHead) tacksHead.after(key);
+    slot.replaceChildren(fresh.querySelector(".rtot"));
+    fresh.querySelectorAll("details.hrow[data-tack]").forEach(function (row) {
+      var card = document.querySelector('.card[data-key="' + CSS.escape(slug + "/" + row.dataset.tack) + '"]');
+      if (!card) return;
+      var cells = row.querySelector(".cells");
+      var side = card.querySelector(".card-side");
+      side.insertBefore(cells, side.querySelector(".pin-btn"));
+      var numbers = row.querySelector(".tnums");
+      if (!numbers) return;
+      var more = card.querySelector("details.more");
+      if (!more) {
+        more = document.createElement("details");
+        more.className = "more";
+        more.append(document.createElement("summary"));
+        var deps = card.querySelector(".deps");
+        if (deps) deps.before(more); else card.append(more);
+      }
+      var summary = more.querySelector("summary");
+      summary.textContent = summary.textContent ? summary.textContent + ", stats" : "Stats";
+      summary.after(numbers);
+    });
+    if (key) addSort(key);
+  }
+
+  // Hover cards for anything carrying data-tip: shown the moment the pointer
+  // arrives, where the browser's own title waits a second or more. The first
+  // line is the name, the rest the detail.
+  var tip = document.createElement("div");
+  tip.className = "tip";
+  tip.hidden = true;
+  tip.setAttribute("role", "tooltip");
+  document.body.append(tip);
+  var tipFor = null;
+  function showTip(el) {
+    var lines = el.dataset.tip.split("\\n");
+    var head = document.createElement("b");
+    head.textContent = lines[0];
+    tip.replaceChildren(head, document.createTextNode(lines.slice(1).join("\\n")));
+    tip.hidden = false;
+    var r = el.getBoundingClientRect();
+    var w = tip.offsetWidth, h = tip.offsetHeight;
+    var left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8);
+    var top = r.top - h - 8 < 8 ? r.bottom + 8 : r.top - h - 8;
+    tip.style.left = left + "px";
+    tip.style.top = top + "px";
+    tipFor = el;
+  }
+  function hideTip() { tip.hidden = true; tipFor = null; }
+  document.addEventListener("pointerover", function (e) {
+    var el = e.target.closest && e.target.closest("[data-tip]");
+    if (el && el !== tipFor) showTip(el);
+    else if (!el && tipFor) hideTip();
+  });
+  document.addEventListener("focusin", function (e) {
+    var el = e.target.closest && e.target.closest("[data-tip]");
+    if (el) showTip(el); else if (tipFor) hideTip();
+  });
+  window.addEventListener("scroll", hideTip, { passive: true });
+
+  // Ordering by a cell puts the route's hotspots first; the dependency order
+  // is the default and is always one click back. Remembered in this browser.
+  var SORT_KEY = "tack-sort";
+  var METRICS = ["tokens", "duration", "size", "age"];
+  function addSort(key) {
+    var tree = document.querySelector("section[data-filter-scope] > ol.tree");
+    if (!tree) return;
+    var original = Array.prototype.slice.call(tree.children);
+    var group = document.createElement("span");
+    group.className = "sortpill";
+    group.setAttribute("role", "group");
+    group.setAttribute("aria-label", "Order tacks by");
+    var buttons = [""].concat(METRICS).map(function (m) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.dataset.sort = m;
+      b.textContent = m || "dependencies";
+      group.append(b);
+      return b;
+    });
+    var value = function (li, m) {
+      var cell = li.querySelectorAll(".card-side .hc")[METRICS.indexOf(m)];
+      return cell && cell.dataset.v ? Number(cell.dataset.v) : -1;
+    };
+    var apply = function (m) {
+      var items = original.slice();
+      if (m) items.sort(function (a, b) { return value(b, m) - value(a, m); });
+      tree.append.apply(tree, items);
+      document.body.classList.toggle("sorted", !!m);
+      buttons.forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.sort === m)); });
+      try { localStorage.setItem(SORT_KEY, m); } catch (e) { console.warn("tack: sort order will not survive a reload", e); }
+    };
+    buttons.forEach(function (b) { b.addEventListener("click", function () { apply(b.dataset.sort); }); });
+    var row = document.createElement("span");
+    row.className = "hsortrow";
+    var label = document.createElement("span");
+    label.textContent = "Order by";
+    row.append(label, group);
+    key.prepend(row);
+    var saved = "";
+    try { saved = localStorage.getItem(SORT_KEY) || ""; } catch (e) { console.warn("tack: saved sort order unreadable", e); }
+    apply(METRICS.indexOf(saved) >= 0 ? saved : "");
+  }
+  document.querySelectorAll("section.stats[data-stats]").forEach(function (slot) {
+    fetch(slot.dataset.stats, { headers: { accept: "text/html" } })
+      .then(function (res) {
+        return res.text().then(function (html) {
+          var doc = new DOMParser().parseFromString(html, "text/html");
+          if (!res.ok) {
+            var why = doc.querySelector("main p");
+            throw new Error(why ? why.textContent : "HTTP " + res.status);
+          }
+          var fresh = doc.querySelector("main section.stats");
+          if (!fresh) throw new Error("the stats document has no stats section");
+          if (slot.dataset.cards) enrichCards(slot, fresh); else slot.replaceWith(fresh);
+        });
+      })
+      .catch(function (e) {
+        console.error("tack: stats failed", e);
+        var p = slot.querySelector("p");
+        p.className = "err";
+        p.textContent = "Couldn't read stats: " + e.message;
+      });
+  });
 })();
 `;
 const PIN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>`;
@@ -791,7 +1267,7 @@ function page(title, body, tools = "") {
   </button>
 </div>
 <div class="pin-strip" id="pin-strip" hidden><div class="pin-in">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Pinned"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>
+  <a class="pins-link" href="/pins" title="Open pins" aria-label="Open pins"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></a>
   <div class="pins"></div>
   <button type="button" class="pin-clear">Clear all</button>
 </div></div></header>
@@ -918,8 +1394,16 @@ function tackCard(r, t, g) {
     <a class="summary" href="/route/${esc(r.slug)}/${esc(t.id)}">${esc(t.summary)}</a></div>
     <div class="card-side">${t.done_at ? when(t.done_at, "ago") : ""}${statusBadge(t.status)}${pinButton(qualified, t.summary, t.status)}</div>
   </div>
-  ${landed(t)}${refs(t)}${depsLine(r, t, g)}
+  ${landed(t)}${foldedRefs(t)}${depsLine(r, t, g)}
 </div>`;
+}
+// On a card the deliverable stands alone; the links behind it (the pipeline,
+// the issue it closes) open on request. The tack's own document lists them.
+function foldedRefs(t) {
+    const n = t.links?.length ?? 0;
+    if (!n)
+        return "";
+    return `<details class="more"><summary>${n} link${n === 1 ? "" : "s"}</summary>${refs(t)}</details>`;
 }
 // What the tack produced, set apart from what it merely points at.
 function landed(t) {
@@ -978,7 +1462,264 @@ export function renderRoute(r, opts = {}) {
     return `<div class="crumb"><a href="/">All routes</a></div>
 ${head}${desc}
 ${editForm(r)}
+${statsSlot(`/route/${r.slug}/stats`, r.slug)}
 <section data-filter-scope><h2>Tacks<span class="count">${r.tacks.length}</span></h2>${tacks}</section>`;
+}
+// Stats come from transcripts and forge calls, which take seconds where the
+// rest of a document takes milliseconds, so a document carries an empty slot
+// and the page fills it from the stats document ([SERVE-18]). On a route page
+// the slot keeps only the totals: each tack's row moves into its card.
+function statsSlot(src, cardsOf) {
+    return cardsOf
+        ? `<section class="stats" data-stats="${esc(src)}" data-cards="${esc(cardsOf)}">
+  <p class="htot empty">Reading sessions and change requests… <a href="${esc(src)}">open on its own</a></p></section>`
+        : `<section class="stats" data-stats="${esc(src)}"><h2>Stats</h2>
+  <p class="empty">Reading sessions and change requests… <a href="${esc(src)}">open on its own</a></p></section>`;
+}
+function dur(seconds) {
+    const m = Math.round(seconds / 60);
+    if (m < 1)
+        return "<1m";
+    if (m < 60)
+        return `${m}m`;
+    const h = Math.floor(m / 60);
+    if (h < 48)
+        return `${h}h${String(m % 60).padStart(2, "0")}m`;
+    return `${Math.floor(h / 24)}d ${h % 24}h`;
+}
+function tok(n) {
+    if (n >= 1e6)
+        return `${(n / 1e6).toFixed(1)}M`;
+    if (n >= 1e3)
+        return `${Math.round(n / 1e3)}k`;
+    return String(n);
+}
+const since = (a, b, now = Date.now()) => ((b ? Date.parse(b) : now) - Date.parse(a)) / 1000;
+function tokenBreakdown(t) {
+    return `${totalTokens(t).toLocaleString()} tokens: input ${t.input.toLocaleString()} · output ${t.output.toLocaleString()} · cache read ${t.cache_read.toLocaleString()} · cache write ${t.cache_write.toLocaleString()}`;
+}
+function tokensCell(t) {
+    return `<span title="${esc(tokenBreakdown(t))}">${tok(totalTokens(t))}</span>`;
+}
+function roughDur(seconds) {
+    const m = Math.round(seconds / 60);
+    if (m < 60)
+        return `${m}m`;
+    if (m < 48 * 60)
+        return `${Math.round(m / 60)}h`;
+    return `${Math.round(m / 1440)}d`;
+}
+function roughTok(n) {
+    if (n >= 1e6)
+        return `${Math.round(n / 1e6)}M`;
+    if (n >= 1e3)
+        return `${Math.round(n / 1e3)}k`;
+    return String(n);
+}
+function addTokens(ts) {
+    return ts.reduce((a, t) => ({ input: a.input + t.input, output: a.output + t.output, cache_read: a.cache_read + t.cache_read, cache_write: a.cache_write + t.cache_write }), { input: 0, output: 0, cache_read: 0, cache_write: 0 });
+}
+function size(c) {
+    if (!c.stats)
+        return "";
+    const s = c.stats;
+    return `<span class="add">+${s.additions}</span> <span class="del">−${s.deletions}</span> · ${s.files} file${s.files === 1 ? "" : "s"}`;
+}
+// How long the change request has been open, or took to land.
+function age(c, now = Date.now()) {
+    const s = c.stats;
+    if (!s)
+        return "";
+    if (s.kind === "commit")
+        return `committed ${new Date(s.committed_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+    if (s.merged_at)
+        return `merged after ${dur(since(s.opened_at, s.merged_at))}`;
+    if (s.closed_at)
+        return `closed after ${dur(since(s.opened_at, s.closed_at))}`;
+    return `open ${dur(since(s.opened_at, undefined, now))}`;
+}
+function changeState(c) {
+    if (!c.stats)
+        return `<span class="err">${esc(c.error ?? "unread")}</span>`;
+    return statusBadge(c.stats.kind === "commit" ? "committed" : c.stats.state);
+}
+const ACTIVE_TITLE = `Idle gaps over ${IDLE_GAP_S / 60} minutes are left out`;
+// From a session's first transcript record to its last, idle time included.
+const spanOf = (u) => since(u.first, u.last);
+// One shade per step: a heatmap cell shows where a value sits within this
+// route, and its number is one hover or one click away.
+const HEAT_STEPS = 4;
+function heatLevel(v, max) {
+    if (v <= 0 || max <= 0)
+        return 0;
+    return Math.max(1, Math.ceil((v / max) * HEAT_STEPS));
+}
+// `tip` is the hover card: the metric's name, then its value, then any note.
+// `value` is the raw figure the page sorts cards by; a cell with no value
+// sorts last.
+function heatCell(tone, lvl, tip, mark, value, style) {
+    const text = tip.filter(Boolean).join("\n");
+    return `<span class="hc ${tone}${mark ? ` ${mark}` : ""}" data-l="${lvl}"${value === undefined ? "" : ` data-v="${value}"`}${style ? ` style="${style}"` : ""} data-tip="${esc(text)}" aria-label="${esc(text.replace(/\n/g, ". "))}"></span>`;
+}
+// Claude Code deletes a transcript after `cleanupPeriodDays` (30 by default),
+// so an older session's effort can't be counted.
+const NO_TRANSCRIPT = "Transcript deleted: Claude Code keeps them 30 days by default (cleanupPeriodDays)";
+function changeAge(c, now) {
+    const s = c.stats;
+    if (!s || s.kind === "commit")
+        return null;
+    return since(s.opened_at, s.merged_at ?? s.closed_at, now);
+}
+const AGE_TONE = { draft: "t-open", open: "t-open", merged: "t-merged", closed: "t-closed" };
+// Rounded for scanning; the exact figure is on hover.
+function stat(value, unit, tip) {
+    return `<span class="hstat"${tip ? ` data-tip="${esc(tip)}"` : ""}><b>${value}</b> ${unit}</span>`;
+}
+// The one-line roll-up a route's stats, a pinned tack and a pinned group all
+// lead with. A session counts once however many tacks it drove.
+function totalsLine(sessions, changes) {
+    const unique = [...new Map(sessions.map((x) => [x.id, x])).values()];
+    const read = unique.filter((x) => x.usage);
+    const partialTotal = read.length < unique.length ? `, from ${read.length} of ${unique.length} sessions; the others' transcripts are deleted` : "";
+    const tokens = addTokens(read.map((x) => x.usage.tokens));
+    // A pushed commit has landed as surely as a merged change request.
+    const landed = changes.filter((c) => c.stats && (c.stats.kind === "commit" || c.stats.merged_at)).length;
+    const unreadList = changes.filter((c) => !c.stats);
+    const unread = unreadList.length;
+    const unreadTip = `Couldn't read\n${unreadList.map((c) => `${c.label}: ${c.error ?? "unread"}`).join("\n")}`;
+    const activeS = read.reduce((a, x) => a + x.usage.active_s, 0);
+    const spanS = read.length
+        ? (Math.max(...read.map((x) => Date.parse(x.usage.last))) - Math.min(...read.map((x) => Date.parse(x.usage.first)))) / 1000
+        : 0;
+    return [
+        unique.length && !read.length
+            ? stat(String(unique.length), unique.length === 1 ? "session" : "sessions") +
+                `<span class="tnote" data-tip="${esc(`Duration and tokens unknown\n${NO_TRANSCRIPT}`)}">duration and tokens unknown</span>`
+            : unique.length
+                ? stat(String(unique.length), unique.length === 1 ? "session" : "sessions") +
+                    stat(roughDur(activeS), "duration", `Duration\n${dur(activeS)} of work across a ${dur(spanS)} span${partialTotal}\n${ACTIVE_TITLE}`) +
+                    stat(roughTok(totalTokens(tokens)), "tokens", `Tokens\n${tokenBreakdown(tokens)}${partialTotal}`)
+                : `<span class="empty">No sessions recorded</span>`,
+        changes.length ? stat(`${landed} of ${changes.length}`, changes.length === 1 ? "change landed" : "changes landed") : "",
+        unread ? `<span class="err" data-tip="${esc(unreadTip)}">${unread} change${unread === 1 ? "" : "s"} couldn't be read</span>` : "",
+    ].filter(Boolean).join("");
+}
+export function renderRouteStats(r, s, now = Date.now()) {
+    const totals = totalsLine(s.sessions, s.tacks.map((t) => t.change).filter((c) => !!c));
+    const rows = s.tacks.map((ts) => {
+        const t = r.tacks.find((x) => x.id === ts.id);
+        const mine = s.sessions.filter((x) => ts.sessions.includes(x.id));
+        const us = mine.filter((x) => x.usage).map((x) => x.usage);
+        const others = [...new Set(mine.flatMap((x) => [...x.tacks.filter((id) => id !== ts.id), ...x.elsewhere.map((slug) => `${slug}/…`)]))];
+        return { ts, t, mine, us, others, tokens: addTokens(us.map((u) => u.tokens)), active: us.reduce((a, u) => a + u.active_s, 0) };
+    });
+    const max = {
+        tokens: Math.max(0, ...rows.map((x) => totalTokens(x.tokens))),
+        active: Math.max(0, ...rows.map((x) => x.active)),
+        size: Math.max(0, ...rows.map((x) => (x.ts.change?.stats ? x.ts.change.stats.additions + x.ts.change.stats.deletions : 0))),
+        age: Math.max(0, ...rows.map((x) => (x.ts.change ? changeAge(x.ts.change, now) ?? 0 : 0))),
+    };
+    const body = rows.map(({ ts, t, mine, us, others, tokens: tt, active }) => {
+        // Effort is unknown when a session that drove the tack left no transcript,
+        // and not this tack's alone when a session also drove others.
+        // Nothing to shade when no session left a transcript; a notch when only
+        // some did, since the shade then undercounts.
+        const effortMark = !mine.length || !us.length ? "na" : us.length < mine.length ? "partial" : others.length ? "shared" : undefined;
+        const effortLevel = (v, max) => (us.length ? heatLevel(v, max) : 0);
+        const sharedNote = others.length ? `, shared with ${others.join(", ")}` : "";
+        const partial = us.length < mine.length ? ` from ${us.length} of ${mine.length} sessions; the others' transcripts are deleted` : "";
+        const effortTip = (name, value) => !mine.length
+            ? [name, "No session recorded"]
+            : us.length
+                ? [name, `${value}${partial}`, others.length ? `Shared with ${others.join(", ")}` : ""]
+                : [name, "Unknown", NO_TRANSCRIPT];
+        const tokTip = effortTip("Tokens", `${tok(totalTokens(tt))} (${tok(tt.cache_read)} cache read, ${tok(tt.cache_write)} cache write, ${tok(tt.output)} output)`);
+        const actTip = effortTip("Duration", `${dur(active)} of work across a ${dur(us.reduce((a, u) => a + spanOf(u), 0))} span`);
+        const c = ts.change;
+        const cs = c?.stats;
+        const changeMark = !c ? "na" : !cs ? "failed" : undefined;
+        const notChange = t.deliverable && !c ? `${t.deliverable.label} is not a change request or commit` : "No change request or commit delivered";
+        const sizeTip = ["Lines changed", !c ? notChange : cs ? `+${cs.additions} −${cs.deletions} in ${cs.files} file${cs.files === 1 ? "" : "s"}` : c.error ?? "Unread"];
+        const ageV = c ? changeAge(c, now) : null;
+        const ageTip = !c
+            ? ["Time open", notChange]
+            : !cs
+                ? ["Time open", c.error ?? "Unread"]
+                : cs.kind === "commit"
+                    ? ["Time open", `A commit has no review; ${age(c, now)}`]
+                    : [cs.merged_at ? "Time to merge" : cs.closed_at ? "Time to close" : "Time open", `${age(c, now)}${cs.state === "draft" ? ", still a draft" : ""}`];
+        const lines = cs ? cs.additions + cs.deletions : 0;
+        // Green for lines added and red for lines removed, split by their share.
+        const split = cs && lines ? `--add:${Math.round((cs.additions / lines) * 100)}%` : undefined;
+        const ageMark = cs?.kind === "commit" ? "na" : changeMark;
+        const cells = [
+            heatCell("t-effort", effortLevel(totalTokens(tt), max.tokens), tokTip, effortMark, us.length ? totalTokens(tt) : undefined),
+            heatCell("t-effort", effortLevel(active, max.active), actTip, effortMark, us.length ? Math.round(active) : undefined),
+            heatCell("t-size", cs ? heatLevel(lines, max.size) : 0, sizeTip, changeMark, cs ? lines : undefined, split),
+            heatCell(cs?.kind === "change_request" ? AGE_TONE[cs.state] : "t-open", ageV === null ? 0 : heatLevel(ageV, max.age), ageTip, ageMark, ageV === null ? undefined : Math.round(ageV)),
+        ].join("");
+        const fold = [];
+        const plural = (n, one) => (n === 1 ? one : `${one}s`);
+        if (mine.length) {
+            const prompts = us.reduce((a, u) => a + u.prompts, 0);
+            fold.push(us.length
+                ? `${stat(roughTok(totalTokens(tt)), "tokens", `Tokens\n${tokenBreakdown(tt)}`)}${stat(dur(active), "duration", `Duration\n${dur(active)} of work across a ${dur(us.reduce((a, u) => a + spanOf(u), 0))} span\n${ACTIVE_TITLE}`)}${stat(String(prompts), plural(prompts, "prompt"))}${stat(String(mine.length), plural(mine.length, "session"))}${others.length ? `<span class="tnote">shared with ${esc(others.join(", "))}</span>` : ""}${partial ? `<span class="tnote">${us.length} of ${mine.length} sessions counted</span>` : ""}`
+                : `<span class="tnote">Effort unknown: the session's transcript was deleted (Claude Code keeps 30 days)</span>`);
+        }
+        if (c && cs) {
+            const commits = cs.kind === "change_request" ? stat(String(cs.commits), plural(cs.commits, "commit")) : "";
+            fold.push(`${changeState(c)}<span class="hstat"><b class="add">+${cs.additions}</b> <b class="del">−${cs.deletions}</b></span>${stat(String(cs.files), plural(cs.files, "file"))}${commits}<span class="tnote">${esc(age(c, now))}</span>`);
+        }
+        else if (c) {
+            fold.push(`<span class="err">${esc(c.error ?? "unread")}</span>`);
+        }
+        else if (t.deliverable) {
+            fold.push(`<span class="tnote">${esc(t.deliverable.label)} is not a change request or commit, so it has no size or merge time</span>`);
+        }
+        return `<details class="hrow" data-tack="${esc(ts.id)}"><summary><a class="tid" href="/route/${esc(r.slug)}/${esc(ts.id)}">${esc(ts.id)}</a><span class="cells">${cells}</span><span class="hsum">${esc(t.summary)}</span></summary>
+      ${fold.length ? `<div class="tnums">${fold.map((l) => `<p class="htot">${l}</p>`).join("")}</div>` : `<p class="empty">Nothing recorded for this tack yet.</p>`}</details>`;
+    }).join("");
+    const grid = rows.length
+        ? `<div class="heat"><div class="hrow hhead" aria-hidden="true"><span></span><span class="cells"><span>tokens</span><span>duration</span><span>size</span><span>age</span></span><span></span></div>${body}</div>
+  <p class="hkey"></p>`
+        : "";
+    return `<section class="stats"><h2>Stats</h2><p class="htot rtot">${totals}</p>${grid}</section>`;
+}
+export function renderTackStats(r, t, s, now = Date.now()) {
+    const ts = s.tacks.find((x) => x.id === t.id);
+    const items = [];
+    if (ts.change) {
+        const c = ts.change;
+        items.push([c.stats?.kind === "commit" ? "Commit" : "Change", `${link(c.label, c.url)} ${changeState(c)}`]);
+        if (c.stats?.kind === "commit") {
+            items.push(["Size", size(c)]);
+            items.push(["Committed", when(c.stats.committed_at, "ago", now)]);
+        }
+        else if (c.stats) {
+            items.push(["Size", `${size(c)} · ${c.stats.commits} commit${c.stats.commits === 1 ? "" : "s"}`]);
+            items.push(["Opened", when(c.stats.opened_at, "ago", now)]);
+            const ended = c.stats.merged_at ?? c.stats.closed_at;
+            if (ended)
+                items.push([c.stats.merged_at ? "Merged" : "Closed", `${when(ended, "ago", now)} · after ${dur(since(c.stats.opened_at, ended))}`]);
+            else
+                items.push(["Open for", dur(since(c.stats.opened_at, undefined, now))]);
+        }
+    }
+    const own = s.sessions.filter((x) => ts.sessions.includes(x.id));
+    const rows = own
+        .map((x) => {
+        const u = x.usage;
+        const also = [...x.tacks.filter((id) => id !== t.id), ...x.elsewhere.map((slug) => `${slug}/…`)];
+        return `<tr><td class="mono" title="${esc(x.id)}">${esc(x.id.slice(0, 8))}</td>${u
+            ? `<td>${esc(u.cwd ?? "")}</td><td class="num">${u.prompts}</td><td class="num" title="${esc(ACTIVE_TITLE)}">${dur(u.active_s)}</td>
+             <td class="num" title="${esc(u.first)} → ${esc(u.last)}">${dur(since(u.first, u.last))}</td><td class="num">${tokensCell(u.tokens)}</td>`
+            : `<td colspan="5" class="tnote">${esc(NO_TRANSCRIPT)}</td>`}<td>${also.length ? esc(also.join(", ")) : ""}</td></tr>`;
+    })
+        .join("");
+    const table = rows
+        ? `<div class="tbl"><table><thead><tr><th>Session</th><th>Ran in</th><th class="num">Prompts</th><th class="num">Duration</th><th class="num">Span</th><th class="num">Tokens</th><th>Also drove</th></tr></thead><tbody>${rows}</tbody></table></div>`
+        : `<p class="empty">No session recorded driving this tack.</p>`;
+    return `<section class="stats"><h2>Stats</h2>${items.length ? facts(items) : ""}${table}</section>`;
 }
 // One tack, addressable on its own — the unit a CLI line, a nudge, or a link in
 // a chat names. The deliverable leads because it is what the tack is for; when
@@ -999,7 +1740,8 @@ ${facts([
     ])}
 ${deliverable}
 ${refs(t) || `<p class="empty">No references.</p>`}
-${depsLine(r, t, graph(routes))}`;
+${depsLine(r, t, graph(routes))}
+${statsSlot(`/route/${r.slug}/${t.id}/stats`)}`;
 }
 function routeCard(r, body = "") {
     const state = route.routeState(r);
@@ -1033,7 +1775,7 @@ export function renderIndex(routes, invalid = []) {
     // `key` names the section for the collapse state the page remembers; the
     // ungrouped bucket takes one no group slug can collide with.
     const section = (key, heading, extra, rs, i) => `<section class="group-sec" data-filter-scope data-collapse-key="${esc(key)}"><div class="group-head">${collapser(heading, `sec-${i}`)}<h2>${heading === key ? `<a href="/group/${esc(key)}">${esc(key)}</a>` : `<span class="bucket">${esc(heading)}</span>`}<span class="count">${rs.length}</span></h2>${extra}</div><ul class="tree" id="sec-${i}">${rs.map(card).join("")}</ul></section>`;
-    const sections = [...groups.keys()].sort().map((g, i) => section(g, g, copyButton(g), groups.get(g), i));
+    const sections = [...groups.keys()].sort().map((g, i) => section(g, g, copyButton(g) + groupPin(g, groups.get(g)), groups.get(g), i));
     if (loose.length)
         sections.push(section(" ungrouped", "Ungrouped", "", loose, sections.length));
     return `${banner}${sections.join("")}`;
@@ -1070,6 +1812,15 @@ export function indexFilters(routes) {
 }
 export function tackFilters(tacks) {
     return filterBar("tacks", tacks.filter(route.isOpen).length, tacks.length);
+}
+// A group pins under `group:<name>`: a group and a route can share a name, and
+// no slug contains a colon. It reads active while any of its routes is. A group
+// of one route offers no pin of its own: pinning it would pin that route.
+function groupPin(group, routes) {
+    if (routes.length < 2)
+        return "";
+    const state = routes.some((r) => route.routeState(r) === "active") ? "active" : "done";
+    return pinButton(`group:${group}`, group, state);
 }
 // A group document answers what the index cannot: what is moving across the
 // group, and how its routes depend on each other. Each route is one card with
@@ -1108,7 +1859,7 @@ export function renderGroup(group, routes, all = routes) {
         return inFlight + edges;
     };
     return `<div class="crumb"><a href="/">All routes</a></div>
-<div class="group-head page"><h1>${esc(group)}</h1>${copyButton(group)}</div>
+<div class="group-head page"><h1>${esc(group)}</h1>${copyButton(group)}${groupPin(group, routes)}</div>
 ${facts([
         ["Routes", String(routes.length)],
         ["Tacks", openCount(tacks)],
@@ -1198,7 +1949,7 @@ export function prefersJson(accept) {
 function routeJson(r) {
     return { ...r, state: route.routeState(r) };
 }
-export function handle(req, res) {
+export function handle(req, res, opts = {}) {
     const json = prefersJson(req.headers.accept);
     const fail = (status, message) => json
         ? sendJson(res, status, { error: message })
@@ -1264,6 +2015,27 @@ export function handle(req, res) {
             ? sendJson(res, 200, t)
             : send(res, 200, page(`${r.slug}/${t.id}`, renderTack(r, t, routes)));
     }
+    if (path === "/pins") {
+        if (json)
+            return fail(406, "Pins are kept in the browser; there is no JSON form of them.");
+        return send(res, 200, page("pins", renderPinsShell()));
+    }
+    if (path === "/pins/tiles") {
+        const keys = new URLSearchParams((req.url ?? "").split("?")[1] ?? "").getAll("k");
+        void renderPinTiles(keys, routes, opts.probe).then((html) => send(res, 200, page("pins", html)), (e) => fail(500, e.message));
+        return;
+    }
+    const statsMatch = path.match(/^\/route\/([^/]+)\/(?:(t[0-9]+)\/)?stats\/?$/);
+    if (statsMatch) {
+        const r = routes.find((x) => x.slug === statsMatch[1]);
+        if (!r)
+            return fail(404, `No route ${statsMatch[1]}.`);
+        const t = statsMatch[2] ? r.tacks.find((x) => x.id === statsMatch[2]) : undefined;
+        if (statsMatch[2] && !t)
+            return fail(404, `No tack ${statsMatch[2]} on ${r.slug}.`);
+        void sendStats(res, r, t, json, opts, fail);
+        return;
+    }
     const groupMatch = path.match(/^\/group\/([^/]+)\/?$/);
     if (groupMatch) {
         const inGroup = routes.filter((x) => x.group === groupMatch[1]);
@@ -1274,6 +2046,102 @@ export function handle(req, res) {
             : send(res, 200, page(groupMatch[1], renderGroup(groupMatch[1], inGroup, routes), indexFilters(inGroup)));
     }
     fail(404, `No document at ${path}.`);
+}
+// Pins are kept in the reader's browser ([SERVE-21]), so the pins page sends
+// its keys back and the server renders a tile for each, rolling up the same
+// stats the route and tack pages show.
+function renderPinsShell() {
+    return `<div class="crumb"><a href="/">All routes</a></div>
+<h1>Pins</h1>
+<section class="pins-page" data-pins-src="/pins/tiles"><p class="empty">Reading your pins…</p></section>
+<noscript><p class="empty">Pins are kept in this browser, so this page needs script.</p></noscript>`;
+}
+function statusStrip(tacks) {
+    return tacks.map((t) => `<i class="s-${esc(t.status)}" data-tip="${esc(`${t.id}, ${t.status.replace(/_/g, " ")}\n${t.summary}`)}"></i>`).join("");
+}
+// `landed` names what has finished under the tile: tacks done (`<slug>/<id>`)
+// and changes merged or committed (`change:<label>`). The pins page compares it
+// between reads to say what just landed.
+function tile(href, kind, state, title, key, pin, body, cls = "tile", landed = []) {
+    // A pinned tile unpins itself. A route tile inside a pinned group names its
+    // route, so the page can leave it out when that route is pinned on its own.
+    const unpin = pin
+        ? `<button type="button" class="tile-unpin" aria-label="Unpin ${esc(pin)}" data-tip="Unpin\n${esc(pin)}">${PIN_ICON}</button>`
+        : kind === "route"
+            ? `<button type="button" class="tile-unpin tile-popout" data-pin="${esc(key)}" data-label="${esc(title)}" data-status="${esc(state)}" aria-label="Pin ${esc(key)} on its own" data-tip="Pin\n${esc(key)}\nShows it on its own, outside the group">${PIN_ICON}</button>`
+            : "";
+    return `<div class="${cls}" data-state="${esc(state)}" data-landed="${esc(landed.join(" "))}"${pin ? ` data-pin-key="${esc(pin)}"` : kind === "route" ? ` data-route="${esc(key)}"` : ""}><div class="tile-head"><span>${kind}</span>${statusBadge(state)}${unpin}</div>
+  <a class="tile-title" href="${esc(href)}">${esc(title)}</a>${key === title ? "" : `<div class="tile-key">${esc(key)}</div>`}${body}</div>`;
+}
+const changesOf = (s) => s.tacks.map((t) => t.change).filter((c) => !!c);
+function landedOf(slug, tacks, changes) {
+    return [
+        ...tacks.filter((t) => t.status === "done").map((t) => `${slug}/${t.id}`),
+        ...changes.filter((c) => c.stats && (c.stats.kind === "commit" || c.stats.merged_at)).map((c) => `change:${c.label}`),
+    ];
+}
+function routeTile(r, s, pin) {
+    return tile(`/route/${r.slug}`, "route", route.routeState(r), r.title ?? r.slug, r.slug, pin, `<div class="tstrip">${statusStrip(r.tacks)}</div><p class="htot">${totalsLine(s.sessions, changesOf(s))}</p>`, "tile", landedOf(r.slug, r.tacks, changesOf(s)));
+}
+export async function renderPinTiles(keys, routes, probe, now = Date.now()) {
+    const missing = (what) => `<div class="tile" data-pin-key="${esc(what)}"><div class="tile-head"><span>gone</span>
+    <button type="button" class="tile-unpin" aria-label="Unpin ${esc(what)}" data-tip="Unpin\n${esc(what)}">${PIN_ICON}</button></div>
+    <div class="tile-title">${esc(what)}</div><p class="tnote">Not in the store any more.</p></div>`;
+    const tiles = await Promise.all(keys.map(async (key) => {
+        if (key.startsWith("group:")) {
+            const group = key.slice(6);
+            const rs = routes.filter((r) => r.group === group);
+            if (!rs.length)
+                return missing(key);
+            const all = await Promise.all(rs.map((r) => stats.routeStats(r, probe)));
+            const state = rs.some((r) => route.routeState(r) === "active") ? "active" : "done";
+            // A group is a container: its totals across every route, then a tile
+            // per route, each with its own roll-up.
+            const inner = rs.map((r, i) => routeTile(r, all[i], "")).join("");
+            return tile(`/group/${group}`, "group", state, group, group, key, `<p class="htot">${totalsLine(all.flatMap((s) => s.sessions), all.flatMap(changesOf))}</p><div class="tiles inner">${inner}</div>
+          <p class="tnote all-pinned" hidden>Each of its routes is pinned on its own.</p>`, "tile group-tile", rs.flatMap((r, i) => landedOf(r.slug, r.tacks, changesOf(all[i]))));
+        }
+        const slash = key.lastIndexOf("/");
+        const slug = slash >= 0 ? key.slice(0, slash) : key;
+        const r = routes.find((x) => x.slug === slug);
+        if (!r)
+            return missing(key);
+        if (slash < 0)
+            return routeTile(r, await stats.routeStats(r, probe), key);
+        const t = r.tacks.find((x) => x.id === key.slice(slash + 1));
+        if (!t)
+            return missing(key);
+        const s = await stats.routeStats({ ...r, tacks: [t] }, probe);
+        const c = s.tacks[0].change;
+        const change = c?.stats
+            ? `<p class="htot">${changeState(c)}<span class="hstat"><b class="add">+${c.stats.additions}</b> <b class="del">−${c.stats.deletions}</b></span><span class="tnote">${esc(age(c, now))}</span></p>`
+            : c
+                ? `<p class="err">${esc(c.error ?? "unread")}</p>`
+                : t.deliverable
+                    ? `<p class="tnote">delivered ${esc(t.deliverable.label)}</p>`
+                    : "";
+        return tile(`/route/${r.slug}/${t.id}`, "tack", t.status, t.summary, key, key, `${change}<p class="htot">${totalsLine(s.sessions.filter((x) => x.tacks.includes(t.id)), [])}</p>`, "tile", landedOf(r.slug, [t], c ? [c] : []));
+    }));
+    return `<section class="pins-page"><div class="tiles">${tiles.join("")}</div></section>`;
+}
+// A tack's stats are its slice of the route's: a session counts toward every
+// tack it drove, so the tack document needs the same session list.
+async function sendStats(res, r, t, json, opts, fail) {
+    let s;
+    try {
+        s = await stats.routeStats(t ? { ...r, tacks: [t] } : r, opts.probe);
+    }
+    catch (e) {
+        return fail(500, e.message);
+    }
+    if (json) {
+        if (!t)
+            return sendJson(res, 200, s);
+        return sendJson(res, 200, { tack: s.tacks[0], sessions: s.sessions.filter((x) => x.tacks.includes(t.id)) });
+    }
+    const crumb = `<div class="crumb"><a href="/">All routes</a> / <a href="/route/${esc(r.slug)}">${esc(r.title ?? r.slug)}</a>${t ? ` / <a href="/route/${esc(r.slug)}/${esc(t.id)}">${esc(t.id)}</a>` : ""}</div>`;
+    const body = t ? renderTackStats(r, t, s) : renderRouteStats(r, s);
+    send(res, 200, page(`${t ? `${r.slug}/${t.id}` : r.slug} stats`, crumb + body));
 }
 // The one write path. It goes through the same `route.setTitle` /
 // `setDescription` the CLI calls, so the page cannot record something the CLI
@@ -1310,6 +2178,7 @@ async function edit(req, res, slug, json, fail) {
     res.writeHead(303, { location: `/route/${encodeURIComponent(slug)}` });
     res.end();
 }
-export function serve(port = DEFAULT_PORT) {
-    return createServer(handle).listen(port, "127.0.0.1");
+export function serve(port = DEFAULT_PORT, opts = {}) {
+    const probe = stats.cachedProbe(opts.probe ?? deliverableStats);
+    return createServer((req, res) => handle(req, res, { ...opts, probe })).listen(port, "127.0.0.1");
 }

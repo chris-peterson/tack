@@ -158,7 +158,7 @@ Moving an existing `~/.tack` into a store is a file move: place each
 | `tack link rm <slug> <tack-id> <url>` | Remove a reference link |
 | `tack rm <slug> [--force]` | Delete an entire route |
 | `tack doctor [--json]` | Report route files that will not load, naming each file and the rule it breaks |
-| `tack serve [--port <n>]` | Serve route documents at `http://127.0.0.1:8788/`: index, one route, one group; re-read from disk on every request. HTML or JSON by `Accept`; a route's title and description are editable from the page |
+| `tack serve [--port <n>]` | Serve route documents at `http://127.0.0.1:8788/`: index, one route, one group; re-read from disk on every request. HTML or JSON by `Accept`; a route's title and description are editable from the page. Route and tack pages show stats: session prompts, active time and tokens from Claude Code transcripts, and each change request's or commit's size, plus a change request's time to merge, from `gh`/`glab` |
 | `tack serve install\|uninstall\|status` | Manage an opt-in supervised server (launchd on macOS, systemd on Linux) |
 | `tack install-cli [--dir <path>]` | Install `tack` wrapper on PATH + zsh completions (plugin install) |
 | `tack completions zsh` | Install zsh completion script |
