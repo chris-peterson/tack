@@ -211,7 +211,7 @@ cli:
     - name: Backup
       commands: [export, import]
     - name: Installation
-      commands: [install-cli, completions]
+      commands: [install-cli, completions, prompt]
   notes:
     add: |
       Add a tack to a route.
