@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { existsSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { gzipSync, gunzipSync } from "node:zlib";
 
@@ -418,6 +418,63 @@ describe("tack repo (CLI-42..46)", () => {
     const r = runFail(["repo", "addcap"]);
     assert.equal(r.status, 0);
     assert.equal(r.stdout.trim(), "https://github.com/chris-peterson/addcap");
+  });
+});
+
+describe("tack repo label (CLI-60)", () => {
+  it("labels a recorded key by its namespace when its name is shared", () => {
+    runFail(["init", "repo-label"]);
+    runFail(["add", "repo-label", "Work", "--link", "a,https://gitlab.example.com/acme/lbltool/-/issues/1"]);
+    runFail(["add", "repo-label", "Work", "--link", "b,https://gitlab.example.com/globex/infra/lbltool/-/issues/1"]);
+    const r = runFail(["repo", "label", "gitlab.example.com/globex/infra/lbltool"]);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, "globex/lbltool\n");
+  });
+
+  it("labels the checkout at a path, from its origin remote", () => {
+    const dir = mkdtempSync(join(tmpdir(), "tack-label-"));
+    execFileSync("git", ["init", "-q", dir]);
+    execFileSync("git", ["-C", dir, "remote", "add", "origin", "git@github.com:acme/lblsolo.git"]);
+    const r = runFail(["repo", "label", dir, "--json"]);
+    assert.equal(r.status, 0);
+    assert.deepEqual(JSON.parse(r.stdout), { key: "github.com/acme/lblsolo", label: "lblsolo" });
+  });
+
+  it("labels a subfolder of a checkout as the checkout, and a repo nested inside it as itself", () => {
+    const dir = mkdtempSync(join(tmpdir(), "tack-label-"));
+    execFileSync("git", ["init", "-q", dir]);
+    execFileSync("git", ["-C", dir, "remote", "add", "origin", "git@github.com:acme/lblouter.git"]);
+    const sub = join(dir, "a", "b");
+    const inner = join(dir, "vendor", "lblinner");
+    mkdirSync(sub, { recursive: true });
+    execFileSync("git", ["init", "-q", inner]);
+    execFileSync("git", ["-C", inner, "remote", "add", "origin", "git@github.com:acme/lblinner.git"]);
+    assert.equal(runFail(["repo", "label", sub]).stdout, "lblouter\n");
+    assert.equal(runFail(["repo", "label", inner]).stdout, "lblinner\n");
+  });
+
+  it("exits non-zero with nothing on stdout inside a .git directory", () => {
+    const dir = mkdtempSync(join(tmpdir(), "tack-label-"));
+    execFileSync("git", ["init", "-q", dir]);
+    execFileSync("git", ["-C", dir, "remote", "add", "origin", "git@github.com:acme/lblgitdir.git"]);
+    const r = runCapture(["repo", "label", join(dir, ".git")]);
+    assert.equal(r.status, 1);
+    assert.equal(r.stdout, "");
+    assert.match(r.stderr, /inside a git directory/);
+  });
+
+  it("exits non-zero with nothing on stdout outside a git checkout", () => {
+    const r = runCapture(["repo", "label", tmpdir()]);
+    assert.equal(r.status, 1);
+    assert.equal(r.stdout, "");
+    assert.match(r.stderr, /No git repo with an origin remote/);
+  });
+
+  it("exits non-zero for a key the repo database doesn't hold", () => {
+    const r = runCapture(["repo", "label", "github.com/acme/no-such-repo"]);
+    assert.equal(r.status, 1);
+    assert.equal(r.stdout, "");
+    assert.match(r.stderr, /No repo github.com\/acme\/no-such-repo in the repo database/);
   });
 });
 

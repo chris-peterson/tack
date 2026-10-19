@@ -890,6 +890,39 @@ aliases ([CLI-44]) and recorded locals ([REPO-07]) survive a re-run. It
 backfills the database for routes recorded before capture existed, and for
 checkouts no tack command has run inside.
 
+**[CLI-60]** `tack repo label [<path>|<key>] [--json]` — When invoked, the CLI
+shall print the shortest label that tells one repo apart from every repo in the
+database, for a prompt, a tab, or a status bar to show. The repo is the `origin`
+remote of `<path>` (default the current working directory, any subdirectory of
+a checkout included) normalized per [REPO-02], or `<key>` when the argument is
+not a directory, in which case the key shall be in the database. The label
+shall be the repo's name when no other repo shares it; otherwise its top-level
+namespace and its name, with the subgroups between them elided; otherwise that
+pair with the subgroups nearest the name added one at a time; and the full key,
+host included, only when another repo shares the whole path. Labels are compared
+case-insensitively. The text form shall print the label alone on one line, and
+`--json` an object carrying `key` and `label`. A path that is not a git
+repository with an `origin` remote, a path inside a repository's `.git`
+directory, or a key the database does not hold, shall exit non-zero with a
+message on stderr and nothing on stdout. A label depends on
+what else the database holds, so recording a repo can lengthen another's label;
+it is a display string, not an identifier.
+
+**[CLI-61]** `tack prompt zsh` — When invoked, the CLI shall print a zsh
+snippet that keeps `TACK_PROMPT_DIR` set to where the shell is, for `PROMPT` to
+show: inside a checkout, the [CLI-60] label followed by the path within the
+checkout; outside one, and inside a `.git` directory, the working directory as
+zsh's `%~` shows it. The snippet shall call `tack` only when the shell enters a
+different checkout, never per prompt or per `cd` within one, since a call costs
+the CLI's startup. It shall escape `%` so `PROMPT` shows the path literally, and
+use the checkout's directory name when `tack repo label` fails. Placing the
+variable in `PROMPT` is the user's.
+
+**[CLI-61a]** `tack install-cli --prompt` shall write the [CLI-61] snippet to
+`~/.zsh/tack-prompt.zsh` and source it from `~/.zshrc`, adding the line once.
+Without `--prompt`, `install-cli` shall refresh that file where it already
+exists, so an upgrade keeps it current, and otherwise leave the shell alone.
+
 **[CLI-48]** Duplicate-URL warning — When a URL is attached as a deliverable
 (`tack add --deliverable`, `tack deliverable`) or a link (`tack link add`),
 the CLI shall check whether the same URL already appears as a deliverable or

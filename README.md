@@ -25,6 +25,22 @@ The plugin bundles the CLI. To make `tack` callable from any shell, run once:
 
 This drops a `tack` wrapper at `~/.local/bin/tack` (use `--dir <path>` to override) **and** installs the zsh completion script to `~/.zsh/completions/_tack`. Run `exec zsh` to pick up completions.
 
+### Showing the repo in your prompt
+
+Several repos can share a name: three different `ai-tools` checkouts all show `ai-tools` in a prompt that prints the folder name. `tack repo label` names a checkout by the shortest label that's unique among the repos you work in, `acme/ai-tools` where the name is shared and plain `tack` where it isn't. The prompt integration puts that label in front of the path inside the checkout:
+
+```bash
+tack install-cli --prompt
+```
+
+That writes `~/.zsh/tack-prompt.zsh` and sources it from `~/.zshrc`. It keeps `TACK_PROMPT_DIR` set as you move around (`acme/ai-tools/src/lib` inside a checkout, `~/notes` outside one), so show it in your prompt in place of the directory:
+
+```zsh
+PROMPT='%F{cyan}${TACK_PROMPT_DIR}%f %# '
+```
+
+The label is worked out once each time you enter a different checkout, which takes about as long as any `tack` command; moving around inside one costs nothing. `tack prompt zsh` prints the same snippet, if you'd rather wire it in yourself.
+
 ### Updating
 
 Third-party Claude Code marketplaces have auto-update **off by default**. To stay current with new tack releases, either:
@@ -160,8 +176,10 @@ Moving an existing `~/.tack` into a store is a file move: place each
 | `tack doctor [--json]` | Report route files that will not load, naming each file and the rule it breaks |
 | `tack serve [--port <n>]` | Serve route documents at `http://127.0.0.1:8788/`: index, one route, one group; re-read from disk on every request. HTML or JSON by `Accept`; a route's title and description are editable from the page. Route and tack pages show stats: session prompts, active time and tokens from Claude Code transcripts, and each change request's or commit's size, plus a change request's time to merge, from `gh`/`glab` |
 | `tack serve install\|uninstall\|status` | Manage an opt-in supervised server (launchd on macOS, systemd on Linux) |
-| `tack install-cli [--dir <path>]` | Install `tack` wrapper on PATH + zsh completions (plugin install) |
+| `tack install-cli [--dir <path>] [--prompt]` | Install `tack` wrapper on PATH + zsh completions (plugin install); `--prompt` adds the prompt integration |
 | `tack completions zsh` | Install zsh completion script |
+| `tack prompt zsh` | Print the zsh prompt integration, which keeps `TACK_PROMPT_DIR` set to the repo label and the path inside it |
+| `tack repo label [<path>\|<key>] [--json]` | Print the shortest label that tells a repo apart from the others you work in (default: the current checkout) |
 
 ## Compatibility
 

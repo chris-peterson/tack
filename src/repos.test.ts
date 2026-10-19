@@ -278,3 +278,81 @@ describe("repoKeyFromForgeUrl and the GitLab work-item paths (issue #33)", () =>
     );
   });
 });
+
+describe("uniqueLabels (CLI-60)", () => {
+  const labels = (keys: string[]) => Object.fromEntries(repos.uniqueLabels(keys));
+
+  it("labels a repo by its name alone when no other repo shares it", () => {
+    assert.deepEqual(labels(["github.com/chris-peterson/tack", "gitlab.example.com/acme/ai-tools"]), {
+      "github.com/chris-peterson/tack": "tack",
+      "gitlab.example.com/acme/ai-tools": "ai-tools",
+    });
+  });
+
+  it("adds the top-level namespace to a shared name", () => {
+    assert.deepEqual(labels(["gitlab.example.com/acme/ai-tools", "gitlab.example.com/globex/ai-tools"]), {
+      "gitlab.example.com/acme/ai-tools": "acme/ai-tools",
+      "gitlab.example.com/globex/ai-tools": "globex/ai-tools",
+    });
+  });
+
+  it("elides the subgroups between the namespace and the name", () => {
+    assert.deepEqual(labels(["gitlab.example.com/acme/platform/kafka", "gitlab.example.com/globex/modules/kafka"]), {
+      "gitlab.example.com/acme/platform/kafka": "acme/kafka",
+      "gitlab.example.com/globex/modules/kafka": "globex/kafka",
+    });
+  });
+
+  it("adds the subgroups nearest the name until the label is unique", () => {
+    assert.deepEqual(
+      labels([
+        "gitlab.example.com/acme/ci",
+        "gitlab.example.com/acme/databases/ci",
+        "gitlab.example.com/acme/x/one/ci",
+        "gitlab.example.com/acme/y/one/ci",
+      ]),
+      {
+        "gitlab.example.com/acme/ci": "acme/ci",
+        "gitlab.example.com/acme/databases/ci": "acme/databases/ci",
+        "gitlab.example.com/acme/x/one/ci": "acme/x/one/ci",
+        "gitlab.example.com/acme/y/one/ci": "acme/y/one/ci",
+      },
+    );
+  });
+
+  it("tells repos on different forges apart by their owners", () => {
+    assert.deepEqual(labels(["github.com/acme/widgets", "gitlab.example.com/globex/widgets"]), {
+      "github.com/acme/widgets": "acme/widgets",
+      "gitlab.example.com/globex/widgets": "globex/widgets",
+    });
+  });
+
+  it("adds the host only when two repos share their whole path", () => {
+    assert.deepEqual(labels(["github.com/acme/widgets", "gitlab.example.com/acme/widgets", "github.com/acme/other"]), {
+      "github.com/acme/widgets": "github.com/acme/widgets",
+      "gitlab.example.com/acme/widgets": "gitlab.example.com/acme/widgets",
+      "github.com/acme/other": "other",
+    });
+  });
+
+  it("treats names differing only in case as a collision", () => {
+    assert.deepEqual(labels(["github.com/acme/Tools", "github.com/globex/tools"]), {
+      "github.com/acme/Tools": "acme/Tools",
+      "github.com/globex/tools": "globex/tools",
+    });
+  });
+
+  it("terminates on keys that differ only in case", () => {
+    const out = labels(["github.com/acme/tools", "github.com/Acme/tools"]);
+    assert.equal(out["github.com/acme/tools"], "github.com/acme/tools");
+    assert.equal(out["github.com/Acme/tools"], "github.com/Acme/tools");
+  });
+});
+
+describe("labelFor (CLI-60)", () => {
+  it("tells a key apart from the repos in the database", () => {
+    repos.recordUrl("https://gitlab.example.com/acme/ai-tools/-/issues/1");
+    assert.equal(repos.labelFor("gitlab.example.com/globex/ai-tools"), "globex/ai-tools");
+    assert.equal(repos.labelFor("gitlab.example.com/acme/ai-tools"), "ai-tools");
+  });
+});
