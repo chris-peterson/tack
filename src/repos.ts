@@ -3,8 +3,8 @@
 // Internal derived state — tack is its sole writer, so it carries no
 // published JSON Schema (REPO-05). Stored as a bare map keyed by normalized
 // remote at ~/.tack/repos.yaml (REPO-01).
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, realpathSync } from "node:fs";
+import { join, relative } from "node:path";
 import { homedir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { parse, stringify } from "yaml";
@@ -13,7 +13,7 @@ const TACK_HOME = process.env.TACK_HOME ?? join(homedir(), ".tack");
 const REPOS_FILE = join(TACK_HOME, "repos.yaml");
 
 export interface RepoEntry {
-  // Names the repo is known by: the auto-derived name plus custom aliases.
+  // Names the repo is known by: the name derived from its key.
   names: string[];
   // Absolute paths of known local checkouts/worktrees.
   locals?: string[];
@@ -191,7 +191,7 @@ export function matchByName(partial: string): RepoMatch[] {
     .sort((a, b) => a.key.localeCompare(b.key));
 }
 
-// Resolve a <match> arg used by alias/rm: an exact normalized key, else a name
+// Resolve a <match> arg used by rm: an exact normalized key, else a name
 // match. Callers requiring a single repo handle the ambiguous/empty cases.
 function resolveMatches(match: string): RepoMatch[] {
   const db = loadRepos();
@@ -254,9 +254,48 @@ export function uniqueLabels(keys: string[]): Map<string, string> {
   return new Map([...at.keys()].map((k) => [k, label(k)]));
 }
 
+// A document labels every deliverable it shows (SERVE-22), and parsing the
+// database for each would cost more than the rest of the render, so the labels
+// are kept against the file's exact contents.
+let labelCache: { source: string; labels: Map<string, string> } | undefined;
+
+function databaseLabels(): Map<string, string> {
+  const source = existsSync(REPOS_FILE) ? readFileSync(REPOS_FILE, "utf-8") : "";
+  if (labelCache?.source !== source) {
+    const db = (parse(source) ?? {}) as RepoDb;
+    labelCache = { source, labels: uniqueLabels(Object.keys(db)) };
+  }
+  return labelCache.labels;
+}
+
 // CLI-60: the label for one key, told apart from every repo in the database.
 export function labelFor(key: string): string {
-  return uniqueLabels([...Object.keys(loadRepos()), key]).get(key)!;
+  return databaseLabels().get(key) ?? uniqueLabels([...Object.keys(loadRepos()), key]).get(key)!;
+}
+
+function checkoutRoot(dir: string): string | null {
+  try {
+    const out = execFileSync("git", ["-C", dir, "rev-parse", "--show-toplevel"], {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return out.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+// SERVE-22: a directory as CLI-61's prompt shows it, the label followed by the
+// path inside the checkout, or null when the directory is not in a checkout
+// with an origin remote. git reports the top level with symlinks resolved, so
+// the directory is resolved too before the two are compared.
+export function labelDir(dir: string): string | null {
+  if (!existsSync(dir)) return null;
+  const top = checkoutRoot(dir);
+  const key = top && repoKeyForCwd(top);
+  if (!key) return null;
+  const inside = relative(top, realpathSync(dir));
+  return inside ? `${labelFor(key)}/${inside}` : labelFor(key);
 }
 
 export function isKnownRepo(key: string): boolean {
@@ -268,16 +307,6 @@ export function listRepos(): RepoMatch[] {
   return Object.entries(db)
     .map(([k, e]) => toMatch(k, e))
     .sort((a, b) => a.key.localeCompare(b.key));
-}
-
-// CLI-44
-export function addAlias(match: string, alias: string): RepoMatch {
-  const key = resolveOne(match);
-  const db = loadRepos();
-  const entry = db[key];
-  if (!entry.names.includes(alias)) entry.names.push(alias);
-  saveRepos(db);
-  return toMatch(key, entry);
 }
 
 export interface PrunedLocal {
@@ -334,7 +363,7 @@ function childDirs(dir: string): string[] {
 
 // CLI-47: reconstruct the database from the forge URLs recorded on routes in a
 // single load/save, then look for each repo's checkout under srcRoot. Additive
-// — existing aliases and locals are preserved.
+// — existing names and locals are preserved.
 export function rebuildFrom(input: RebuildInput): RebuildResult {
   const db = loadRepos();
   let urlsMatched = 0;

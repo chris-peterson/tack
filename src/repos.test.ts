@@ -152,22 +152,6 @@ describe("recordCwd (REPO-07)", () => {
   });
 });
 
-describe("addAlias (CLI-44)", () => {
-  it("adds a custom name that lookup then matches", () => {
-    repos.recordUrl("https://github.com/chris-peterson/anchor/pull/1");
-    repos.addAlias("anchor", "anch");
-    const matches = repos.matchByName("anch");
-    assert.equal(matches.length, 1);
-    assert.ok(matches[0].names.includes("anch"));
-  });
-
-  it("fails when the match is ambiguous", () => {
-    repos.recordUrl("https://github.com/org/alpha/pull/1");
-    repos.recordUrl("https://github.com/org/alphabet/pull/1");
-    assert.throws(() => repos.addAlias("alpha", "x"), /matches 2 repos/);
-  });
-});
-
 describe("pruneLocals (CLI-45)", () => {
   it("drops a stale local but retains a URL-only repo with no locals", () => {
     // URL-only repo (no locals) — must survive prune.
@@ -194,9 +178,8 @@ describe("pruneLocals (CLI-45)", () => {
 });
 
 describe("rebuildFrom (CLI-47)", () => {
-  it("backfills names from forge URLs and preserves existing aliases", () => {
+  it("backfills names from forge URLs", () => {
     repos.recordUrl("https://github.com/chris-peterson/anchor/pull/1");
-    repos.addAlias("anchor", "anch");
 
     const result = repos.rebuildFrom({
       urls: [
@@ -208,8 +191,6 @@ describe("rebuildFrom (CLI-47)", () => {
 
     assert.equal(result.urlsMatched, 2);
     assert.equal(result.repoCount, 2);
-    // The custom alias survives the rebuild.
-    assert.ok(repos.matchByName("anch").length === 1);
     assert.equal(repos.matchByName("moor").length, 1);
   });
 

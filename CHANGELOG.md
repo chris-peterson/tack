@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **`tack serve` names each repo by its shortest unique label, the one `tack repo label` prints.** Three MRs on three `ai-tools` repos read `acme/ai-tools!3`, `globex/ai-tools!4` and `initech/ai-tools!5` rather than three `ai-tools!N`. The label is worked out from the URL each time a page renders, so it lengthens on its own once a second repo of the same name is recorded. A label you wrote with `tack deliverable --label` shows when you hover over the link. A link recorded under the derived label reads the same way, and one you named yourself shows its name. A session's "Ran in" column reads the way the prompt integration does: the label and the path inside the checkout, such as `acme/docs/src/lib`, rather than the last folder's name.
+
+### Removed
+
+- **`tack repo alias`.** No repo in the database had an alias (0 of 231), and the shortest unique label covers what a custom name was for. `tack repo alias` now exits non-zero; names already recorded on a repo still match in `tack repo <partial>`.
+
 ## 1.9.0
 
 ### Changed

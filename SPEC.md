@@ -73,7 +73,7 @@ could disagree.
 ```text
 Repo database (1 YAML file, ~/.tack/repos.yaml)
 └── <normalized-remote> (map key, e.g. github.com/chris-peterson/anchor)
-    ├── names[]  — names the repo is known by (derived name + custom aliases)
+    ├── names[]  — names the repo is known by (the name derived from its key)
     └── locals[] — absolute paths of known checkouts/worktrees
 ```
 
@@ -863,10 +863,6 @@ CLI shall list every repo in the database with its `names` and existing
 `locals`. With `--json`, the CLI shall emit the structured repo list. The
 command shall exit zero even when the database is empty.
 
-**[CLI-44]** `tack repo alias <match> <alias>` — When invoked, the CLI shall add
-`<alias>` to the matched repo's `names`. If `<match>` resolves to more than one
-repo, the CLI shall fail and list the candidates.
-
 **[CLI-45]** `tack repo prune` — When invoked, the CLI shall remove from every
 repo's `locals` any path that no longer exists on disk, displaying each removed
 path. It shall not remove repo entries themselves; a repo with no locals (e.g.
@@ -885,8 +881,8 @@ without its host (so `github.com/chris-peterson/anchor` is found at
 `~/src/github/chris-peterson/anchor`), and add a candidate to `locals` only when
 its `origin` remote normalizes to that key ([REPO-02]). The source root shall be
 the `TACK_SRC_ROOT` environment variable where set, and `~/src` otherwise. The
-rebuild is additive — it adds names and locals but removes nothing, so custom
-aliases ([CLI-44]) and recorded locals ([REPO-07]) survive a re-run. It
+rebuild is additive — it adds names and locals but removes nothing, so recorded
+locals ([REPO-07]) survive a re-run. It
 backfills the database for routes recorded before capture existed, and for
 checkouts no tack command has run inside.
 
@@ -1508,8 +1504,8 @@ and SSH forms of one remote resolve to a single entry (e.g.
 
 **[REPO-03]** Each repo entry shall contain the following fields:
 - `names` (array of strings, required) — the names the repo is known by: the
-  auto-derived repo name (the last path segment of the key) plus any custom
-  aliases. Lookup matches `<partial>` against this list.
+  auto-derived repo name (the last path segment of the key). Lookup matches
+  `<partial>` against this list.
 - `locals` (array of strings, optional) — absolute paths of known local
   checkouts or worktrees of the repo.
 
@@ -1776,6 +1772,20 @@ that route. The
 document sends the server the keys it holds, since only the browser knows them;
 a key whose route, tack or group is gone shall say so on its tile. There is no
 JSON form of it.
+
+**[SERVE-22]** A document shall name a repo by its [CLI-60] label, computed when
+the document is rendered from the repo database it reads then. A deliverable
+whose URL is a change reference ([CLI-37]) shall show the label [CLI-04]
+derives, with the repo's [CLI-60] label in place of its name, whatever label the
+route file holds. A stored label that is neither that one, the one [CLI-04]
+derives, nor the URL itself is one someone wrote, and shall be shown on hover.
+A link whose stored label is the one [CLI-04] derives shall show the same label
+a deliverable would; any other link label is shown as stored.
+The directory a session ran in ([SERVE-19]) shall read as [CLI-61]'s prompt
+shows a checkout, the label followed by the path within it, and as the
+directory's own name when it is not a checkout on this machine. The JSON forms
+([SERVE-11], [SERVE-18]) carry the stored label and the full directory, since a
+label is a display string, not an identifier.
 
 ---
 
