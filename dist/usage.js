@@ -5,7 +5,7 @@
 // has no transcript here and reads as `null`, the same as one Claude Code has
 // already aged out.
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 import { homedir } from "node:os";
 // A gap between transcript records longer than this is time away, not work.
 export const IDLE_GAP_S = 300;
@@ -71,7 +71,7 @@ export function sessionUsage(id) {
         if (r.timestamp)
             stamps.push(Date.parse(r.timestamp));
         if (!cwd && r.cwd)
-            cwd = basename(r.cwd);
+            cwd = r.cwd;
         if (r.type === "user" && r.origin?.kind === "human")
             prompts++;
         count(r);

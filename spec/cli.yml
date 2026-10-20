@@ -290,12 +290,6 @@ commands:
     flags:
     - name: --json
   subcommands:
-  - name: alias
-    usages:
-    - summary: Add a custom name to a repo
-      args:
-      - name: match
-      - name: alias
   - name: prune
     usages:
     - summary: Drop locals that no longer exist on disk
