@@ -7,6 +7,7 @@ import * as route from "./route.js";
 import * as repos from "./repos.js";
 import * as backup from "./backup.js";
 import * as reconcile from "./reconcile.js";
+import * as config from "./config.js";
 import * as serve from "./serve.js";
 import * as service from "./service.js";
 import * as freshness from "./freshness.js";
@@ -64,7 +65,6 @@ Usage:
   tack find --url <url> [--json]     Find tacks referencing a URL (in any deliverable or link)
   tack find --path [<dir>] [--json]  Find routes covering a repo checkout (default cwd)
   tack repo [<partial>] [--json]     Look up repo remote(s) by name; no arg lists all
-  tack repo alias <match> <alias>    Add a custom name to a repo
   tack repo prune                    Drop locals that no longer exist on disk
   tack repo rebuild                  Backfill the repo db from routes and ~/src checkouts
   tack repo rm <match>               Remove a repo entry
@@ -554,8 +554,11 @@ function run() {
                 groupError("serve", expectedOneOf(["install", "uninstall", "status"], sub));
             }
             else {
-                serve.serve(port);
+                const allowedOrigins = config.allowedOrigins();
+                serve.serve(port, { allowedOrigins });
                 console.log(`tack serve → http://127.0.0.1:${port}/  (Ctrl-C to stop)`);
+                if (allowedOrigins.length)
+                    console.log(`origins allowed by ${config.configPath()}: ${allowedOrigins.join(", ")}`);
             }
             break;
         }
@@ -930,13 +933,7 @@ function run() {
         case "repo": {
             const sub = rest[0];
             const subArgs = rest.slice(1);
-            if (sub === "alias") {
-                if (subArgs.length < 2)
-                    usage();
-                const m = repos.addAlias(subArgs[0], subArgs[1]);
-                console.log(formatRepos([m]));
-            }
-            else if (sub === "prune") {
+            if (sub === "prune") {
                 const removed = repos.pruneLocals();
                 if (removed.length === 0) {
                     console.log("nothing to prune");

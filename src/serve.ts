@@ -1,6 +1,9 @@
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
 import { createRequire } from "node:module";
+import { basename } from "node:path";
+import * as config from "./config.js";
 import * as route from "./route.js";
+import * as repos from "./repos.js";
 import * as stats from "./stats.js";
 import { deliverableStats } from "./forge.js";
 import { totalTokens, IDLE_GAP_S, type Tokens } from "./usage.js";
@@ -51,9 +54,23 @@ function safeHref(url: string): string | null {
   return /^https?:\/\//i.test(url) ? esc(url) : null;
 }
 
-function link(label: string, url: string): string {
+function link(label: string, url: string, title?: string): string {
   const href = safeHref(url);
-  return href ? `<a href="${href}">${esc(label)}</a>` : esc(`${label} (${url})`);
+  return href ? `<a href="${href}"${title ? ` title="${esc(title)}"` : ""}>${esc(label)}</a>` : esc(`${label} (${url})`);
+}
+
+// [SERVE-22] A change reference reads as its repo's shortest unique label, not
+// the label stored when it was recorded: that one names the repo alone, and the
+// set of repos that decides whether a name is ambiguous keeps growing.
+function shownLabel(d: { label: string; url: string }): string {
+  return route.changeRefLabel(d.url) ?? d.label;
+}
+
+// A label someone wrote rather than the one tack derived stays on hover.
+function changeLink(d: { label: string; url: string }): string {
+  const shown = shownLabel(d);
+  const written = ![shown, d.url, route.deriveDeliverableLabel(d.url)].includes(d.label);
+  return link(shown, d.url, written ? d.label : undefined);
 }
 
 // A description is stored as markdown ([ROUTE-04]). The terminal prints it
@@ -1440,11 +1457,11 @@ function foldedRefs(t: Tack): string {
 function landed(t: Tack): string {
   if (!t.deliverable) return "";
   return `<p class="landed${t.status === "done" ? " done" : ""}">
-    <span class="what">delivered</span>${link(t.deliverable.label, t.deliverable.url)}</p>`;
+    <span class="what">delivered</span>${changeLink(t.deliverable)}</p>`;
 }
 
 function refs(t: Tack): string {
-  const items = (t.links ?? []).map((l) => link(l.label, l.url));
+  const items = (t.links ?? []).map((l) => link(l.label === route.deriveDeliverableLabel(l.url) ? shownLabel(l) : l.label, l.url));
   if (!items.length) return "";
   return `<ul class="refs">${items.map((i) => `<li>${i}</li>`).join("")}</ul>`;
 }
@@ -1628,6 +1645,12 @@ function heatCell(tone: string, lvl: number, tip: string[], mark?: HeatMark, val
 // so an older session's effort can't be counted.
 const NO_TRANSCRIPT = "Transcript deleted: Claude Code keeps them 30 days by default (cleanupPeriodDays)";
 
+// [SERVE-22] A directory that is no longer a checkout on this machine, or never
+// was one, has no repo to label; its own name is what the session's tab showed.
+function ranIn(cwd: string): string {
+  return repos.labelDir(cwd) ?? basename(cwd);
+}
+
 function changeAge(c: stats.ChangeEntry, now: number): number | null {
   const s = c.stats;
   if (!s || s.kind === "commit") return null;
@@ -1652,7 +1675,7 @@ function totalsLine(sessions: stats.SessionStats[], changes: stats.ChangeEntry[]
   const landed = changes.filter((c) => c.stats && (c.stats.kind === "commit" || c.stats.merged_at)).length;
   const unreadList = changes.filter((c) => !c.stats);
   const unread = unreadList.length;
-  const unreadTip = `Couldn't read\n${unreadList.map((c) => `${c.label}: ${c.error ?? "unread"}`).join("\n")}`;
+  const unreadTip = `Couldn't read\n${unreadList.map((c) => `${shownLabel(c)}: ${c.error ?? "unread"}`).join("\n")}`;
   const activeS = read.reduce((a, x) => a + x.usage!.active_s, 0);
   const spanS = read.length
     ? (Math.max(...read.map((x) => Date.parse(x.usage!.last))) - Math.min(...read.map((x) => Date.parse(x.usage!.first)))) / 1000
@@ -1710,7 +1733,7 @@ export function renderRouteStats(r: Route, s: stats.RouteStats, now = Date.now()
     const c = ts.change;
     const cs = c?.stats;
     const changeMark: HeatMark | undefined = !c ? "na" : !cs ? "failed" : undefined;
-    const notChange = t.deliverable && !c ? `${t.deliverable.label} is not a change request or commit` : "No change request or commit delivered";
+    const notChange = t.deliverable && !c ? `${shownLabel(t.deliverable)} is not a change request or commit` : "No change request or commit delivered";
     const sizeTip = ["Lines changed", !c ? notChange : cs ? `+${cs.additions} −${cs.deletions} in ${cs.files} file${cs.files === 1 ? "" : "s"}` : c.error ?? "Unread"];
     const ageV = c ? changeAge(c, now) : null;
     const ageTip = !c
@@ -1752,7 +1775,7 @@ export function renderRouteStats(r: Route, s: stats.RouteStats, now = Date.now()
     } else if (c) {
       fold.push(`<span class="err">${esc(c.error ?? "unread")}</span>`);
     } else if (t.deliverable) {
-      fold.push(`<span class="tnote">${esc(t.deliverable.label)} is not a change request or commit, so it has no size or merge time</span>`);
+      fold.push(`<span class="tnote">${esc(shownLabel(t.deliverable))} is not a change request or commit, so it has no size or merge time</span>`);
     }
 
     return `<details class="hrow" data-tack="${esc(ts.id)}"><summary><a class="tid" href="/route/${esc(r.slug)}/${esc(ts.id)}">${esc(ts.id)}</a><span class="cells">${cells}</span><span class="hsum">${esc(t.summary)}</span></summary>
@@ -1771,7 +1794,7 @@ export function renderTackStats(r: Route, t: Tack, s: stats.RouteStats, now = Da
   const items: [string, string][] = [];
   if (ts.change) {
     const c = ts.change;
-    items.push([c.stats?.kind === "commit" ? "Commit" : "Change", `${link(c.label, c.url)} ${changeState(c)}`]);
+    items.push([c.stats?.kind === "commit" ? "Commit" : "Change", `${changeLink(c)} ${changeState(c)}`]);
     if (c.stats?.kind === "commit") {
       items.push(["Size", size(c)]);
       items.push(["Committed", when(c.stats.committed_at, "ago", now)]);
@@ -1790,7 +1813,7 @@ export function renderTackStats(r: Route, t: Tack, s: stats.RouteStats, now = Da
       const also = [...x.tacks.filter((id) => id !== t.id), ...x.elsewhere.map((slug) => `${slug}/…`)];
       return `<tr><td class="mono" title="${esc(x.id)}">${esc(x.id.slice(0, 8))}</td>${
         u
-          ? `<td>${esc(u.cwd ?? "")}</td><td class="num">${u.prompts}</td><td class="num" title="${esc(ACTIVE_TITLE)}">${dur(u.active_s)}</td>
+          ? `<td>${esc(u.cwd ? ranIn(u.cwd) : "")}</td><td class="num">${u.prompts}</td><td class="num" title="${esc(ACTIVE_TITLE)}">${dur(u.active_s)}</td>
              <td class="num" title="${esc(u.first)} → ${esc(u.last)}">${dur(since(u.first, u.last))}</td><td class="num">${tokensCell(u.tokens)}</td>`
           : `<td colspan="5" class="tnote">${esc(NO_TRANSCRIPT)}</td>`
       }<td>${also.length ? esc(also.join(", ")) : ""}</td></tr>`;
@@ -2000,12 +2023,14 @@ ${facts([
 
 // A cross-site form can POST to a loopback server without reading the
 // response, so the Host check that guards reads is not enough for a write:
-// same-origin is what has to be proven. Browsers attach Origin to a POST, so a
+// the origin is what has to be proven. Browsers attach Origin to a POST, so a
 // present-and-foreign Origin is a rejection. An absent one is a non-browser
 // client (curl, a script), which was never subject to CSRF in the first place.
-function sameOrigin(req: IncomingMessage): boolean {
+// A listed origin ([SERVE-23]) is one the user chose to trust with writes.
+function originMayWrite(req: IncomingMessage, allowed: string[]): boolean {
   const origin = req.headers.origin;
   if (!origin) return true;
+  if (allowed.includes(origin)) return true;
   try {
     const host = new URL(origin).hostname;
     return host === "127.0.0.1" || host === "localhost" || host === "::1";
@@ -2086,6 +2111,8 @@ function routeJson(r: Route): Route & { state: string } {
 export interface HandleOptions {
   /** Reads a change request's stats; the forge CLIs by default. */
   probe?: stats.Probe;
+  /** Browser origins that may read and write ([SERVE-23]); the config file's by default. */
+  allowedOrigins?: string[];
 }
 
 export function handle(req: IncomingMessage, res: ServerResponse, opts: HandleOptions = {}): void {
@@ -2097,12 +2124,34 @@ export function handle(req: IncomingMessage, res: ServerResponse, opts: HandleOp
 
   if (!loopbackHost(req)) return fail(403, "Host must be loopback.");
 
+  // [SERVE-23] Only a listed origin is echoed back: a wildcard hands every
+  // document to whatever page asked. A request with no Origin needs no header,
+  // since a browser consults it only on a request that sent one.
+  const allowed = opts.allowedOrigins ?? [];
+  const origin = req.headers.origin;
+  const listed = origin !== undefined && allowed.includes(origin);
+  if (origin !== undefined) res.setHeader("vary", "Origin");
+  if (listed) res.setHeader("access-control-allow-origin", origin);
+
   const path = decodeURIComponent((req.url ?? "/").split("?")[0]);
+  const editMatch = path.match(/^\/route\/([^/]+)\/edit\/?$/);
+
+  // A preflight is the browser asking on the page's behalf, so it is answered
+  // under the same rule as the write it precedes.
+  if (req.method === "OPTIONS") {
+    if (!editMatch || !listed) return fail(403, "Cross-origin write refused.");
+    res.writeHead(204, {
+      "access-control-allow-methods": "POST, OPTIONS",
+      "access-control-allow-headers": "Accept, Content-Type",
+      "access-control-max-age": "600",
+    });
+    res.end();
+    return;
+  }
 
   if (req.method === "POST") {
-    const editMatch = path.match(/^\/route\/([^/]+)\/edit\/?$/);
     if (!editMatch) return fail(404, `Nothing accepts a POST at ${path}.`);
-    if (!sameOrigin(req)) return fail(403, "Cross-origin write refused.");
+    if (!originMayWrite(req, allowed)) return fail(403, "Cross-origin write refused.");
     void edit(req, res, editMatch[1], json, fail);
     return;
   }
@@ -2273,7 +2322,7 @@ export async function renderPinTiles(keys: string[], routes: Route[], probe?: st
         : c
           ? `<p class="err">${esc(c.error ?? "unread")}</p>`
           : t.deliverable
-            ? `<p class="tnote">delivered ${esc(t.deliverable.label)}</p>`
+            ? `<p class="tnote">delivered ${esc(shownLabel(t.deliverable))}</p>`
             : "";
       return tile(`/route/${r.slug}/${t.id}`, "tack", t.status, t.summary, key, key,
         `${change}<p class="htot">${totalsLine(s.sessions.filter((x) => x.tacks.includes(t.id)), [])}</p>`,
@@ -2353,5 +2402,6 @@ async function edit(
 
 export function serve(port = DEFAULT_PORT, opts: HandleOptions = {}): Server {
   const probe = stats.cachedProbe(opts.probe ?? deliverableStats);
-  return createServer((req, res) => handle(req, res, { ...opts, probe })).listen(port, "127.0.0.1");
+  const allowedOrigins = opts.allowedOrigins ?? config.allowedOrigins();
+  return createServer((req, res) => handle(req, res, { ...opts, probe, allowedOrigins })).listen(port, "127.0.0.1");
 }

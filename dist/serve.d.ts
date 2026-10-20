@@ -18,6 +18,8 @@ export declare function prefersJson(accept: string | undefined): boolean;
 export interface HandleOptions {
     /** Reads a change request's stats; the forge CLIs by default. */
     probe?: stats.Probe;
+    /** Browser origins that may read and write ([SERVE-23]); the config file's by default. */
+    allowedOrigins?: string[];
 }
 export declare function handle(req: IncomingMessage, res: ServerResponse, opts?: HandleOptions): void;
 export declare function renderPinTiles(keys: string[], routes: Route[], probe?: stats.Probe, now?: number): Promise<string>;

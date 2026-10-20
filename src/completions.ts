@@ -464,12 +464,12 @@ _tack() {
       esac
       ;;
     repo)
-      # tack repo [<partial>] [--json] | alias <match> <alias> | prune | rm <match> | label [<path>|<key>] [--json]
+      # tack repo [<partial>] [--json] | prune | rm <match> | label [<path>|<key>] [--json]
       case "$CURRENT" in
-        3) _alternative 'subcommands:subcommand:((alias\:"add an alias" prune\:"drop stale locals" rebuild\:"backfill from routes" rm\:"remove a repo" label\:"print the shortest unique label"))' 'repos:repo:_tack_repo_names' 'options:option:((--json\:"emit JSON"))' ;;
+        3) _alternative 'subcommands:subcommand:((prune\:"drop stale locals" rebuild\:"backfill from routes" rm\:"remove a repo" label\:"print the shortest unique label"))' 'repos:repo:_tack_repo_names' 'options:option:((--json\:"emit JSON"))' ;;
         4)
           case "\${words[3]}" in
-            alias|rm) _tack_repo_names ;;
+            rm) _tack_repo_names ;;
             label) _alternative 'dirs:checkout:_files -/' 'options:option:((--json\:"emit JSON"))' ;;
           esac
           ;;

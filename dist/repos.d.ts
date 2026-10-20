@@ -22,9 +22,9 @@ export declare function insideGitDir(dir: string): boolean;
 export declare function matchByName(partial: string): RepoMatch[];
 export declare function uniqueLabels(keys: string[]): Map<string, string>;
 export declare function labelFor(key: string): string;
+export declare function labelDir(dir: string): string | null;
 export declare function isKnownRepo(key: string): boolean;
 export declare function listRepos(): RepoMatch[];
-export declare function addAlias(match: string, alias: string): RepoMatch;
 export interface PrunedLocal {
     key: string;
     path: string;

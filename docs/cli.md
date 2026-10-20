@@ -675,9 +675,9 @@ rest of the route around it.
 
 The server holds nothing. Every request re-reads `~/.tack/routes/`, so a
 document can never disagree with `tack status`, and an edit shows up on
-reload with no restart. It binds loopback only and serves `GET` only — these
-are your private work notes, and the bind address is deliberately not
-configurable.
+reload with no restart. It binds loopback only, and accepts no write beyond a
+route's title and description — these are your private work notes, and the
+bind address is deliberately not configurable.
 
 ```bash
 tack serve
@@ -715,6 +715,20 @@ and deliverables are the CLI's to change.
 Writes are refused when the request carries an `Origin` that isn't loopback,
 which is what stops a page on another site from posting to your server behind
 your back.
+
+A dashboard on another origin can read these documents, and edit a title or
+description, once you list its origin in `~/.config/tack/config.yaml`
+(`$XDG_CONFIG_HOME/tack/config.yaml` where that is set). No origin is listed
+by default, a page on another loopback port included. An origin is the
+scheme, host and port alone; an entry carrying a path is refused at startup,
+naming the origin to use instead. The file is read when the server starts, so
+restart it (or re-run `tack serve install`) after an edit.
+
+```yaml
+allowed_origins:
+  - http://localhost:5173
+  - https://dashboard.example.com
+```
 
 In a terminal that supports OSC 8 hyperlinks (iTerm2, WezTerm, kitty, ghostty,
 VS Code, GNOME Terminal), `tack status` renders the route slug and each tack id
@@ -761,8 +775,6 @@ The checkout-to-route mapping routes are resolved against.
 ```text
 tack repo [<partial>] [--json]
     Look up repo remote(s) by name; no arg lists all
-tack repo alias <match> <alias>
-    Add a custom name to a repo
 tack repo prune
     Drop locals that no longer exist on disk
 tack repo rebuild

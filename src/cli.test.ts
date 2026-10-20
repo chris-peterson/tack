@@ -389,16 +389,6 @@ describe("tack repo (CLI-42..46)", () => {
     assert.match(r.stderr, /No repo matches/);
   });
 
-  it("adds an alias that lookup then resolves", () => {
-    runFail(["init", "repo-alias"]);
-    runFail(["add", "repo-alias", "Work"]);
-    runFail(["deliverable", "repo-alias", "t1", "https://github.com/chris-peterson/quux/pull/1"]);
-    runFail(["repo", "alias", "quux", "qx"]);
-    const r = runFail(["repo", "qx"]);
-    assert.equal(r.status, 0);
-    assert.equal(r.stdout.trim(), "https://github.com/chris-peterson/quux");
-  });
-
   it("emits structured output with --json", () => {
     runFail(["init", "repo-json"]);
     runFail(["add", "repo-json", "Work"]);

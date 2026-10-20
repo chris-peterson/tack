@@ -7,7 +7,7 @@ export interface Tokens {
 }
 export interface SessionUsage {
     id: string;
-    /** Basename of the directory the session ran in. */
+    /** The directory the session ran in. */
     cwd?: string;
     first: string;
     last: string;

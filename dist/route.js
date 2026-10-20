@@ -814,6 +814,16 @@ export function deriveDeliverableLabel(url) {
         return url;
     return `${ref.repo}${CHANGE_REF_SIGIL[ref.kind]}${ref.ref}`;
 }
+// SERVE-22: the derived label with the repo's shortest unique label (CLI-60) in
+// place of its bare name, or null for a URL that is not a change reference. An
+// epic or milestone has no repo key, so it keeps the name its URL carries.
+export function changeRefLabel(url) {
+    const ref = parseChangeRefUrl(url);
+    if (!ref)
+        return null;
+    const key = repos.repoKeyFromForgeUrl(url);
+    return `${key ? repos.labelFor(key) : ref.repo}${CHANGE_REF_SIGIL[ref.kind]}${ref.ref}`;
+}
 export function addLink(slug, tackId, label, url) {
     assertLineLength(label, "link.label", "link label");
     assertLength(url, "link.url", "link url");

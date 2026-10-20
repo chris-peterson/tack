@@ -73,6 +73,18 @@ describe("service units", () => {
     assert.doesNotMatch(renderUnit(wrapperPath(), 8788, PATH), /TACK_HOME/);
   });
 
+  // The config file lives under XDG_CONFIG_HOME ([SERVE-23]), which a shell
+  // profile sets and a supervisor never reads.
+  it("carry the config directory the install was run against", () => {
+    const xdg = "/Users/x/.cfg";
+    assert.match(
+      renderPlist(wrapperPath(), 8788, "/tmp/o", "/tmp/e", PATH, undefined, xdg),
+      /<key>XDG_CONFIG_HOME<\/key>\s*<string>\/Users\/x\/\.cfg<\/string>/,
+    );
+    assert.match(renderUnit(wrapperPath(), 8788, PATH, undefined, xdg), /^Environment="XDG_CONFIG_HOME=\/Users\/x\/\.cfg"$/m);
+    assert.doesNotMatch(renderUnit(wrapperPath(), 8788, PATH), /XDG_CONFIG_HOME/);
+  });
+
   it("escape a store path the unit format would otherwise choke on", () => {
     assert.match(
       renderPlist(wrapperPath(), 8788, "/tmp/o", "/tmp/e", PATH, "/a&b"),

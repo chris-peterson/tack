@@ -50,6 +50,11 @@ export function serviceHome(): string | undefined {
   return process.env.TACK_HOME || undefined;
 }
 
+// The same for the directory the config file is read from ([SERVE-23]).
+export function serviceConfigHome(): string | undefined {
+  return process.env.XDG_CONFIG_HOME || undefined;
+}
+
 function plistPath(): string {
   return join(homedir(), "Library", "LaunchAgents", `${SERVICE_LABEL}.plist`);
 }
@@ -101,13 +106,14 @@ export function renderPlist(
   errLog: string,
   path: string,
   home?: string,
+  configHome?: string,
 ): string {
   const args = [wrapper, "serve", "--port", String(port)]
     .map((a) => `        <string>${xml(a)}</string>`)
     .join("\n");
-  const tackHome = home
-    ? `\n        <key>TACK_HOME</key>\n        <string>${xml(home)}</string>`
-    : "";
+  const variable = (key: string, value?: string) =>
+    value ? `\n        <key>${key}</key>\n        <string>${xml(value)}</string>` : "";
+  const recorded = variable("TACK_HOME", home) + variable("XDG_CONFIG_HOME", configHome);
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -121,7 +127,7 @@ ${args}
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>${xml(path)}</string>${tackHome}
+        <string>${xml(path)}</string>${recorded}
     </dict>
     <key>RunAtLoad</key>
     <true/>
@@ -141,18 +147,20 @@ export function renderUnit(
   port: number,
   path: string,
   home?: string,
+  configHome?: string,
 ): string {
   // systemd reads `%` as the start of a specifier, and splits an unquoted value
   // on whitespace.
   const quote = (v: string) => v.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/%/g, "%%");
   const env = quote(path);
-  const tackHome = home ? `\nEnvironment="TACK_HOME=${quote(home)}"` : "";
+  const variable = (key: string, value?: string) => (value ? `\nEnvironment="${key}=${quote(value)}"` : "");
+  const recorded = variable("TACK_HOME", home) + variable("XDG_CONFIG_HOME", configHome);
   return `[Unit]
 Description=tack route documents (serve)
 After=default.target
 
 [Service]
-Environment="PATH=${env}"${tackHome}
+Environment="PATH=${env}"${recorded}
 ExecStart=${wrapper} serve --port ${port}
 Restart=always
 RestartSec=2
@@ -192,6 +200,7 @@ export function install(port: number): void {
         join(logDir, "serve.err.log"),
         servicePath(),
         serviceHome(),
+        serviceConfigHome(),
       ),
     );
     run("launchctl", ["unload", plistPath()]);
@@ -202,7 +211,7 @@ export function install(port: number): void {
   }
 
   mkdirSync(join(homedir(), ".config", "systemd", "user"), { recursive: true });
-  writeFileSync(unitPath(), renderUnit(wrapper, port, servicePath(), serviceHome()));
+  writeFileSync(unitPath(), renderUnit(wrapper, port, servicePath(), serviceHome(), serviceConfigHome()));
   run("systemctl", ["--user", "daemon-reload"]);
   const enabled = run("systemctl", ["--user", "enable", "--now", "tack-serve.service"]);
   if (!enabled.ok) throw new Error(`systemctl enable failed: ${enabled.err}`);
