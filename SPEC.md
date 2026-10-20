@@ -1614,7 +1614,8 @@ an `Origin` that is not loopback. [SERVE-05]'s `Host` check does not cover it:
 a cross-site form can `POST` to a loopback server without ever reading the
 response, so a write has to prove same-origin, which the `Origin` header is
 what browsers attach for. A request with no `Origin` is not a browser
-navigation and shall be allowed.
+navigation and shall be allowed, and so shall one from an origin [SERVE-23]
+lists.
 
 **[SERVE-06]** Every value interpolated into a document comes from a
 hand-editable file and shall be HTML-escaped. A URL shall additionally be
@@ -1786,6 +1787,26 @@ shows a checkout, the label followed by the path within it, and as the
 directory's own name when it is not a checkout on this machine. The JSON forms
 ([SERVE-11], [SERVE-18]) carry the stored label and the full directory, since a
 label is a display string, not an identifier.
+
+**[SERVE-23]** The server shall let a browser page on another origin read its
+documents and make [SERVE-12]'s writes only when that origin is listed in
+`allowed_origins` in `$XDG_CONFIG_HOME/tack/config.yaml` (default
+`~/.config/tack/config.yaml`). The list is empty by default, and a loopback
+origin is not on it unless listed. An entry shall be an origin, compared
+exactly: no wildcard, and no path, which a browser never sends; the server
+shall refuse to start on an entry that is not one, naming the origin it holds,
+and on a file that is not YAML. A response to a listed origin shall carry
+`Access-Control-Allow-Origin` with that origin and `Vary: Origin`, and a
+preflight (`OPTIONS`) for the edit path shall be answered under the same rule,
+naming the methods and headers the write may carry. A preflight from any other
+origin, or for any other path, is refused. The file is read at startup, and
+[SERVE-15]'s install records `XDG_CONFIG_HOME` in the unit where it is set.
+
+The setting is machine-local, apart from the store: a store can be a git
+checkout ([STORE-01a]) cloned onto other machines, and which pages one machine's
+server trusts is not something another machine should inherit. Its contents
+are the user's own work notes, so a page reads them because the user named it,
+never because the server defaults open.
 
 ---
 

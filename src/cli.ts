@@ -8,6 +8,7 @@ import * as route from "./route.js";
 import * as repos from "./repos.js";
 import * as backup from "./backup.js";
 import * as reconcile from "./reconcile.js";
+import * as config from "./config.js";
 import * as serve from "./serve.js";
 import * as service from "./service.js";
 import * as freshness from "./freshness.js";
@@ -576,8 +577,10 @@ function run(): void {
       } else if (sub) {
         groupError("serve", expectedOneOf(["install", "uninstall", "status"], sub));
       } else {
-        serve.serve(port);
+        const allowedOrigins = config.allowedOrigins();
+        serve.serve(port, { allowedOrigins });
         console.log(`tack serve → http://127.0.0.1:${port}/  (Ctrl-C to stop)`);
+        if (allowedOrigins.length) console.log(`origins allowed by ${config.configPath()}: ${allowedOrigins.join(", ")}`);
       }
       break;
     }

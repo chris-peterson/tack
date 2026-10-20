@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
 import { createRequire } from "node:module";
 import { basename } from "node:path";
+import * as config from "./config.js";
 import * as route from "./route.js";
 import * as repos from "./repos.js";
 import * as stats from "./stats.js";
@@ -2022,12 +2023,14 @@ ${facts([
 
 // A cross-site form can POST to a loopback server without reading the
 // response, so the Host check that guards reads is not enough for a write:
-// same-origin is what has to be proven. Browsers attach Origin to a POST, so a
+// the origin is what has to be proven. Browsers attach Origin to a POST, so a
 // present-and-foreign Origin is a rejection. An absent one is a non-browser
 // client (curl, a script), which was never subject to CSRF in the first place.
-function sameOrigin(req: IncomingMessage): boolean {
+// A listed origin ([SERVE-23]) is one the user chose to trust with writes.
+function originMayWrite(req: IncomingMessage, allowed: string[]): boolean {
   const origin = req.headers.origin;
   if (!origin) return true;
+  if (allowed.includes(origin)) return true;
   try {
     const host = new URL(origin).hostname;
     return host === "127.0.0.1" || host === "localhost" || host === "::1";
@@ -2108,6 +2111,8 @@ function routeJson(r: Route): Route & { state: string } {
 export interface HandleOptions {
   /** Reads a change request's stats; the forge CLIs by default. */
   probe?: stats.Probe;
+  /** Browser origins that may read and write ([SERVE-23]); the config file's by default. */
+  allowedOrigins?: string[];
 }
 
 export function handle(req: IncomingMessage, res: ServerResponse, opts: HandleOptions = {}): void {
@@ -2119,12 +2124,34 @@ export function handle(req: IncomingMessage, res: ServerResponse, opts: HandleOp
 
   if (!loopbackHost(req)) return fail(403, "Host must be loopback.");
 
+  // [SERVE-23] Only a listed origin is echoed back: a wildcard hands every
+  // document to whatever page asked. A request with no Origin needs no header,
+  // since a browser consults it only on a request that sent one.
+  const allowed = opts.allowedOrigins ?? [];
+  const origin = req.headers.origin;
+  const listed = origin !== undefined && allowed.includes(origin);
+  if (origin !== undefined) res.setHeader("vary", "Origin");
+  if (listed) res.setHeader("access-control-allow-origin", origin);
+
   const path = decodeURIComponent((req.url ?? "/").split("?")[0]);
+  const editMatch = path.match(/^\/route\/([^/]+)\/edit\/?$/);
+
+  // A preflight is the browser asking on the page's behalf, so it is answered
+  // under the same rule as the write it precedes.
+  if (req.method === "OPTIONS") {
+    if (!editMatch || !listed) return fail(403, "Cross-origin write refused.");
+    res.writeHead(204, {
+      "access-control-allow-methods": "POST, OPTIONS",
+      "access-control-allow-headers": "Accept, Content-Type",
+      "access-control-max-age": "600",
+    });
+    res.end();
+    return;
+  }
 
   if (req.method === "POST") {
-    const editMatch = path.match(/^\/route\/([^/]+)\/edit\/?$/);
     if (!editMatch) return fail(404, `Nothing accepts a POST at ${path}.`);
-    if (!sameOrigin(req)) return fail(403, "Cross-origin write refused.");
+    if (!originMayWrite(req, allowed)) return fail(403, "Cross-origin write refused.");
     void edit(req, res, editMatch[1], json, fail);
     return;
   }
@@ -2375,5 +2402,6 @@ async function edit(
 
 export function serve(port = DEFAULT_PORT, opts: HandleOptions = {}): Server {
   const probe = stats.cachedProbe(opts.probe ?? deliverableStats);
-  return createServer((req, res) => handle(req, res, { ...opts, probe })).listen(port, "127.0.0.1");
+  const allowedOrigins = opts.allowedOrigins ?? config.allowedOrigins();
+  return createServer((req, res) => handle(req, res, { ...opts, probe, allowedOrigins })).listen(port, "127.0.0.1");
 }
