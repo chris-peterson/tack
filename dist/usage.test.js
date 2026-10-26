@@ -52,7 +52,7 @@ describe("session usage from a transcript", () => {
         assert.equal(u.last, at(700));
     });
     it("names the directory the session ran in", () => {
-        assert.equal(u.cwd, "acme-widget");
+        assert.equal(u.cwd, "/Users/me/src/acme-widget");
     });
     it("is null for a session with no transcript on this machine", () => {
         assert.equal(sessionUsage("99999999-0000-0000-0000-000000000000"), null);

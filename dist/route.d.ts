@@ -93,6 +93,7 @@ export declare function removeDeliverable(slug: string, tackId: string, opts?: {
 }): Tack;
 export declare function isPrOrMrUrl(url: string): boolean;
 export declare function deriveDeliverableLabel(url: string): string;
+export declare function changeRefLabel(url: string): string | null;
 export declare function addLink(slug: string, tackId: string, label: string, url: string): Tack;
 export declare function removeLink(slug: string, tackId: string, url: string): Tack;
 export declare function editTack(slug: string, tackId: string, summary: string): Tack;

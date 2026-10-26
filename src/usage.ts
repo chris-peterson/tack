@@ -5,7 +5,7 @@
 // has no transcript here and reads as `null`, the same as one Claude Code has
 // already aged out.
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 import { homedir } from "node:os";
 
 // A gap between transcript records longer than this is time away, not work.
@@ -20,7 +20,7 @@ export interface Tokens {
 
 export interface SessionUsage {
   id: string;
-  /** Basename of the directory the session ran in. */
+  /** The directory the session ran in. */
   cwd?: string;
   first: string;
   last: string;
@@ -109,7 +109,7 @@ export function sessionUsage(id: string): SessionUsage | null {
   let cwd: string | undefined;
   for (const r of records(main)) {
     if (r.timestamp) stamps.push(Date.parse(r.timestamp));
-    if (!cwd && r.cwd) cwd = basename(r.cwd);
+    if (!cwd && r.cwd) cwd = r.cwd;
     if (r.type === "user" && r.origin?.kind === "human") prompts++;
     count(r);
   }
