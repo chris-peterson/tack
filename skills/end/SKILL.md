@@ -40,6 +40,24 @@ Read every signal fresh. The draft flag and the pipeline both flip live, and a
 value carried over from earlier in the session is the one most likely to be
 wrong.
 
+**Reconcile the route first**, as its own call:
+
+```bash
+tack reconcile {slug}
+```
+
+It asks the forge whether each open tack's change request merged and closes the
+ones that did, dated from the merge. That reaches the tacks this session never
+touched: a change request a teammate merged, or one that landed overnight. It
+writes the route, so it runs before the `tack status` read below rather than
+beside it. Keep what it prints: each line is a tack step 5 reports as landed.
+
+**A failed reconcile stops the close.** It exits non-zero naming the change
+request it couldn't read: `gh` or `glab` missing, logged out, or offline. Report
+that line, ask the user to fix the forge CLI, and end the turn without closing.
+Past that failure the route can still show a merged tack as open, and the close
+would report landed work as owed.
+
 **Issue these as parallel calls in one message.** Every read is independent, and
 running them one per turn is most of what makes this skill slow.
 
@@ -132,8 +150,9 @@ Match the record to reality rather than to intent:
   closes the route while the work is still out for review.
 - **A merge made this session is already recorded.** The `record-landed` hook
   closes the tack when a sibling announces the merge, dated from the forge, and
-  promotes the CR to the deliverable. Step 1's `tack status` read is what shows
-  it: a tack already `done` and holding that CR needs nothing here.
+  promotes the CR to the deliverable. A merge made anywhere else was closed by
+  step 1's reconcile. Step 1's `tack status` read is what shows both: a tack
+  already `done` and holding that CR needs nothing here.
 - **Blocked beats done.** When the work waits on a reviewer, an approval gate, or
   another team, `tack status set … blocked` records the reason the route stays
   open. Silence reads as forgotten.
@@ -204,6 +223,9 @@ commands that advance it. This is the skill's whole output:
 - **One row per thing the user can act on** — a CR, a pushed commit, the working
   tree when step 2's floor isn't met. A session with nothing to act on (a dead
   end, a read-only close) drops the table and keeps the footer.
+- **Each tack step 1's reconcile closed gets a row**, its change request linked
+  and its state `merged`, with `next` read from the state table below like any
+  other merged change.
 - **`next` is commands in the order they run**, arrow-separated, no
   explanations. Nothing left to run is `—`.
 - **The footer is `route` and `retro`**, bold-labelled, one line each, and any
@@ -245,6 +267,7 @@ step; it re-reads the state and closes properly.
 | Checks pending | `/anchor:pipeline --watch` |
 | `SPEC.md` present, ledger not refreshed | `/sextant:spec-status` — before the release, not trailing the CR |
 | Ready, green, approved | `/anchor:merge` |
+| Merged, its tack still open | `tack reconcile {slug}` |
 | Merged, repo publishes releases | `/anchor:release` — it owns the version bump; a hand-bump lands a conflicting commit |
 | Nothing left to run, floor cleared | say that in one line and stop |
 | Declared a dead end | nothing to run; the route carries the reason |

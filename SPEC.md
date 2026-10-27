@@ -1392,6 +1392,13 @@ fleet view. The route's own state is what a fleet view reads; a separately
 written label is a second source for the same field that goes stale when the
 route moves.
 
+**[SESSION-13]** Before reading the route's state, the `end` skill shall run
+`tack reconcile` ([CLI-56]) on the route, so a tack whose change request merged
+outside the session is closed before the close reports on it, and each tack it
+closes shall reach the [SESSION-08] table as landed. Where the reconcile fails
+per [CLI-56b], the skill shall report the failure and stop without closing the
+session: a route read past it can show landed work as owed.
+
 ---
 
 ### NOTE — Session Notes

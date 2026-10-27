@@ -4,6 +4,7 @@
 
 ### Changed
 
+- **`/tack:end` closes the route's tacks whose change request merged elsewhere.** It runs `tack reconcile` on the route before reading it, so a change request a teammate merged, or one that landed overnight, closes dated from its merge and shows in the close's table as landed. When the forge can't be read (`gh` or `glab` missing, logged out, or offline), the close stops and names the change request rather than reporting the route as it stood.
 - **`tack serve` names each repo by its shortest unique label, the one `tack repo label` prints.** Three MRs on three `ai-tools` repos read `acme/ai-tools!3`, `globex/ai-tools!4` and `initech/ai-tools!5` rather than three `ai-tools!N`. The label is worked out from the URL each time a page renders, so it lengthens on its own once a second repo of the same name is recorded. A label you wrote with `tack deliverable --label` shows when you hover over the link. A link recorded under the derived label reads the same way, and one you named yourself shows its name. A session's "Ran in" column reads the way the prompt integration does: the label and the path inside the checkout, such as `acme/docs/src/lib`, rather than the last folder's name.
 
 ### Added
