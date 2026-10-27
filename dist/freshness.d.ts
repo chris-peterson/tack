@@ -1,4 +1,4 @@
-export type SurfaceState = "current" | "stale" | "gone" | "dev";
+export type SurfaceState = "current" | "stale" | "gone" | "dev" | "shadowed";
 export interface Surface {
     /** What the reader recognizes it as. */
     label: string;

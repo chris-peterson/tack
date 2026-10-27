@@ -443,10 +443,12 @@ describe("record-landed", () => {
 // CLAUDE_PLUGIN_ROOT and echoes the very version it is compared against.
 describe("freshness", () => {
     // Builds a store with a plugin root and a wrapper aimed wherever the case
-    // wants, then runs the real subcommand the hook execs.
+    // wants, then runs the real subcommand the hook execs. The root defaults to a
+    // marketplace install; a `--plugin-dir` session loads one from anywhere else.
     function runFreshness(opts) {
         const dir = mkdtempSync(join(tmpdir(), "tack-freshness-"));
-        const pluginRoot = join(dir, "plugin");
+        const pluginRoot = (opts.root ?? "<dir>/.claude/plugins/cache/chris-peterson/tack/9.9.9")
+            .replace("<dir>", dir);
         mkdirSync(join(pluginRoot, "dist"), { recursive: true });
         mkdirSync(join(pluginRoot, ".claude-plugin"), { recursive: true });
         writeFileSync(join(pluginRoot, ".claude-plugin", "plugin.json"), JSON.stringify({ name: "tack", version: "9.9.9" }));
@@ -493,6 +495,24 @@ describe("freshness", () => {
     });
     it("stays silent for a trial pointing at a working copy that exists", () => {
         assert.equal(runFreshness({ target: "<dir>/src/tack/dist/cli.js" }).trim(), "");
+    });
+    it("stays silent in an inline session whose wrapper runs the marketplace install", () => {
+        // `claude --plugin-dir <checkout>` loads the working copy for one session;
+        // the wrapper still reaching the cached install is what every other session
+        // runs, not an update left behind.
+        const out = runFreshness({
+            root: "<dir>/src/tack",
+            target: "<dir>/.claude/plugins/cache/chris-peterson/tack/9.9.9/dist/cli.js",
+        });
+        assert.equal(out.trim(), "");
+    });
+    it("reports a gone target in an inline session", () => {
+        const out = runFreshness({
+            root: "<dir>/src/tack",
+            target: "<dir>/.claude/plugins/cache/chris-peterson/tack/1.6.0/dist/cli.js",
+            targetExists: false,
+        });
+        assert.match(JSON.parse(out).hookSpecificOutput.additionalContext, /does not exist/);
     });
     it("ignores a self-locating shim that execs a variable", () => {
         // The plugin's own bin/tack computes its root from its own location and
