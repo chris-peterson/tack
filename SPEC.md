@@ -1199,6 +1199,12 @@ another version inside the cache is drift and shall be reported.
 reaches only the model, which is free to answer the prompt in front of it and
 never relay what it read, so it shall not be the only channel.
 
+**[HOOK-01c]** Where the loaded plugin root is outside the plugin cache (a
+session started with `--plugin-dir`), a wrapper aimed at an existing target
+inside the cache shall stay silent. That session pins its own copy, and the
+cached install is what every other session runs, so the wrapper reaches what a
+user has. A missing target is still reported per [HOOK-01a].
+
 **[HOOK-02]** A `PostToolUse` hook scoped to the `Bash` tool shall scan tool
 output for PR/MR and issue URLs (the recognized forges are defined in
 [CLI-37]), and shall take from the same output the URI of each announcement

@@ -19,6 +19,9 @@ import { fileURLToPath } from "node:url";
 // plugin's own bin/tack, which computes its root from its own location — cannot
 // be stale by construction, so it is not a surface this reports on.
 const WRAPPER_TARGET = /^exec\s+(?:node\s+)?"(\/[^"$]+)"/m;
+// Where Claude Code installs a marketplace plugin. A plugin root anywhere else
+// was loaded inline, with `--plugin-dir`.
+const PLUGIN_CACHE = "/plugins/cache/";
 function home() {
     return process.env.HOME ?? process.env.USERPROFILE ?? "";
 }
@@ -51,9 +54,15 @@ function currentEntryPoints() {
         out.push(join(pluginRoot, "dist", "cli.js"));
     }
     // The running build, for an install that never went through a plugin root.
-    const here = dirname(fileURLToPath(import.meta.url));
-    out.push(join(here, "cli.js"));
+    out.push(join(runningDist(), "cli.js"));
     return out.map((p) => resolve(p));
+}
+function runningDist() {
+    return dirname(fileURLToPath(import.meta.url));
+}
+function loadedInline() {
+    const root = process.env.CLAUDE_PLUGIN_ROOT ?? dirname(runningDist());
+    return !resolve(root).includes(PLUGIN_CACHE);
 }
 function sameFile(a, b) {
     if (resolve(a) === resolve(b))
@@ -75,12 +84,18 @@ function classify(target) {
     const current = currentEntryPoints();
     if (current.some((p) => sameFile(target, p)))
         return "current";
+    // Anything outside the cache that still exists is a working copy someone
+    // aimed here on purpose — a trial [CLI-29a]. Silent while the checkout is there.
+    if (!target.includes(PLUGIN_CACHE))
+        return "dev";
+    // An inline session pins its own copy for as long as it runs, and the cached
+    // install it shadows is what every other session loads, so a wrapper aimed
+    // there is what a user has. Drift inside the cache is the next marketplace
+    // session's to report.
+    if (loadedInline())
+        return "shadowed";
     // Another version inside the plugin cache is drift a reinstall repairs.
-    if (target.includes("/plugins/cache/"))
-        return "stale";
-    // Anything else that still exists is a working copy someone aimed here on
-    // purpose — a trial [CLI-29a]. Silent while the checkout is there.
-    return "dev";
+    return "stale";
 }
 export function surfaces() {
     const out = [];

@@ -10,6 +10,10 @@
 
 - **A dashboard on another origin can read `tack serve`'s documents and edit a route's title or description, once you list it.** Add its origin to the `allowed_origins` list in `~/.config/tack/config.yaml`, and restart the server. Nothing is listed by default, a page on another `localhost` port included. An entry is an origin only (scheme, host and port), and the server refuses to start on one carrying a path, naming the origin to use. `tack serve install` records `XDG_CONFIG_HOME` in the unit where you set it, so a supervised server reads the same file.
 
+### Fixed
+
+- **A session started with `claude --plugin-dir <checkout>` no longer says the `tack` CLI is outdated.** The installed `tack` on your PATH runs the marketplace copy, which is what every other session uses, so the start-of-session check now leaves it alone. A wrapper whose target is missing is still reported.
+
 ### Removed
 
 - **`tack repo alias`.** No repo in the database had an alias (0 of 231), and the shortest unique label covers what a custom name was for. `tack repo alias` now exits non-zero; names already recorded on a repo still match in `tack repo <partial>`.
