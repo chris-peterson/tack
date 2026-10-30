@@ -69,3 +69,26 @@ describe("session usage from a transcript", () => {
     assert.equal(sessionUsage("99999999-0000-0000-0000-000000000000"), null);
   });
 });
+
+describe("session usage from a streamed sub-agent response", () => {
+  const id = "22222222-3333-4444-5555-666666666666";
+  const project = join(config, "projects", "-Users-me-src-acme-gadget");
+  transcript(project, `${id}.jsonl`, [
+    { type: "user", timestamp: at(0), origin: { kind: "human" }, message: { content: "delegate it" } },
+    { type: "assistant", timestamp: at(10), requestId: "r1", message: { id: "m1", usage: usage(2, 100, 1000, 50) } },
+  ]);
+  // Before Claude Code 2.1.307, the earlier lines of a streamed sub-agent
+  // response carry placeholder usage; only the last line has the real figures.
+  transcript(join(project, id, "subagents"), "agent-a.jsonl", [
+    { type: "assistant", timestamp: at(20), requestId: "s1", message: { id: "sm1", usage: usage(3, 1, 0, 0) } },
+    { type: "assistant", timestamp: at(21), requestId: "s1", message: { id: "sm1", usage: usage(3, 1, 0, 0) } },
+    { type: "assistant", timestamp: at(22), requestId: "s1", message: { id: "sm1", usage: usage(3, 900, 500, 40) } },
+  ]);
+
+  const u = sessionUsage(id)!;
+
+  it("sums the last usage line of each response", () => {
+    assert.equal(u.requests, 2);
+    assert.deepEqual(u.tokens, { input: 5, output: 1000, cache_read: 1500, cache_write: 90 });
+  });
+});

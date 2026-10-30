@@ -57,6 +57,13 @@ function subagentTranscripts(main: string, id: string): string[] {
     .map((f) => join(dir, f));
 }
 
+interface Usage {
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_read_input_tokens?: number;
+  cache_creation_input_tokens?: number;
+}
+
 interface Rec {
   type?: string;
   timestamp?: string;
@@ -65,12 +72,7 @@ interface Rec {
   origin?: { kind?: string };
   message?: {
     id?: string;
-    usage?: {
-      input_tokens?: number;
-      output_tokens?: number;
-      cache_read_input_tokens?: number;
-      cache_creation_input_tokens?: number;
-    };
+    usage?: Usage;
   };
 }
 
@@ -84,24 +86,18 @@ export function sessionUsage(id: string): SessionUsage | null {
   const main = transcriptPath(id);
   if (!main) return null;
 
-  const tokens: Tokens = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
   // Claude Code writes one line per content block and repeats the response's
-  // usage on each, so summing lines counts a response several times.
-  const seen = new Set<string>();
-  let requests = 0;
+  // usage on each, so summing lines counts a response several times. The last
+  // line wins: before Claude Code 2.1.307, sub-agent transcripts put placeholder
+  // usage on the earlier lines of a streamed response.
+  const keyed = new Map<string, Usage>();
+  const unkeyed: Usage[] = [];
   const count = (r: Rec): void => {
     const u = r.message?.usage;
     if (r.type !== "assistant" || !u) return;
     const key = r.message?.id ?? r.requestId;
-    if (key) {
-      if (seen.has(key)) return;
-      seen.add(key);
-    }
-    requests++;
-    tokens.input += u.input_tokens ?? 0;
-    tokens.output += u.output_tokens ?? 0;
-    tokens.cache_read += u.cache_read_input_tokens ?? 0;
-    tokens.cache_write += u.cache_creation_input_tokens ?? 0;
+    if (key) keyed.set(key, u);
+    else unkeyed.push(u);
   };
 
   const stamps: number[] = [];
@@ -115,6 +111,15 @@ export function sessionUsage(id: string): SessionUsage | null {
   }
   const subs = subagentTranscripts(main, id);
   for (const s of subs) for (const r of records(s)) count(r);
+
+  const responses = [...keyed.values(), ...unkeyed];
+  const tokens: Tokens = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
+  for (const u of responses) {
+    tokens.input += u.input_tokens ?? 0;
+    tokens.output += u.output_tokens ?? 0;
+    tokens.cache_read += u.cache_read_input_tokens ?? 0;
+    tokens.cache_write += u.cache_creation_input_tokens ?? 0;
+  }
 
   if (!stamps.length) return null;
   stamps.sort((a, b) => a - b);
@@ -131,7 +136,7 @@ export function sessionUsage(id: string): SessionUsage | null {
     last: new Date(stamps[stamps.length - 1]).toISOString(),
     active_s: Math.round(active),
     prompts,
-    requests,
+    requests: responses.length,
     tokens,
     subagents: subs.length,
   };
