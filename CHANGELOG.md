@@ -11,10 +11,12 @@
 ### Added
 
 - **A dashboard on another origin can read `tack serve`'s documents and edit a route's title or description, once you list it.** Add its origin to the `allowed_origins` list in `~/.config/tack/config.yaml`, and restart the server. Nothing is listed by default, a page on another `localhost` port included. An entry is an origin only (scheme, host and port), and the server refuses to start on one carrying a path, naming the origin to use. `tack serve install` records `XDG_CONFIG_HOME` in the unit where you set it, so a supervised server reads the same file.
+- **The plugin carries its icon, so marketplace catalogs and the plugin directory show it.**
 
 ### Fixed
 
 - **A session started with `claude --plugin-dir <checkout>` no longer says the `tack` CLI is outdated.** The installed `tack` on your PATH runs the marketplace copy, which is what every other session uses, so the start-of-session check now leaves it alone. A wrapper whose target is missing is still reported.
+- **Token counts include the full output of sessions that delegated to subagents.** Subagent transcripts written before Claude Code 2.1.307 were undercounted, often several times over; transcripts already on disk now read correctly.
 
 ### Removed
 
