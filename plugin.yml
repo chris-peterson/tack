@@ -7,7 +7,7 @@ version: 1.9.0
 description: "Route tracker for AI-assisted development work (pivots, deliverables and dependencies) across session boundaries."
 author: chris-peterson
 repository: https://github.com/chris-peterson/tack
-icon: assets/icon.svg
+icon: .claude-plugin/icon.svg
 license: MIT
 keywords: [tack, routes, wip, session, ai, development, tracking, deliverables, dependencies]
 

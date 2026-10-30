@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="tack">
+  <defs>
+    <linearGradient id="beat" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#bd93f9"/>
+      <stop offset="45%" stop-color="#bd93f9"/>
+      <stop offset="78%" stop-color="#8be9fd"/>
+      <stop offset="100%" stop-color="#50fa7b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#50fa7b" stop-opacity="0.38"/>
+      <stop offset="100%" stop-color="#50fa7b" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="tile"><rect width="64" height="64" rx="14"/></clipPath>
+  </defs>
+
+  <rect width="64" height="64" rx="14" fill="#282a36"/>
+
+  <!-- Destination glow, clipped to the tile so it can't spill past the corner -->
+  <circle cx="54" cy="12" r="11" fill="url(#glow)" clip-path="url(#tile)"/>
+
+  <!-- Tacking beat -->
+  <path d="M 10 54 L 26 40 L 18 26 L 38 20 L 30 10 L 54 12"
+        fill="none" stroke="url(#beat)" stroke-width="5"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Origin -->
+  <circle cx="10" cy="54" r="5.2" fill="#bd93f9"/>
+
+  <!-- Destination -->
+  <circle cx="54" cy="12" r="5.2" fill="#50fa7b"/>
+</svg>
