@@ -180,7 +180,7 @@ _tack() {
     'start:Start working on a tack'
     'done:Mark a tack as done'
     'drop:Drop a tack (mark as dropped, keep in file)'
-    'reconcile:Close tacks whose deliverable has merged'
+    'reconcile:Close tacks whose change request has merged'
     'serve:Serve route documents on 127.0.0.1'
     'remove:Delete a tack from a route'
     'edit:Edit a tack summary'

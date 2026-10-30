@@ -40,7 +40,7 @@ Read every signal fresh. The draft flag and the pipeline both flip live, and a
 value carried over from earlier in the session is the one most likely to be
 wrong.
 
-**Reconcile the route first**, as its own call:
+**Reconcile the route first**, as its own call, when the session has a route:
 
 ```bash
 tack reconcile {slug}
@@ -50,13 +50,15 @@ It asks the forge whether each open tack's change request merged and closes the
 ones that did, dated from the merge. That reaches the tacks this session never
 touched: a change request a teammate merged, or one that landed overnight. It
 writes the route, so it runs before the `tack status` read below rather than
-beside it. Keep what it prints: each line is a tack step 5 reports as landed.
+beside it. Keep each `<slug>/<tack-id> done` line it prints: that tack is one
+step 5 reports as landed. Never run it without a slug, which sweeps every route.
 
 **A failed reconcile stops the close.** It exits non-zero naming the change
 request it couldn't read: `gh` or `glab` missing, logged out, or offline. Report
-that line, ask the user to fix the forge CLI, and end the turn without closing.
-Past that failure the route can still show a merged tack as open, and the close
-would report landed work as owed.
+that line, and any `done` lines printed before it (those tacks are already
+closed, and a later run won't list them again). Ask the user to fix the forge
+CLI, and end the turn without closing. Past that failure the route can still
+show a merged tack as open, and the close would report landed work as owed.
 
 **Issue these as parallel calls in one message.** Every read is independent, and
 running them one per turn is most of what makes this skill slow.

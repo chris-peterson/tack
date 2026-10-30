@@ -14,4 +14,5 @@ export declare function reconcile(opts?: {
     slug?: string;
     dryRun?: boolean;
     probe?: (url: string) => MergeState;
+    onClose?: (c: Reconciled) => void;
 }): Reconciled[];

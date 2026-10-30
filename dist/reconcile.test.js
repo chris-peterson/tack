@@ -85,6 +85,51 @@ describe("reconcile", () => {
         assert.equal(closed.length, 1);
         assert.equal(route.load("rec-other").tacks[0].status, "pending");
     });
+    it("closes a tack whose open CR is recorded as a link, promoting it to the deliverable", () => {
+        route.init("rec-link");
+        route.addTack("rec-link", "work", { links: [{ label: "r#7", url: PR }] });
+        const closed = reconcile.reconcile({ probe: allMerged });
+        assert.equal(closed.length, 1);
+        assert.equal(closed[0].url, PR);
+        const tack = route.load("rec-link").tacks[0];
+        assert.equal(tack.status, "done");
+        assert.equal(tack.done_at, MERGED_AT);
+        assert.equal(tack.deliverable?.url, PR);
+        assert.equal(tack.links, undefined);
+    });
+    it("does not ask about a tack holding several PR/MR links", () => {
+        route.init("rec-links");
+        route.addTack("rec-links", "work", {
+            links: [
+                { label: "r#7", url: PR },
+                { label: "r#8", url: "https://github.com/o/r/pull/8" },
+            ],
+        });
+        const probe = () => {
+            throw new Error("probed an ambiguous tack");
+        };
+        assert.equal(reconcile.reconcile({ probe }).length, 0);
+    });
+    it("reports each close before a later probe fails", () => {
+        route.init("rec-partial");
+        route.addTack("rec-partial", "first", { deliverable: { label: "r#7", url: PR } });
+        route.addTack("rec-partial", "second", {
+            deliverable: { label: "r#8", url: "https://github.com/o/r/pull/8" },
+        });
+        const reported = [];
+        const probe = (url) => {
+            if (url === PR)
+                return { merged: true, mergedAt: MERGED_AT };
+            throw new Error(`could not read ${url}`);
+        };
+        assert.throws(() => reconcile.reconcile({
+            slug: "rec-partial",
+            probe,
+            onClose: (c) => reported.push(c.tackId),
+        }), /could not read/);
+        assert.deepEqual(reported, ["t1"]);
+        assert.equal(route.load("rec-partial").tacks[0].status, "done");
+    });
     it("refuses a URL from a forge it cannot read", () => {
         assert.throws(() => reconcile.mergeState("https://example.com/o/r/pull/7"), /does not know how to read/);
     });
