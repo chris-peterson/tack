@@ -1016,12 +1016,16 @@ arguments shall additionally point at `tack --help` ([CLI-38]). Setting the
 cannot substitute for when the throw is a defect rather than a refusal.
 
 **[CLI-56]** `tack reconcile [slug] [--dry-run]` — When invoked, the CLI shall
-ask the git forge (GitHub, GitLab) whether each candidate tack's deliverable
+ask the git forge (GitHub, GitLab) whether each candidate tack's change request
 has merged and set the
-merged ones to `done` ([CLI-05]), reporting each one it closed. A candidate is
-an open tack whose deliverable URL is a pull or merge request ([CLI-37]); a tack
-with no deliverable, or one pointing at an issue, epic, milestone, or commit, is
-never queried, since none of those merge. Without a slug the sweep covers every
+merged ones to `done` ([CLI-05]), reporting each one as it is closed, so a sweep
+that fails partway has already reported every close it wrote. A candidate is an
+open tack whose deliverable URL is a pull or merge request ([CLI-37]), or, with
+no deliverable, an open tack holding exactly one pull or merge request link,
+which closing it promotes to the deliverable ([CLI-05]). A tack pointing only at
+an issue, epic, milestone, or commit is never queried, since none of those
+merge, and neither is one holding several pull or merge request links, where
+which one shipped is the user's to say. Without a slug the sweep covers every
 route. `--dry-run` reports the same set without writing.
 
 **[CLI-56a]** The `done_at` recorded shall be the merge timestamp the forge
@@ -1391,6 +1395,13 @@ than discarding either by assumption.
 fleet view. The route's own state is what a fleet view reads; a separately
 written label is a second source for the same field that goes stale when the
 route moves.
+
+**[SESSION-13]** Before reading the route's state, the `end` skill shall run
+`tack reconcile` ([CLI-56]) on the route, so a tack whose change request merged
+outside the session is closed before the close reports on it, and each tack it
+closes shall reach the [SESSION-08] table as landed. Where the reconcile fails
+per [CLI-56b], the skill shall report the failure and stop without closing the
+session: a route read past it can show landed work as owed.
 
 ---
 

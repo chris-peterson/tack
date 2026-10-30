@@ -578,17 +578,20 @@ tack deliverable rm auth-rewrite t1 --to-link      # demote it into links
 
 ```text
 tack reconcile [<slug>] [--dry-run]
-    Close tacks whose deliverable has merged (asks the git forge)
+    Close tacks whose change request has merged (asks the git forge)
 ```
 
-Ask the git forge which deliverables have merged and close the tacks holding
-them. Without a slug the sweep covers every route.
+Ask the git forge which change requests have merged and close the tacks
+holding them. Without a slug the sweep covers every route.
 
 This is the only tack command that touches a network. It reaches GitHub and
 GitLab through `gh` and `glab`, so it uses the login those already have and
 never sees a credential of yours. A tack is only queried when it is open and
-its deliverable is a pull or merge request — issues, epics, milestones, and
-commits don't merge, so they are left alone.
+its deliverable is a pull or merge request, or it has no deliverable and
+holds exactly one pull or merge request link. Closing it promotes that link
+to the deliverable. Issues, epics, milestones, and commits don't merge, so
+they are left alone, and a tack with several pull or merge request links is
+left for you to close.
 
 The recorded `done_at` is the forge's merge timestamp, not the moment you ran
 the sweep, so catching up a week later still dates the work correctly.

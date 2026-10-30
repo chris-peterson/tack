@@ -19,5 +19,6 @@
     "dependencies"
   ],
   "homepage": "https://chris-peterson.github.io/tack/#/",
+  "icon": ".claude-plugin/icon.svg",
   "documentationUrl": "https://chris-peterson.github.io/tack/#/"
 }

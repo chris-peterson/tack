@@ -49,7 +49,7 @@ Usage:
   tack start <slug> <tack-id>
   tack done <slug> <tack-id> [--date <ts>]
   tack drop <slug> <tack-id>
-  tack reconcile [slug] [--dry-run]   Close tacks whose deliverable has merged (asks the git forge)
+  tack reconcile [slug] [--dry-run]   Close tacks whose change request has merged (asks the git forge)
   tack serve [--port <n>]            Serve route documents on 127.0.0.1 (Ctrl-C to stop)
   tack serve install|uninstall|status [--port <n>]   Manage the supervised server
   tack remove <slug> <tack-id> [--force]
@@ -569,14 +569,14 @@ function run() {
                 allowPositionals: true,
             });
             const dryRun = Boolean(recValues["dry-run"]);
-            const closed = reconcile.reconcile({ slug: recPositionals[0], dryRun });
-            if (closed.length === 0) {
-                console.log("Nothing to close — no open tack has a merged deliverable.");
-                break;
-            }
             const tag = dryRun ? "[dry-run] " : "";
-            for (const c of closed) {
-                console.log(`${tag}${c.slug}/${c.tackId} done [${c.mergedAt}]  ${c.summary}`);
+            const closed = reconcile.reconcile({
+                slug: recPositionals[0],
+                dryRun,
+                onClose: (c) => console.log(`${tag}${c.slug}/${c.tackId} done [${c.mergedAt}]  ${c.summary}`),
+            });
+            if (closed.length === 0) {
+                console.log("Nothing to close — no open tack has a merged change request.");
             }
             break;
         }

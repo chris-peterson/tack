@@ -165,7 +165,7 @@ commands:
     - name: tack-id
 - name: reconcile
   usages:
-  - summary: Close tacks whose deliverable has merged (asks the git forge)
+  - summary: Close tacks whose change request has merged (asks the git forge)
     args:
     - name: slug
       optional: true

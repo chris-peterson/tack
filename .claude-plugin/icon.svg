@@ -18,7 +18,7 @@
   <!-- Destination glow, clipped to the tile so it can't spill past the corner -->
   <circle cx="54" cy="12" r="11" fill="url(#glow)" clip-path="url(#tile)"/>
 
-  <!-- Tacking beat (scaled from assets/icon.svg 32→64) -->
+  <!-- Tacking beat -->
   <path d="M 10 54 L 26 40 L 18 26 L 38 20 L 30 10 L 54 12"
         fill="none" stroke="url(#beat)" stroke-width="5"
         stroke-linecap="round" stroke-linejoin="round"/>
