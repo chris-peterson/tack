@@ -43,26 +43,21 @@ export function sessionUsage(id) {
     const main = transcriptPath(id);
     if (!main)
         return null;
-    const tokens = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
     // Claude Code writes one line per content block and repeats the response's
-    // usage on each, so summing lines counts a response several times.
-    const seen = new Set();
-    let requests = 0;
+    // usage on each, so summing lines counts a response several times. The last
+    // line wins: before Claude Code 2.1.307, sub-agent transcripts put placeholder
+    // usage on the earlier lines of a streamed response.
+    const keyed = new Map();
+    const unkeyed = [];
     const count = (r) => {
         const u = r.message?.usage;
         if (r.type !== "assistant" || !u)
             return;
         const key = r.message?.id ?? r.requestId;
-        if (key) {
-            if (seen.has(key))
-                return;
-            seen.add(key);
-        }
-        requests++;
-        tokens.input += u.input_tokens ?? 0;
-        tokens.output += u.output_tokens ?? 0;
-        tokens.cache_read += u.cache_read_input_tokens ?? 0;
-        tokens.cache_write += u.cache_creation_input_tokens ?? 0;
+        if (key)
+            keyed.set(key, u);
+        else
+            unkeyed.push(u);
     };
     const stamps = [];
     let prompts = 0;
@@ -80,6 +75,14 @@ export function sessionUsage(id) {
     for (const s of subs)
         for (const r of records(s))
             count(r);
+    const responses = [...keyed.values(), ...unkeyed];
+    const tokens = { input: 0, output: 0, cache_read: 0, cache_write: 0 };
+    for (const u of responses) {
+        tokens.input += u.input_tokens ?? 0;
+        tokens.output += u.output_tokens ?? 0;
+        tokens.cache_read += u.cache_read_input_tokens ?? 0;
+        tokens.cache_write += u.cache_creation_input_tokens ?? 0;
+    }
     if (!stamps.length)
         return null;
     stamps.sort((a, b) => a - b);
@@ -96,7 +99,7 @@ export function sessionUsage(id) {
         last: new Date(stamps[stamps.length - 1]).toISOString(),
         active_s: Math.round(active),
         prompts,
-        requests,
+        requests: responses.length,
         tokens,
         subagents: subs.length,
     };
