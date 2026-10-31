@@ -10,8 +10,6 @@
 # ${CLAUDE_PLUGIN_ROOT} because that is the one copy guaranteed to be the
 # version now loaded — a stale wrapper would report on itself. The subcommand
 # prints nothing when every surface already reaches this install.
-#
-# See ai-sdlc/src/claude/skills/ai-cli-tool (Architecture Rule 11).
 
 set -euo pipefail
 

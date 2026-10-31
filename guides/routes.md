@@ -192,7 +192,7 @@ Glob queries (quote to prevent shell expansion) — `*` matches within a segment
 
 ```bash
 tack tree '**/deliverable'         # All deliverables across all routes
-tack tree 'ai-sdlc/**'             # Everything under a route
+tack tree 'acme-widget/**'         # Everything under a route
 tack tree '*/t1'                   # Every t1 across all routes
 ```
 

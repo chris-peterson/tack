@@ -803,7 +803,7 @@ cli:
       tack tree '**/deliverable'
 
       # Everything under a route
-      tack tree 'ai-sdlc/**'
+      tack tree 'acme-widget/**'
 
       # All t1 tacks
       tack tree '*/t1'

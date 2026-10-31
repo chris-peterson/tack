@@ -643,7 +643,7 @@ levels:
 **[CLI-21b]** Path segments may contain glob wildcards (`*`, `?`, `**`) which
 match against values at that level. `*` matches within a single segment, `**`
 matches across segment boundaries (e.g., `**/deliverable` finds deliverables at
-any depth, `ai-sdlc/**` shows everything under a route). Glob paths must be
+any depth, `acme-widget/**` shows everything under a route). Glob paths must be
 quoted to prevent shell expansion.
 
 **[CLI-21c]** The `-d`/`--depth` option controls expansion: depth 1 = routes

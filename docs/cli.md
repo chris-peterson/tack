@@ -241,7 +241,7 @@ tack tree auth-rewrite --json | jq '.tacks[] | select(.status == "in_progress")'
 tack tree '**/deliverable'
 
 # Everything under a route
-tack tree 'ai-sdlc/**'
+tack tree 'acme-widget/**'
 
 # All t1 tacks
 tack tree '*/t1'
