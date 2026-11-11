@@ -15,8 +15,10 @@ fi
 
 # Versions sort as numbers, so 1.10.0 beats 1.9.0.
 root=$(find "$cache" -mindepth 1 -maxdepth 1 -type d \
-	| sort -t. -k1,1n -k2,2n -k3,3n \
-	| tail -1)
+	| awk -F/ '{ split($NF, v, "."); printf "%010d%010d%010d\t%s\n", v[1], v[2], v[3], $0 }' \
+	| sort \
+	| tail -1 \
+	| cut -f2)
 
 if [ -z "$root" ]; then
 	echo "No plugin versions under $cache." >&2
