@@ -70,13 +70,17 @@ events:
       fields:
         session: the Claude session id whose work closed out
         route: the route slug it was bound to
-        tacks: >-
-          the route-scoped tack ids this session drove, in touch order. Empty
-          where the session bound no tack, which reports a session that closed
-          having recorded nothing.
-        deliverables: >-
-          the deliverable URLs those tacks hold, which is what the session
-          produced. Empty where none was recorded.
+        tacks:
+          describe: >-
+            the route-scoped tack ids this session drove, in touch order. Empty
+            where the session bound no tack, which reports a session that
+            closed having recorded nothing.
+          type: array
+        deliverables:
+          describe: >-
+            the deliverable URLs those tacks hold, which is what the session
+            produced. Empty where none was recorded.
+          type: array
   subscribes:
     - key: codes.bridgeai.anchor/cr.created
       handled_by: hooks/capture-urls.sh, hooks/landing-nudge.sh
