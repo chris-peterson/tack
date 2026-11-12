@@ -160,6 +160,12 @@ Match the record to reality rather than to intent:
   open. Silence reads as forgotten.
 - **A second deliverable earns a second tack**, added now (`tack add`), not
   invented as a subdivision of the first.
+- **Add with `--no-session` when no route is bound to this session.** Step 1
+  says which. An unbound session is filing work it already did, and its first
+  bind announces `session.started`, which a subscriber reads as work opening:
+  mate answers it by starting `/mate:fix` or `/mate:feature` in the middle of
+  the close. A session `/tack:start` bound has announced already, so its
+  `tack add` binds as usual and the new tack is credited to it.
 - **Repair a record that's already wrong.** The route may already carry a
   deliverable written earlier in the session, when the CR looked finished and
   hadn't been marked draft-ready yet. Step 1's fresh read is what exposes it, and
