@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **The handoff reminder now reaches the agent, and fires after a long build log.** The reminder after a change request is opened or updated, the reminder to record an untracked URL, and the report of a merged change request or a published release were printed where only the transcript shows them; they now go into the agent's context. The handoff reminder also missed whenever anchor's announcement came ahead of a large output, and fired on a line whose body was not JSON.
+- **A control character in an announced value no longer reaches the agent.** A release tag or merge time has them removed, and a URL carrying one is ignored.
+
+### Added
+
+- **Each reaction to anchor's announcements can be turned off.** `git config --global tack.subscribe.anchor false` turns off every one, and `tack.subscribe.anchor.<entity>-<event>` one at a time, such as `tack.subscribe.anchor.cr-merged`. Set without `--global` in a repository where it doesn't fit. Each reminder ends with the command that turns it off.
+
 ## 1.10.0
 
 ### Changed

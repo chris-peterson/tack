@@ -7,10 +7,12 @@
 # that block; the failure this hook removes is producing it only when the agent
 # happens to remember to.
 #
-# Stdin: JSON with "tool_response.stdout" and "session_id".
-# Stdout: reminder text, which reaches the agent as tool feedback.
+# Stdin: JSON with "tool_response.stdout", "session_id" and "cwd".
+# Stdout: the reminder as additionalContext JSON, or nothing.
 
 set -euo pipefail
+
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/lib-subscribe.sh"
 
 input=$(cat)
 session_id=$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null || true)
@@ -29,10 +31,24 @@ session_id=$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null || 
 #
 # Matching what anchor *says* rather than the shape of the command it ran is
 # what lets anchor change forge CLIs or rename a flag without silently taking
-# this nudge out. The body is not read here — that a CR is reviewable is the
-# whole signal, and the fields belong to whoever records it.
+# this nudge out. No field is read here, since that a CR is reviewable is the
+# whole signal and the fields belong to whoever records it. The body still has
+# to parse as an object, because a line that doesn't is not an announcement
+# (bridge.ai SUB-03).
+#
+# The match runs in jq over the whole output rather than through
+# `printf | grep -q`: grep -q stops reading at the first match, and under
+# pipefail the writer's SIGPIPE on an output larger than the pipe buffer failed
+# the pipeline, so the nudge went missing exactly when the build log was long
+# (bridge.ai SUB-08).
 output=$(printf '%s' "$input" | jq -r '.tool_response.stdout // empty' 2>/dev/null || true)
-printf '%s' "$output" | grep -qE '^codes\.bridgeai\.anchor/cr\.(created|updated)[[:space:]]' || exit 0
+cwd=$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)
+output=$(heard "$cwd" "$output")
+event=$(jq -Rrn 'first(inputs
+  | capture("^codes\\.bridgeai\\.anchor/(?<event>cr\\.(created|updated))[[:space:]]+(?<body>.*)$")
+  | select((.body | try fromjson catch null) | type == "object")
+  | .event)' <<<"$output" 2>/dev/null || true)
+[ -n "$event" ] || exit 0
 
 # Once per session, and only charged when the nudge actually fires — a session
 # that revises the description twice is still at one handoff point.
@@ -42,7 +58,7 @@ nudge_file="${nudge_dir}/${session_id}"
 [ -f "$nudge_file" ] && exit 0
 touch "$nudge_file"
 
-cat <<'EOF'
+nudge=$(cat <<'EOF'
 A CR description just landed, so the session is at a handoff point.
 
 Once the CR reporting is done, close the turn with one table in the `end`
@@ -52,3 +68,8 @@ bold-labelled `route` / `retro` footer. Step 5 of that skill is the
 spec. This is a preview of the close, not the close — `/tack:end` still records
 the deliverable on the route and hands off the retro.
 EOF
+)
+
+emit_context "${nudge}
+
+$(switch_hint anchor "$event")"

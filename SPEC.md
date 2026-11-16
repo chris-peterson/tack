@@ -1325,13 +1325,23 @@ pair of [HOOK-06], `cr.merged` per [HOOK-07], `release.created` per [HOOK-08],
 and `issue.created` per [HOOK-02]. An announcement is not redundant with the URL
 scrape of [HOOK-02]: the scrape recognizes only the forge hosts of [CLI-37], so
 a self-hosted forge is invisible to it, while an announcement carries its own
-URI whatever the host.
+URI whatever the host. The rest of reading one is the suite's subscriber
+contract, which [HOOK-12] adopts.
 
 **[HOOK-10]** An announced value shall be treated as exactly as untrusted as a
 scraped one: both arrive on a Bash tool's stdout and both reach a string printed
 into the agent's context, and an announced URI also reaches a route file. A URI
 shall therefore be required to be `https` with no whitespace and no backslash
 before it is reported or written, whatever key carried it.
+
+**[HOOK-12]** Each hook that reacts to a sibling's announcement ([HOOK-02],
+[HOOK-06], [HOOK-07], [HOOK-08]) shall hold to the bridge.ai suite contract's
+`SUB` and `SWITCH` requirements
+([SPEC.md](https://github.com/chris-peterson/claude-marketplace/blob/main/SPEC.md)).
+tack's switches are `tack.subscribe.<publisher>` and
+`tack.subscribe.<publisher>.<entity>-<event>`. A switch covers the announcement
+only: a URL the scrape of [HOOK-02] finds in the same output is still reminded
+about, since the scrape is not a subscription.
 
 **[HOOK-11]** A `SessionStart` hook matched to `compact` shall list the session's
 notes from the hook's `transcript_path` with the script of [NOTE-03] and emit

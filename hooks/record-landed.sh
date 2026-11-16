@@ -21,18 +21,24 @@
 # belongs to isn't in the announcement, and a release covers however many tacks
 # shipped in it.
 #
-# Stdin: JSON with "tool_response.stdout".
-# Stdout: what was written, or what the agent should record, as tool feedback.
+# Stdin: JSON with "tool_response.stdout" and "cwd".
+# Stdout: what was written, or what the agent should record, as
+# additionalContext JSON.
 
 set -euo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/../scripts/lib-url.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/../scripts/lib-subscribe.sh"
 
 input=$(cat)
 output=$(printf '%s' "$input" | jq -r '.tool_response.stdout // empty' 2>/dev/null || true)
 [ -z "$output" ] && exit 0
+cwd=$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)
+output=$(heard "$cwd" "$output")
 
 report=""
+# The keys that produced a line of the report, for the switch it ends with.
+reacted=""
 
 # The route bookkeeping needs the CLI. Without it there is nothing to write and
 # nothing useful to say about what a route holds, so the announcement is named
@@ -44,6 +50,7 @@ command -v tack >/dev/null 2>&1 && have_tack=true
 while IFS=$'\t' read -r uri merged_at; do
   [ -n "$uri" ] || continue
   announced_url_ok "$uri" || continue
+  reacted="${reacted} cr.merged"
 
   # Every command this hook prints for the agent to run carries the merge time,
   # so a value that won't validate becomes the placeholder rather than being
@@ -124,6 +131,7 @@ while IFS=$'\t' read -r uri tag; do
   [ -n "$uri" ] || continue
   announced_url_ok "$uri" || continue
   label="${tag:-release}"
+  reacted="${reacted} release.created"
   report="${report}anchor published ${label}: ${uri}. Attach it to the tack that shipped: \`tack link add <slug> <tack-id> ${label} ${uri}\`. Route reasoning: ${TACK_GUIDE}"$'\n'
 done <<EOF
 $(announced_releases "$output")
@@ -133,5 +141,12 @@ EOF
 # from tool output, and `%b` would expand a backslash escape inside one into
 # real newlines — letting untrusted text forge its own lines in the context this
 # stdout becomes.
-[ -n "$report" ] && printf '%s' "$report"
+[ -n "$report" ] || exit 0
+# Each key once, in a fixed order, for the switch the report ends with.
+keys=()
+for key in cr.merged release.created; do
+  case " $reacted " in *" $key "*) keys+=("$key") ;; esac
+done
+emit_context "${report}
+$(switch_hint anchor "${keys[@]}")"
 exit 0

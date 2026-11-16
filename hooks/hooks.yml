@@ -13,12 +13,12 @@ hooks:
   - event: PostToolUse
     matcher: Bash
     command: 'bash "${CLAUDE_PLUGIN_ROOT}/hooks/capture-urls.sh"'
-    description: Detects PR/MR/issue URLs in Bash tool output and nudges the agent to ensure a tack route mapping exists for each.
+    description: Detects PR/MR/issue URLs in Bash tool output and nudges the agent to ensure a tack route mapping exists for each. `git config tack.subscribe.anchor false` stops it reacting to anchor's announcements; the URL scrape still runs.
   - event: PostToolUse
     matcher: Bash
     command: 'bash "${CLAUDE_PLUGIN_ROOT}/hooks/landing-nudge.sh"'
-    description: Detects a change-request description landing and prompts the handoff report the end skill defines, so it isn't produced from recall.
+    description: Detects a change-request description landing and prompts the handoff report the end skill defines, so it isn't produced from recall. Turn it off with `git config tack.subscribe.anchor.cr-created false` and `tack.subscribe.anchor.cr-updated false`.
   - event: PostToolUse
     matcher: Bash
     command: 'bash "${CLAUDE_PLUGIN_ROOT}/hooks/record-landed.sh"'
-    description: Closes the tack holding a change request a sibling announced as merged, dated by the forge, and reports a published release for attaching to the tack that shipped.
+    description: Closes the tack holding a change request a sibling announced as merged, dated by the forge, and reports a published release for attaching to the tack that shipped. Turn it off with `git config tack.subscribe.anchor.cr-merged false` and `tack.subscribe.anchor.release-created false`.
