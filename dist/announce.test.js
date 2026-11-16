@@ -1,6 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { parse } from "yaml";
 import { announce, shouldAnnounce } from "./announce.js";
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 // The publishing half of interop: one self-contained line on tack's own stdout,
 // which a sibling reads as a Bash call's `tool_response.stdout`. What it must
 // never do is turn an operation that already landed into a command that failed,
@@ -65,4 +70,20 @@ describe("shouldAnnounce", () => {
         assert.equal(shouldAnnounce({ TACK_ANNOUNCE: "" }), true);
         assert.equal(shouldAnnounce({ TACK_ANNOUNCE: "false" }), true);
     });
+});
+// The catalog pairs keys from declarations alone, so a key renamed in source and
+// not in plugin.yml would leave every subscriber listening for a key tack no
+// longer prints, with the catalog still showing them paired (bridge.ai CHECK-01).
+describe("declared publishes", () => {
+    const manifest = parse(readFileSync(join(repoRoot, "plugin.yml"), "utf-8"));
+    const publishes = manifest.events.publishes;
+    it("declares at least one key", () => {
+        assert.ok(publishes.length > 0);
+    });
+    for (const { key, emitted_by } of publishes) {
+        it(`${key} is announced from ${emitted_by}`, () => {
+            const source = readFileSync(join(repoRoot, emitted_by), "utf-8");
+            assert.ok(source.includes(`"${key}"`), `${emitted_by} never names "${key}"`);
+        });
+    }
 });

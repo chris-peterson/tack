@@ -64,11 +64,22 @@ ANNOUNCED_DATE_SHAPE='^[0-9]{4}-[0-9]{2}-[0-9]{2}(T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.
 # A body that will not parse is skipped rather than reported: the contract puts
 # that on the publisher, and a malformed line from a sibling must not take a
 # hook down.
+#
+# A decoded value can carry control characters even though the line could not:
+# JSON encodes them as `\u` escapes, so a raw ESC or newline appears only once
+# jq decodes it, and ANNOUNCED_URL_SHAPE's `[:space:]` doesn't cover ESC. A URI
+# carrying one is dropped (`plain`), because stripping would splice whatever
+# followed the control character into the URL. Any other value is stripped of
+# C0, DEL and C1 (`clean`) before it reaches the agent (bridge.ai SUB-09).
+JQ_DEFS='def ctrl: "[\\x{0}-\\x{1f}\\x{7f}-\\x{9f}]";
+  def clean: tostring | gsub(ctrl; "");
+  def plain: strings | select(test(ctrl) | not);'
+
 announced_urls() {
   printf '%s' "$1" \
     | grep -E "$2" \
     | sed 's/^[^[:space:]]*[[:space:]]//' \
-    | jq -r 'try (.uri // empty) catch empty' 2>/dev/null \
+    | jq -r "$JQ_DEFS"' try (.uri | plain) catch empty' 2>/dev/null \
     | grep -E "$ANNOUNCED_URL_SHAPE" \
     || true
 }
@@ -86,7 +97,7 @@ announced_pairs() {
     | grep -E "$2" \
     | sed 's/^[^[:space:]]*[[:space:]]//' \
     | jq -r --arg f "$3" \
-        'try (select(.uri != null) | [.uri, (.[$f] // "")] | @tsv) catch empty' 2>/dev/null \
+        "$JQ_DEFS"' try (select(.uri != null) | [(.uri | plain), (.[$f] // "" | clean)] | @tsv) catch empty' 2>/dev/null \
     || true
 }
 

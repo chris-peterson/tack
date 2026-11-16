@@ -13,6 +13,32 @@ import { fileURLToPath } from "node:url";
 // line structure of that string has to stay the hook's to decide.
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
+// The PostToolUse hooks hand their reaction to the agent as additionalContext,
+// because a PostToolUse hook's plain stdout reaches the transcript and never the
+// agent (bridge.ai SUB-07). This unwraps it, failing on anything else printed,
+// so a hook that regresses to raw stdout fails every test that expects a nudge.
+function agentContext(stdout: string): string {
+  if (stdout === "") return "";
+  const parsed = JSON.parse(stdout);
+  assert.equal(parsed.hookSpecificOutput.hookEventName, "PostToolUse");
+  return parsed.hookSpecificOutput.additionalContext;
+}
+
+// A git repository with the given config set, for the off switches, which are
+// read in the repository the tool call ran in (bridge.ai SWITCH-03).
+function repoWith(config: Record<string, string>): string {
+  const dir = mkdtempSync(join(tmpdir(), "tack-switch-"));
+  execFileSync("git", ["init", "-q", dir]);
+  for (const [k, v] of Object.entries(config)) execFileSync("git", ["-C", dir, "config", k, v]);
+  return dir;
+}
+
+// The key at the top of a stdout larger than the pipe buffer, behind a
+// near-miss line (bridge.ai CHECK-05).
+function bigOutput(line: string): string {
+  return ["codes.bridgeai.anchor/cr.createdx {}", line, "x".repeat(300_000)].join("\n");
+}
+
 // A PATH without `tack` on it, so url_nudges takes its documented
 // can't-check-so-nudge branch instead of consulting the developer's real store.
 const BARE_PATH = "/usr/bin:/bin";
@@ -290,16 +316,17 @@ describe("announced_trackable_urls", () => {
 });
 
 describe("capture-urls", () => {
-  function run(stdout: string, command = "true"): string {
-    return execFileSync("bash", [join(repoRoot, "hooks", "capture-urls.sh")], {
+  function run(stdout: string, command = "true", cwd?: string): string {
+    return agentContext(execFileSync("bash", [join(repoRoot, "hooks", "capture-urls.sh")], {
       input: JSON.stringify({
         tool_name: "Bash",
         tool_input: { command },
         tool_response: { stdout },
+        ...(cwd ? { cwd } : {}),
       }),
       encoding: "utf-8",
       env: { PATH: NO_TACK_PATH },
-    });
+    }));
   }
 
   it("nudges once when the announcement and the scrape name the same URL", () => {
@@ -309,7 +336,7 @@ describe("capture-urls", () => {
         'codes.bridgeai.anchor/cr.created {"uri":"https://github.com/o/r/pull/88"}',
       ].join("\n"),
     );
-    assert.equal(out.split("\n").filter(Boolean).length, 1);
+    assert.equal(out.split("\n").filter((l) => l.startsWith("PR/MR/issue URL")).length, 1);
   });
 
   it("nudges for an announced CR on a host the scrape cannot see", () => {
@@ -320,27 +347,49 @@ describe("capture-urls", () => {
   });
 
   it("still nudges for a URL nothing announced", () => {
-    assert.match(run("opened https://github.com/o/r/pull/7"), /pull\/7/);
+    const out = run("opened https://github.com/o/r/pull/7");
+    assert.match(out, /pull\/7/);
+    // Nothing was announced, so the switch would not stop this nudge.
+    assert.doesNotMatch(out, /git config/);
   });
 
   it("says nothing when the output carries neither", () => {
     assert.equal(run("all tests passed"), "");
+  });
+
+  it("ends an announced nudge with the switch that turns it off", () => {
+    const out = run('codes.bridgeai.anchor/issue.created {"uri":"https://git.example.com/o/r/-/issues/4"}');
+    assert.match(out, /git config --global tack\.subscribe\.anchor false$/);
+  });
+
+  it("ignores an announcement the repository switched off", () => {
+    const cwd = repoWith({ "tack.subscribe.anchor.issue-created": "false" });
+    assert.equal(
+      run('codes.bridgeai.anchor/issue.created {"uri":"https://git.example.com/o/r/-/issues/4"}', "true", cwd),
+      "",
+    );
+  });
+
+  it("strips control characters from an announced URI", () => {
+    const out = run('codes.bridgeai.anchor/cr.created {"uri":"https://git.example.com/o/r/-/merge_requests/4\\u001b[2J"}');
+    assert.doesNotMatch(out, /\u001b/);
   });
 });
 
 describe("landing-nudge", () => {
   let session = 0;
 
-  function run(stdout: string, command = "true", tmp?: string, sessionId?: string): string {
-    return execFileSync("bash", [join(repoRoot, "hooks", "landing-nudge.sh")], {
+  function run(stdout: string, command = "true", tmp?: string, sessionId?: string, cwd?: string): string {
+    return agentContext(execFileSync("bash", [join(repoRoot, "hooks", "landing-nudge.sh")], {
       input: JSON.stringify({
         session_id: sessionId ?? `landing-test-${session++}`,
         tool_input: { command },
         tool_response: { stdout },
+        ...(cwd ? { cwd } : {}),
       }),
       encoding: "utf-8",
       env: { ...process.env, TMPDIR: tmp ?? mkdtempSync(join(tmpdir(), "tack-landing-")) },
-    });
+    }));
   }
 
   // anchor announces one key or the other and never both, so a fresh CR only
@@ -384,6 +433,32 @@ describe("landing-nudge", () => {
   it("says nothing on unrelated output", () => {
     assert.equal(run("all green", "npm test"), "");
   });
+
+  it("ignores a body that is not a JSON object", () => {
+    assert.equal(run("codes.bridgeai.anchor/cr.created not-json"), "");
+    assert.equal(run("codes.bridgeai.anchor/cr.created [1]"), "");
+  });
+
+  it("fires on the key atop an output larger than the pipe buffer", () => {
+    // `printf | grep -q` under pipefail lost this one: grep stopped at the
+    // match, printf took SIGPIPE, and the failed pipeline read as no match.
+    assert.match(run(bigOutput('codes.bridgeai.anchor/cr.created {"uri":"https://x/1"}')), /handoff point/);
+  });
+
+  it("ends with the switch for the key that fired", () => {
+    assert.match(
+      run('codes.bridgeai.anchor/cr.updated {"uri":"https://x/1"}'),
+      /git config --global tack\.subscribe\.anchor\.cr-updated false$/,
+    );
+  });
+
+  it("stays silent where either switch for the key reads false", () => {
+    const line = 'codes.bridgeai.anchor/cr.created {"uri":"https://x/1"}';
+    assert.equal(run(line, "true", undefined, undefined, repoWith({ "tack.subscribe.anchor": "false" })), "");
+    assert.equal(run(line, "true", undefined, undefined, repoWith({ "tack.subscribe.anchor.cr-created": "false" })), "");
+    // Another key's switch leaves this one on.
+    assert.match(run(line, "true", undefined, undefined, repoWith({ "tack.subscribe.anchor.cr-updated": "false" })), /handoff point/);
+  });
 });
 
 // The one hook that writes to a route rather than nudging about it, so what it
@@ -422,19 +497,31 @@ describe("record-landed", () => {
     return { dir, calls: () => (existsSync(log) ? readFileSync(log, "utf-8") : "") };
   }
 
-  function run(stdout: string, st?: ReturnType<typeof stub>): { out: string; calls: string } {
+  function run(stdout: string, st?: ReturnType<typeof stub>, cwd?: string): { out: string; calls: string } {
     const s = st ?? stub();
-    const out = execFileSync("bash", [join(repoRoot, "hooks", "record-landed.sh")], {
+    const out = agentContext(execFileSync("bash", [join(repoRoot, "hooks", "record-landed.sh")], {
       input: JSON.stringify({
         tool_name: "Bash",
         tool_input: { command: "true" },
         tool_response: { stdout },
+        ...(cwd ? { cwd } : {}),
       }),
       encoding: "utf-8",
       env: { ...process.env, PATH: `${s.dir}:${process.env.PATH}` },
-    });
+    }));
     return { out, calls: s.calls() };
   }
+
+  it("writes nothing for a merge the repository switched off", () => {
+    const { out, calls } = run(merged(), stub({ find: [match("in_progress")] }), repoWith({ "tack.subscribe.anchor.cr-merged": "false" }));
+    assert.equal(out, "");
+    assert.equal(calls, "");
+  });
+
+  it("ends its report with the switch for the key it reacted to", () => {
+    const { out } = run(merged(), stub({ find: [match("in_progress")] }));
+    assert.match(out, /git config --global tack\.subscribe\.anchor\.cr-merged false$/);
+  });
 
   it("closes the tack holding a merged CR, dated by the forge", () => {
     // The write anchor's merge skill used to make by calling the CLI itself.
@@ -520,11 +607,11 @@ describe("record-landed", () => {
   });
 
   it("names the merge for the agent when tack is not on PATH", () => {
-    const out = execFileSync("bash", [join(repoRoot, "hooks", "record-landed.sh")], {
+    const out = agentContext(execFileSync("bash", [join(repoRoot, "hooks", "record-landed.sh")], {
       input: JSON.stringify({ tool_response: { stdout: merged() } }),
       encoding: "utf-8",
       env: { PATH: NO_TACK_PATH },
-    });
+    }));
     assert.match(out, /anchor merged https:\/\/github\.com\/o\/r\/pull\/88/);
     assert.match(out, /tack done <slug> <tack-id> --date 2026-09-02T17:22:11Z/);
   });
