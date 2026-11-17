@@ -284,6 +284,11 @@ ask. Without an argument the target is the cwd repo.
 When the session touched several repos, run steps 1, 2, 3, and 5 once per repo, then
 hand off the retro once for the whole session.
 
+Claude Code (2.1.325 on) asks before even read-only git in a repo that isn't the
+session's project or a trusted folder, so step 1's parallel reads stall on a batch of
+approvals there. A session that will close against several repos starts with
+`--add-dir <repo>` for each; the `additionalDirectories` setting doesn't count.
+
 ## Related
 
 `/tack:start` opens what this closes. The end-state read exists because a session
